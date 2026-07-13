@@ -182,10 +182,14 @@ public class OVRLipSyncContext : OVRLipSyncContextBase
     /// </summary>
     void Update()
     {
+        // Guarded: uses legacy UnityEngine.Input, which throws when Active Input
+        // Handling is "Input System Package (New)" (this project's setting).
+#if ENABLE_LEGACY_INPUT_MANAGER
         if (enableKeyboardInput)
         {
             HandleKeyboard();
         }
+#endif
         laughterScore = this.Frame.laughterScore;
         DebugShowVisemesAndLaughter();
     }

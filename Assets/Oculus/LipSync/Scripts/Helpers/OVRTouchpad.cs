@@ -62,7 +62,9 @@ public static class OVRTouchpad
     static public void Update()
     {
         // MOUSE INPUT
-
+        // Guarded: uses legacy UnityEngine.Input, which throws when Active Input
+        // Handling is "Input System Package (New)" (this project's setting).
+#if ENABLE_LEGACY_INPUT_MANAGER
         if(Input.GetMouseButtonDown(0))
         {
             moveAmountMouse = Input.mousePosition;
@@ -72,6 +74,7 @@ public static class OVRTouchpad
             moveAmountMouse -= Input.mousePosition;
             HandleInputMouse(ref moveAmountMouse);
         }
+#endif
     }
 
     // OnDisable

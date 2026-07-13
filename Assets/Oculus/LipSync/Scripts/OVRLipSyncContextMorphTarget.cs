@@ -128,7 +128,11 @@ public class OVRLipSyncContextMorphTarget : MonoBehaviour
             }
 
             // TEST visemes by capturing key inputs and sending a signal
+            // Guarded: uses legacy UnityEngine.Input, which throws when Active Input
+            // Handling is "Input System Package (New)" (this project's setting).
+#if ENABLE_LEGACY_INPUT_MANAGER
             CheckForKeys();
+#endif
 
             // Update smoothing value
             if (smoothAmount != lipsyncContext.Smoothing)
