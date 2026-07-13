@@ -29,9 +29,13 @@ namespace GazeControl.TTS
 
         AudioSource _audioSource;
 
+        AudioSource Audio => _audioSource != null ? _audioSource : _audioSource = GetComponent<AudioSource>();
+
+        /// <summary>True while generated speech is playing.</summary>
+        public bool IsSpeaking => Audio.isPlaying;
+
         async Awaitable Start()
         {
-            _audioSource = GetComponent<AudioSource>();
             if (PlayOnStart && !string.IsNullOrWhiteSpace(Text))
                 await SpeakAsync(Text);
         }
@@ -39,12 +43,23 @@ namespace GazeControl.TTS
         /// <summary>Generate speech for <paramref name="text"/> and play it (replaces whatever is playing).</summary>
         public async Awaitable SpeakAsync(string text)
         {
-            var clip = await KokoroTts.GenerateClipAsync(text, VoiceName, Speed);
+            var clip = await GenerateAsync(text);
             if (this == null || !isActiveAndEnabled) return; // destroyed/disabled while generating
+            PlayClip(clip);
+        }
 
-            _audioSource.Stop();
-            _audioSource.clip = clip;
-            _audioSource.Play();
+        /// <summary>Generate speech without playing it — for sequencing turns without generation gaps.</summary>
+        public async Awaitable<AudioClip> GenerateAsync(string text)
+        {
+            return await KokoroTts.GenerateClipAsync(text, VoiceName, Speed);
+        }
+
+        /// <summary>Play a (pre-generated) clip through this speaker's AudioSource.</summary>
+        public void PlayClip(AudioClip clip)
+        {
+            Audio.Stop();
+            Audio.clip = clip;
+            Audio.Play();
         }
     }
 }

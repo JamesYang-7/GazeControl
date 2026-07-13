@@ -416,7 +416,7 @@ MonoBehaviour:
     taking. Even a brief glance can change who speaks next.
   <VoiceName>k__BackingField: am_michael
   <Speed>k__BackingField: 1
-  <PlayOnStart>k__BackingField: 1
+  <PlayOnStart>k__BackingField: 0
 --- !u!1 &184681074
 GameObject:
   m_ObjectHideFlags: 0
@@ -598,6 +598,60 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 540284160}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &644306066
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 644306068}
+  - component: {fileID: 644306067}
+  m_Layer: 0
+  m_Name: Conversation
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &644306067
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 644306066}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 42dadc97a78145248aae49d36a125fd2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GazeControl.Conversation.TriadConversation
+  <SpeakerA>k__BackingField: {fileID: 953799580}
+  <SpeakerB>k__BackingField: {fileID: 166573883}
+  <QuestionText>k__BackingField: So, what do you think makes a conversation feel
+    natural?
+  <AnswerText>k__BackingField: Mostly timing. When gaze and speech line up, turn
+    taking just flows.
+  <TurnGapSeconds>k__BackingField: 0.4
+  <MotionPlayers>k__BackingField:
+  - {fileID: 672148328}
+  - {fileID: 1579353671}
+--- !u!4 &644306068
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 644306066}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -996,7 +1050,7 @@ MonoBehaviour:
     look at each other before taking turns, just like people do in real conversations.
   <VoiceName>k__BackingField: am_adam
   <Speed>k__BackingField: 1
-  <PlayOnStart>k__BackingField: 1
+  <PlayOnStart>k__BackingField: 0
 --- !u!1 &982743563
 GameObject:
   m_ObjectHideFlags: 0
@@ -1461,3 +1515,4 @@ SceneRoots:
   - {fileID: 1579353670}
   - {fileID: 184681075}
   - {fileID: 540284162}
+  - {fileID: 644306068}

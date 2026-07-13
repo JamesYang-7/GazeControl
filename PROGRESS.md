@@ -34,7 +34,9 @@ recent few completed items and compacts older ones.
   - [x] **Mouth cavity fix** — SMPL-X has no mouth interior (skybox showed through the open mouth as white); added a dark unlit `MouthCavity` blocker sphere under each `head` bone; verified no leak at max jaw opening (`aa`=100) _(done 2026-07-13 · 337940a)_
   - [x] **Official SMPL-X package integration** — imported MPI `SMPLX.cs` (+SimpleJSON, Matrix, regressor JSONs) for pose correctives / betas / expressions; attached to both agents (Male, correctives High); Meshcapade male texture on a URP/Lit material; verified in Play Mode _(done 2026-07-13 · a870451)_
 - [ ] **Gaze control system** — drive agents' eye/head gaze from the collected patterns (aversion, partner-directed gaze, pre-turn shifts)
-- [ ] **Scene 1: agent↔agent turn-taking** — turn-taking between agent A and B; the user only watches
+- [~] **Scene 1: agent↔agent turn-taking** — turn-taking between agent A and B; the user only watches
+  - [x] **Scripted Q&A first demo** — `TriadConversation` controller: pre-generates both TTS clips, A asks, B answers after a 0.4 s gap, both motion players freeze when B finishes; verified sequencing in Play Mode _(done 2026-07-13)_
+  - Gaze behaviour before the turn hand-over (A → B) is the next layer, from the collected patterns.
 - [ ] **Scene 2: turn-yielding to user** — agent A signals the user to take the turn via gaze
   - How is "user takes the turn" detected (speech/voice activity, key press, something else)?
 
