@@ -649,6 +649,8 @@ MonoBehaviour:
   <GazeB>k__BackingField: {fileID: 1579353672}
   <ListenerView>k__BackingField: {fileID: 0}
   <PreTurnWindowSeconds>k__BackingField: 1
+  <PatternTimeScale>k__BackingField: 1
+  <Pattern>k__BackingField: 1
 --- !u!4 &644306068
 Transform:
   m_ObjectHideFlags: 0
