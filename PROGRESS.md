@@ -26,7 +26,8 @@ recent few completed items and compacts older ones.
 - [~] **Virtual agents** — two conversational agents with data-driven motion control
   - [x] **SMPL-X .npz motion playback** — `NpyReader`/`SmplxMotionClip`/`SmplxAnimUtils`/`SmplxMotionPlayer` under `Assets/GazeControl/Scripts/Runtime/Motion/`; direct axis-angle → Unity quaternion (no 6D detour); AgentA plays a TalkingWithHands clip _(done 2026-07-13 · 050720b)_
     - Motion verified by user in Play Mode. Both agents now play paired clips (A: `interloctr_000`, B: `main-agent_000`).
-  - [x] **Lip sync from conversation audio** — Oculus LipSync drives the 14 viseme blendshapes from each agent's paired 20 s wav (loops in sync with motion); verified visemes firing in Play Mode during speech _(done 2026-07-13)_
+  - [x] **Lip sync from conversation audio** — Oculus LipSync drives the 14 viseme blendshapes from each agent's paired 20 s wav (loops in sync with motion); verified visemes firing in Play Mode during speech _(done 2026-07-13 · 9adfa09)_
+  - [x] **Mouth cavity fix** — SMPL-X has no mouth interior (skybox showed through the open mouth as white); added a dark unlit `MouthCavity` blocker sphere under each `head` bone; verified no leak at max jaw opening (`aa`=100) _(done 2026-07-13)_
   - [x] **Official SMPL-X package integration** — imported MPI `SMPLX.cs` (+SimpleJSON, Matrix, regressor JSONs) for pose correctives / betas / expressions; attached to both agents (Male, correctives High); Meshcapade male texture on a URP/Lit material; verified in Play Mode _(done 2026-07-13 · a870451)_
 - [ ] **Gaze control system** — drive agents' eye/head gaze from the collected patterns (aversion, partner-directed gaze, pre-turn shifts)
 - [ ] **Scene 1: agent↔agent turn-taking** — turn-taking between agent A and B; the user only watches

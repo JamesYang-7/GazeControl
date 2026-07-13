@@ -29,7 +29,9 @@ License: SMPL-X model license (research use; cite the SMPL-X paper in publicatio
 
 Oculus LipSync (`Assets/Oculus/LipSync/`, third-party, verbatim) drives the mesh's 14 viseme blendshapes (indices 506–519, Oculus order minus `sil`) from each agent's `AudioSource`. Per agent: `AudioSource` (paired wav, loop) + `OVRLipSyncContext` (`audioLoopback` **on**, or the voice is muted) + `OVRLipSyncContextMorphTarget` (`laughterBlendTarget` must be **−1**; the default 15 would drive an expression blendshape). The scene needs one `LipSync` GameObject with the `OVRLipSync` component. Audio wavs pair 1:1 with the npz clips (same name) and are exactly the same 20 s length, so independent looping stays in sync.
 
-Caveat: with the Unity editor unfocused, the player loop and edit-mode skinning stall (`Time.time` freezes in Play Mode; `Camera.Render()` captures show stale meshes). `runInBackground` is enabled in Player Settings to mitigate this for Play Mode; for edit-mode checks, trust bone transforms over renders.
+The SMPL-X mesh has **no mouth interior** — the open mouth is a hole, and the skybox shows through. Each agent has a `MouthCavity` blocker (dark unlit sphere parented to the `head` bone, behind the lips) to make the cavity read as shadowed. If lips clip into it, adjust its head-local position/scale.
+
+Caveat: with the Unity editor unfocused, the player loop and edit-mode skinning stall (`Time.time` freezes in Play Mode; `Camera.Render()` captures show stale meshes). Set `Application.runInBackground = true` **each Play Mode session** when driving the editor unfocused (the `PlayerSettings` flag does not govern editor play, and the runtime flag resets on exit). Skinning/blendshape changes made in the same editor command they're rendered in won't show — render in a later command.
 
 ## Motion data conventions
 
