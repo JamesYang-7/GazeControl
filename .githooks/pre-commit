@@ -1,0 +1,23 @@
+#!/bin/sh
+# progress-board: regenerate progress.html from PROGRESS.md and stage it so the
+# dashboard stays in sync on every commit. Output is deterministic from
+# PROGRESS.md, so an unchanged board produces identical bytes (no churn).
+#
+# Enabled via:  git config core.hooksPath .githooks
+[ -f PROGRESS.md ] || exit 0
+
+PY=""
+for cand in python python3 py; do
+  if command -v "$cand" >/dev/null 2>&1; then PY="$cand"; break; fi
+done
+if [ -z "$PY" ]; then
+  echo "[progress-board] no python on PATH; skipping progress.html sync" >&2
+  exit 0
+fi
+
+if "$PY" .claude/skills/progress-board/render_progress.py PROGRESS.md progress.html; then
+  git add progress.html
+else
+  echo "[progress-board] render failed; committing without HTML sync" >&2
+fi
+exit 0

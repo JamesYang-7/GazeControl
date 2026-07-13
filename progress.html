@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GazeControl — Progress</title>
+<style>
+:root{--bg:#0f1115;--card:#171a21;--ink:#e6e8ec;--mut:#9aa0a6;--line:#262b35;
+--todo:#6b7280;--wip:#f5a623;--done:#2ea043;--blocked:#e5534b;--acc:#5aa9ff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+font:15px/1.55 ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif}
+header{padding:24px 28px 8px;border-bottom:1px solid var(--line)}
+h1{margin:0;font-size:20px;letter-spacing:.2px}
+.sub{color:var(--mut);font-size:13px;margin-top:4px}
+main{max-width:980px;margin:0 auto;padding:20px 16px 60px;
+display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+.card:nth-child(1),.card:nth-child(4){grid-column:1/-1}
+@media(max-width:760px){main{grid-template-columns:1fr}.card{grid-column:1/-1!important}}
+h2{margin:0 0 12px;font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut)}
+.count{display:inline-block;margin-left:6px;color:var(--acc);font-size:12px}
+.task{padding:10px 0;border-top:1px solid var(--line)}
+.task:first-of-type{border-top:none}
+.t{font-weight:600}
+.desc{color:var(--mut);font-size:13.5px;margin:3px 0 0 2px}
+.children{list-style:none;margin:8px 0 0;padding:0 0 0 14px;border-left:2px solid var(--line)}
+.children>li{margin:6px 0}
+.line{list-style:none}
+.notes{margin:6px 0 0;padding-left:20px;color:var(--mut);font-size:13px}
+.notes li{margin:2px 0}
+.badge{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:20px;
+vertical-align:middle;margin-right:6px}
+.badge.todo{background:rgba(107,114,128,.18);color:#aab1bb}
+.badge.wip{background:rgba(245,166,35,.16);color:var(--wip)}
+.badge.done{background:rgba(46,160,67,.16);color:var(--done)}
+.badge.blocked{background:rgba(229,83,75,.16);color:var(--blocked)}
+.date{color:var(--mut);font-size:12px;font-variant-numeric:tabular-nums}
+code.commit{background:#0b0d11;border:1px solid var(--line);color:var(--acc);
+border-radius:5px;padding:0 5px;font-size:11.5px}
+.ctx{color:var(--mut);font-size:12px;font-style:italic}
+.done-card .t{font-weight:600}
+code{background:#0b0d11;border:1px solid var(--line);border-radius:5px;padding:.5px 5px;font-size:12.5px}
+a{color:var(--acc)}
+.decisions{margin:0;padding-left:18px}.decisions li{margin:5px 0}
+details.archive{margin-top:10px}
+details.archive summary{cursor:pointer;color:var(--acc);font-size:13px}
+.archive-list{margin:8px 0 0;padding-left:18px;color:var(--mut);font-size:13px}
+.empty{color:var(--mut);font-style:italic;margin:0}
+footer{max-width:980px;margin:0 auto;padding:0 16px 40px;color:var(--mut);font-size:12px}
+</style></head><body>
+<header><h1>GazeControl — Progress</h1>
+<div class="sub">Data-driven gaze control for virtual agents in triad conversation (2 agents + user) · as of —</div>
+</header>
+<main><section class="card"><h2>In progress <span class="count">0</span></h2><p class=empty>None.</p></section><section class="card"><h2>Upcoming <span class="count">5</span></h2><div class="task"><span class="badge todo">To do</span> <span class="t">Gaze data pipeline</span><div class="desc">import the collected pre-turn-taking gaze behaviour patterns into Unity</div><ul class="notes"><li>What format is the collected gaze data in (CSV/JSON? gaze targets vs angles? timing relative to turn end)?</li></ul></div><div class="task"><span class="badge todo">To do</span> <span class="t">Virtual agents</span><div class="desc">two conversational agents with data-driven motion control</div><ul class="notes"><li>Where do the character models/rigs come from, and what motion data drives them?</li></ul></div><div class="task"><span class="badge todo">To do</span> <span class="t">Gaze control system</span><div class="desc">drive agents&#x27; eye/head gaze from the collected patterns (aversion, partner-directed gaze, pre-turn shifts)</div></div><div class="task"><span class="badge todo">To do</span> <span class="t">Scene 1: agent↔agent turn-taking</span><div class="desc">turn-taking between agent A and B; the user only watches</div></div><div class="task"><span class="badge todo">To do</span> <span class="t">Scene 2: turn-yielding to user</span><div class="desc">agent A signals the user to take the turn via gaze</div><ul class="notes"><li>How is &quot;user takes the turn&quot; detected (speech/voice activity, key press, something else)?</li></ul></div></section><section class="card"><h2>Recently completed <span class="count">3</span></h2><div class="task done-card"><span class="badge done">Done</span> <span class="t">Project initialization</span> <span class="date">2026-07-13</span><div class="desc">Unity 6 URP project, git, working docs</div></div><div class="task done-card"><span class="badge done">Done</span> <span class="t">Initial commit</span> <span class="date">2026-07-13</span> <code class="commit" title="completing commit">49c8ca2</code> <span class="ctx">in Project initialization</span><div class="desc">Unity 6000.5.3f1 URP template, <code>.gitignore</code>/<code>.gitattributes</code> (Unity templates, Git LFS), <code>CLAUDE.md</code></div></div><div class="task done-card"><span class="badge done">Done</span> <span class="t">Progress board setup</span> <span class="date">2026-07-13</span> <span class="ctx">in Project initialization</span><div class="desc"><code>PROGRESS.md</code> + <code>progress-board</code> skill + pre-commit dashboard sync, adapted from the VR-Chat project</div></div></section><section class="card"><h2>Decisions <span class="count">4</span></h2><ul class="decisions"><li>2026-07-13 — Gaze control and agent motion are both <strong>data-driven</strong>, from gaze behaviour patterns collected before turn-taking in real triad conversations.</li><li>2026-07-13 — Two target scenes: (1) A↔B turn-taking with the user watching; (2) agent A yields the turn to the user with gaze implication.</li><li>2026-07-13 — Kept the stock GitHub Unity <code>.gitignore</code>/<code>.gitattributes</code> templates already in the repo; binary media goes through Git LFS (git-lfs 3.4.0 installed).</li><li>2026-07-13 — Adopted the VR-Chat project&#x27;s progress-board system (PROGRESS.md → progress.html via pre-commit hook) rather than inventing a new format.</li></ul></section></main>
+<footer>Auto-generated from <code>PROGRESS.md</code> by the <code>progress-board</code> skill. Do not edit by hand.</footer>
+</body></html>
