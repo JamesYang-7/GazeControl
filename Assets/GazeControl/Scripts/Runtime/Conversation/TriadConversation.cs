@@ -51,7 +51,7 @@ namespace GazeControl.Conversation
         public GazeController GazeB { get; set; }
 
         [field: SerializeField]
-        [field: Tooltip("User view playing the listener gaze track")]
+        [field: Tooltip("Optional: user view playing the listener gaze track. Leave empty for a fixed camera that shows both agents.")]
         public ListenerCamera ListenerView { get; set; }
 
         [field: SerializeField]
@@ -71,7 +71,8 @@ namespace GazeControl.Conversation
                 // None, listener (user camera) on the current speaker.
                 GazeA.SetTarget(null);
                 GazeB.SetTarget(null);
-                ListenerView.SetTarget(GazeA.Head);
+                if (ListenerView != null)
+                    ListenerView.SetTarget(GazeA.Head);
 
                 SpeakerA.PlayClip(question);
 
@@ -86,7 +87,8 @@ namespace GazeControl.Conversation
 
                 // Turn switch: user (listener) moves to the new speaker; A now
                 // listens and looks at B; B addresses A.
-                ListenerView.SetTarget(GazeB.Head);
+                if (ListenerView != null)
+                    ListenerView.SetTarget(GazeB.Head);
                 GazeA.SetTarget(GazeB.Head);
                 GazeB.SetTarget(GazeA.Head);
 

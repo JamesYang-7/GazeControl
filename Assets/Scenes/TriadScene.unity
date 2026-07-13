@@ -647,7 +647,7 @@ MonoBehaviour:
   - {fileID: 1579353671}
   <GazeA>k__BackingField: {fileID: 672148329}
   <GazeB>k__BackingField: {fileID: 1579353672}
-  <ListenerView>k__BackingField: {fileID: 982743567}
+  <ListenerView>k__BackingField: {fileID: 0}
   <PreTurnWindowSeconds>k__BackingField: 1
 --- !u!4 &644306068
 Transform:
@@ -1083,7 +1083,6 @@ GameObject:
   - component: {fileID: 982743564}
   - component: {fileID: 982743566}
   - component: {fileID: 982743565}
-  - component: {fileID: 982743567}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -1165,19 +1164,6 @@ Camera:
   m_OcclusionCulling: 1
   m_StereoConvergence: 10
   m_StereoSeparation: 0.022
---- !u!114 &982743567
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 982743563}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8bcb2f8a122c6d641a4beb754ab82532, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::GazeControl.Gaze.ListenerCamera
-  <DegreesPerSecond>k__BackingField: 150
 --- !u!1 &1238782844
 GameObject:
   m_ObjectHideFlags: 0
