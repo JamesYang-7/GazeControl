@@ -26,7 +26,8 @@ recent few completed items and compacts older ones.
 - [~] **Virtual agents** — two conversational agents with data-driven motion control
   - [x] **SMPL-X .npz motion playback** — `NpyReader`/`SmplxMotionClip`/`SmplxAnimUtils`/`SmplxMotionPlayer` under `Assets/GazeControl/Scripts/Runtime/Motion/`; direct axis-angle → Unity quaternion (no 6D detour); AgentA plays a TalkingWithHands clip _(done 2026-07-13 · 050720b)_
     - Motion verified by user in Play Mode. Both agents now play paired clips (A: `interloctr_000`, B: `main-agent_000`).
-  - [x] **Official SMPL-X package integration** — imported MPI `SMPLX.cs` (+SimpleJSON, Matrix, regressor JSONs) for pose correctives / betas / expressions; attached to both agents (Male, correctives High); Meshcapade male texture on a URP/Lit material; verified in Play Mode _(done 2026-07-13)_
+  - [x] **Lip sync from conversation audio** — Oculus LipSync drives the 14 viseme blendshapes from each agent's paired 20 s wav (loops in sync with motion); verified visemes firing in Play Mode during speech _(done 2026-07-13)_
+  - [x] **Official SMPL-X package integration** — imported MPI `SMPLX.cs` (+SimpleJSON, Matrix, regressor JSONs) for pose correctives / betas / expressions; attached to both agents (Male, correctives High); Meshcapade male texture on a URP/Lit material; verified in Play Mode _(done 2026-07-13 · a870451)_
 - [ ] **Gaze control system** — drive agents' eye/head gaze from the collected patterns (aversion, partner-directed gaze, pre-turn shifts)
 - [ ] **Scene 1: agent↔agent turn-taking** — turn-taking between agent A and B; the user only watches
 - [ ] **Scene 2: turn-yielding to user** — agent A signals the user to take the turn via gaze
@@ -49,9 +50,10 @@ recent few completed items and compacts older ones.
 
 - 2026-07-13 — Adopted the **official MPI SMPL-X Unity package** (from `E:\Unity_Projects\smplx-unity`) for pose correctives, shape, and expressions — kept verbatim under `Assets/SMPLX/`. Our custom code stays for what the package lacks: npz motion loading/playback and visemes. Its `QuatFromRodrigues` confirmed our axis-angle conversion is identical. License: research use, citation required; textures CC BY-NC.
 
+- 2026-07-13 — Speech: **recorded conversation audio** (TalkingWithHands wavs, paired 1:1 with the npz clips) + **Oculus LipSync** driving the mesh's viseme blendshapes. Viseme map: Oculus `sil` → none, `PP…ou` → blendshapes 506–519; laughter target disabled. Editor `runInBackground` enabled so Play Mode advances while Unity is unfocused.
+
 ## Parked / open questions
 
 - Gaze data format and contents (fields, timing convention, per-role patterns?) — needed before the data pipeline task.
 - SMPL-X rig details for gaze: confirm eye bones exist and how eyelids are driven (bones vs blendshapes).
 - Platform: desktop screen demo or VR/eye-tracked user? Affects how the "user" participant is represented and sensed.
-- Audio/speech: are the conversations voiced (recorded audio, TTS, silent placeholders)?

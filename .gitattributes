@@ -170,5 +170,10 @@ Packages/packages-lock.json linguist-generated
 # Motion capture data (SMPL-X npz clips)
 *.npz                   lfs
 
+# Native plugin binaries not covered above (Oculus LipSync)
+*.pb                    lfs
+*.dylib                 lfs
+*.bundle                lfs
+
 # Exceptions for .asset files such as lightning pre-baking
 LightingData.asset     binary

@@ -108,5 +108,8 @@ InitTestScene*.unity*
 
 # Motion datasets stay local; only whitelisted example clips are committed (via LFS)
 /Assets/MotionData/**/*.npz*
+/Assets/MotionData/**/*.wav*
 !/Assets/MotionData/TalkingWithHands/trn_2023_v0_000_interloctr_000.npz*
+!/Assets/MotionData/TalkingWithHands/trn_2023_v0_000_interloctr_000.wav*
 !/Assets/MotionData/TalkingWithHands/trn_2023_v0_000_main-agent_000.npz*
+!/Assets/MotionData/TalkingWithHands/trn_2023_v0_000_main-agent_000.wav*
