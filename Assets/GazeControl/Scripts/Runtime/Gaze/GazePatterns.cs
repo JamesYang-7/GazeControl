@@ -17,7 +17,11 @@ namespace GazeControl.Gaze
     public sealed class GazePattern
     {
         public string Name;
-        /// <summary>Where the subsequence sits in the 60-frame pre-turn window (median matched-subsequence start).</summary>
+        /// <summary>
+        /// Where the subsequence starts in the 60-frame window before end-of-turn
+        /// (the moment the speaker stops talking): the rank-0 matched subsequence's
+        /// subseq_start_idx from the raw data, in seconds at 60 fps.
+        /// </summary>
         public float WindowOffsetSeconds;
         public (float seconds, GazeRole target)[] CurrentSpeakerTrack;
         public (float seconds, GazeRole target)[] NextSpeakerTrack;
@@ -36,12 +40,12 @@ namespace GazeControl.Gaze
         /// Fig. 8d (p3_ks40_4, turn-taking): the current speaker micro-glances at the
         /// next speaker twice early in the window, then sustains aversion up to the
         /// boundary. Other roles gaze None throughout.
-        /// Matched subsequence starts {1, 4, 16, 18} → median offset 10 frames.
+        /// Rank-0 matched subsequence starts at window frame 4 (subseq_start_idx).
         /// </summary>
         public static readonly GazePattern TurnYieldingDoubleGlance = new()
         {
             Name = "Fig. 8d double glance (p3_ks40_4)",
-            WindowOffsetSeconds = 10 * Frame,
+            WindowOffsetSeconds = 4 * Frame,
             CurrentSpeakerTrack = new[]
             {
                 (1 * Frame, GazeRole.None),
@@ -61,12 +65,14 @@ namespace GazeControl.Gaze
         /// speaker, averts while finishing the utterance, then re-engages them to hand
         /// over the floor; the next speaker watches the current speaker and averts as
         /// they take the turn (turn onset with averted gaze).
-        /// Matched subsequence starts {1, 3, 14, 29} → median offset 9 frames.
+        /// Rank-0 matched subsequence starts at window frame 29 (subseq_start_idx),
+        /// so the pattern runs to one frame before end-of-turn: the current speaker's
+        /// re-engage lands exactly at the hand-over.
         /// </summary>
         public static readonly GazePattern CheckAvertReengage = new()
         {
             Name = "Fig. 7e check-avert-reengage (p3_ks30_17)",
-            WindowOffsetSeconds = 9 * Frame,
+            WindowOffsetSeconds = 29 * Frame,
             CurrentSpeakerTrack = new[]
             {
                 (5 * Frame, GazeRole.NextSpeaker),  // check, frames 0-4

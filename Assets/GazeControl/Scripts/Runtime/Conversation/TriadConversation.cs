@@ -95,7 +95,10 @@ namespace GazeControl.Conversation
                 var pattern = Pattern == PreTurnPattern.DoubleGlance8d
                     ? GazePatterns.TurnYieldingDoubleGlance
                     : GazePatterns.CheckAvertReengage;
-                var windowStart = question.length - PreTurnWindowSeconds * PatternTimeScale;
+                // End-of-turn is when the speaker stops talking, which can be before
+                // clip end (TTS clips carry trailing silence) — anchor to speech end.
+                var endOfTurn = SpeechEndSeconds(question);
+                var windowStart = endOfTurn - PreTurnWindowSeconds * PatternTimeScale;
                 await Awaitable.WaitForSecondsAsync(Mathf.Max(0f, windowStart), ct);
                 await Awaitable.WaitForSecondsAsync(pattern.WindowOffsetSeconds * PatternTimeScale, ct);
                 var trackA = PlayTrack(GazeA, pattern.CurrentSpeakerTrack, ct);
@@ -128,6 +131,20 @@ namespace GazeControl.Conversation
             {
                 // play mode ended / object destroyed mid-conversation; nothing to clean up
             }
+        }
+
+        /// <summary>Time of the last non-silent sample — the end-of-turn anchor for the gaze window.</summary>
+        static float SpeechEndSeconds(AudioClip clip)
+        {
+            const float silenceThreshold = 0.01f;
+            var samples = new float[clip.samples * clip.channels];
+            clip.GetData(samples, 0);
+            for (var i = samples.Length - 1; i >= 0; i--)
+            {
+                if (Mathf.Abs(samples[i]) > silenceThreshold)
+                    return (float)(i + 1) / (clip.frequency * clip.channels);
+            }
+            return clip.length;
         }
 
         /// <summary>Play one role's (duration, target) track on an agent, holding the final target.</summary>
