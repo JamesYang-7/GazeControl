@@ -645,6 +645,10 @@ MonoBehaviour:
   <MotionPlayers>k__BackingField:
   - {fileID: 672148328}
   - {fileID: 1579353671}
+  <GazeA>k__BackingField: {fileID: 672148329}
+  <GazeB>k__BackingField: {fileID: 1579353672}
+  <ListenerView>k__BackingField: {fileID: 982743567}
+  <PreTurnWindowSeconds>k__BackingField: 1
 --- !u!4 &644306068
 Transform:
   m_ObjectHideFlags: 0
@@ -670,6 +674,7 @@ GameObject:
   m_Component:
   - component: {fileID: 672148327}
   - component: {fileID: 672148328}
+  - component: {fileID: 672148329}
   m_Layer: 0
   m_Name: AgentA
   m_TagString: Untagged
@@ -709,6 +714,22 @@ MonoBehaviour:
   <Loop>k__BackingField: 1
   <ApplyRootTranslation>k__BackingField: 1
   <RootTranslationRelative>k__BackingField: 1
+--- !u!114 &672148329
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 672148326}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da2d9bcfde5c5ba4b8992efa8f8fff83, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GazeControl.Gaze.GazeController
+  <EyeDegreesPerSecond>k__BackingField: 600
+  <MaxEyeAngle>k__BackingField: 35
+  <HeadContribution>k__BackingField: 0.3
+  <HeadBlendSpeed>k__BackingField: 3
 --- !u!1 &857390468
 GameObject:
   m_ObjectHideFlags: 0
@@ -1062,6 +1083,7 @@ GameObject:
   - component: {fileID: 982743564}
   - component: {fileID: 982743566}
   - component: {fileID: 982743565}
+  - component: {fileID: 982743567}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -1143,6 +1165,19 @@ Camera:
   m_OcclusionCulling: 1
   m_StereoConvergence: 10
   m_StereoSeparation: 0.022
+--- !u!114 &982743567
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 982743563}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8bcb2f8a122c6d641a4beb754ab82532, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GazeControl.Gaze.ListenerCamera
+  <DegreesPerSecond>k__BackingField: 150
 --- !u!1 &1238782844
 GameObject:
   m_ObjectHideFlags: 0
@@ -1370,6 +1405,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1579353670}
   - component: {fileID: 1579353671}
+  - component: {fileID: 1579353672}
   m_Layer: 0
   m_Name: AgentB
   m_TagString: Untagged
@@ -1409,6 +1445,22 @@ MonoBehaviour:
   <Loop>k__BackingField: 1
   <ApplyRootTranslation>k__BackingField: 1
   <RootTranslationRelative>k__BackingField: 1
+--- !u!114 &1579353672
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1579353669}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da2d9bcfde5c5ba4b8992efa8f8fff83, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GazeControl.Gaze.GazeController
+  <EyeDegreesPerSecond>k__BackingField: 600
+  <MaxEyeAngle>k__BackingField: 35
+  <HeadContribution>k__BackingField: 0.3
+  <HeadBlendSpeed>k__BackingField: 3
 --- !u!4 &1675786311 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -988227544910358090, guid: 074bc99083525c94b981ace03a694ab0, type: 3}

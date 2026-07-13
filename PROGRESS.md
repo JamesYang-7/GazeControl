@@ -33,9 +33,11 @@ recent few completed items and compacts older ones.
   - [x] **Legacy-input console errors fixed** — Oculus LipSync debug/test input (viseme+laughter hotkeys, touchpad helper) polls legacy `UnityEngine.Input`, which throws under Input System-only handling; guarded those paths with `#if ENABLE_LEGACY_INPUT_MANAGER`; Play Mode now error-free _(done 2026-07-13 · 71cef4c)_
   - [x] **Mouth cavity fix** — SMPL-X has no mouth interior (skybox showed through the open mouth as white); added a dark unlit `MouthCavity` blocker sphere under each `head` bone; verified no leak at max jaw opening (`aa`=100) _(done 2026-07-13 · 337940a)_
   - [x] **Official SMPL-X package integration** — imported MPI `SMPLX.cs` (+SimpleJSON, Matrix, regressor JSONs) for pose correctives / betas / expressions; attached to both agents (Male, correctives High); Meshcapade male texture on a URP/Lit material; verified in Play Mode _(done 2026-07-13 · a870451)_
-- [ ] **Gaze control system** — drive agents' eye/head gaze from the collected patterns (aversion, partner-directed gaze, pre-turn shifts)
+- [~] **Gaze control system** — drive agents' eye/head gaze from the collected patterns (aversion, partner-directed gaze, pre-turn shifts)
+  - [x] **First pattern: Fig. 8d double glance** — `GazeController` (eyes + fractional head over mocap) + `ListenerCamera` (user view = listener track); in the last 1 s of A's turn, A glances at B twice, listener stays on A then moves to B at the turn; verified eye-to-target error 0.0° with 23° eye deflection _(done 2026-07-13)_
+  - Glance timings are eyeballed from the figures (0.25 s + 0.3 s glances) — ask for the original pattern data to calibrate, and to add more prototypes (6d single glance, 8e gaze-then-avert).
 - [~] **Scene 1: agent↔agent turn-taking** — turn-taking between agent A and B; the user only watches
-  - [x] **Scripted Q&A first demo** — `TriadConversation` controller: pre-generates both TTS clips, A asks, B answers after a 0.4 s gap, both motion players freeze when B finishes; verified sequencing in Play Mode _(done 2026-07-13)_
+  - [x] **Scripted Q&A first demo** — `TriadConversation` controller: pre-generates both TTS clips, A asks, B answers after a 0.4 s gap, both motion players freeze when B finishes; verified sequencing in Play Mode _(done 2026-07-13 · da68512)_
   - Gaze behaviour before the turn hand-over (A → B) is the next layer, from the collected patterns.
 - [ ] **Scene 2: turn-yielding to user** — agent A signals the user to take the turn via gaze
   - How is "user takes the turn" detected (speech/voice activity, key press, something else)?
@@ -60,6 +62,8 @@ recent few completed items and compacts older ones.
 - 2026-07-13 — Speech: **recorded conversation audio** (TalkingWithHands wavs, paired 1:1 with the npz clips) + **Oculus LipSync** driving the mesh's viseme blendshapes. Viseme map: Oculus `sil` → none, `PP…ou` → blendshapes 506–519; laughter target disabled. Editor `runInBackground` enabled so Play Mode advances while Unity is unfocused.
 
 - 2026-07-13 — Speech switched from recorded wavs to **local TTS**: Kokoro-82M ONNX on Unity Inference Engine, ported from Unity's sentis-samples TextToSpeechSample. Model (~310 MB) + voice bins stay **out of git** (`Assets/Models/` ignored); README links the Hugging Face sources and an editor menu downloads them. Editor-only loading via AssetDatabase for now.
+
+- 2026-07-13 — First gaze pattern: **Fig. 8d turn-taking prototype** from the ICMI paper ("current speaker glances at the next speaker twice" in the last second of the turn). Roles map to the demo as A = current speaker, B = next speaker, **user = listener** (camera plays the listener gaze track: steady on the speaker, then to B at the turn). Eyes do most of the gaze (35° clamp), head contributes a 0.3 fraction over the mocap pose.
 
 ## Parked / open questions
 

@@ -77,7 +77,7 @@ namespace GazeControl.Motion
                 joints[i].localRotation = AxisAngleToUnityRotation(clip.GetJointAxisAngle(frame, i));
         }
 
-        static Transform FindChildRecursive(Transform parent, string childName)
+        public static Transform FindChildRecursive(Transform parent, string childName)
         {
             foreach (Transform child in parent)
             {

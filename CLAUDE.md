@@ -37,6 +37,10 @@ The SMPL-X mesh has **no mouth interior** — the open mouth is a hole, and the 
 
 Caveat: with the Unity editor unfocused, the player loop and edit-mode skinning stall (`Time.time` freezes in Play Mode; `Camera.Render()` captures show stale meshes). Set `Application.runInBackground = true` **each Play Mode session** when driving the editor unfocused (the `PlayerSettings` flag does not govern editor play, and the runtime flag resets on exit). Skinning/blendshape changes made in the same editor command they're rendered in won't show — render in a later command.
 
+## Gaze control
+
+Gaze patterns come from the ICMI paper in `Assets/Docs/` (Figures 6–8: top gaze subsequences in the 1 s before turn events, 60 Hz, encoded over conversational roles — red = current speaker, blue = next speaker, green = listener; y-axis = gaze target). `GazeController` (per agent) drives the SMPL-X eye bones toward a target Transform (clamped, fast) with a fractional head turn layered in LateUpdate over the mocap pose; the blend is made non-accumulating so it works both while mocap plays and after motion freezes. `ListenerCamera` (on Main Camera) plays the listener's gaze track — the user is the listener in demo case 1. `TriadConversation` currently instantiates the Fig. 8d turn-taking prototype: the current speaker glances at the next speaker twice in the final second of their turn. Pattern timings are approximations read off the figures; the original pattern data can calibrate them.
+
 ## Motion data conventions
 
 TalkingWithHands clips come in pairs from the same recorded take: one `interloctr` file and one `main-agent` file whose names differ only in that token (e.g. `trn_2023_v0_000_interloctr_000.npz` / `trn_2023_v0_000_main-agent_000.npz`). **The two agents must always play a matched pair**: one agent uses the `interloctr` clip and the other the `main-agent` clip of the same take. Only two example clips are committed (via LFS); other `.npz` files under `Assets/MotionData/` are git-ignored.
