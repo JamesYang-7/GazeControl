@@ -24,7 +24,7 @@ recent few completed items and compacts older ones.
 - [ ] **Gaze data pipeline** — import the collected pre-turn-taking gaze behaviour patterns into Unity
   - What format is the collected gaze data in (CSV/JSON? gaze targets vs angles? timing relative to turn end)?
 - [~] **Virtual agents** — two conversational agents with data-driven motion control
-  - [x] **SMPL-X .npz motion playback** — `NpyReader`/`SmplxMotionClip`/`SmplxAnimUtils`/`SmplxMotionPlayer` under `Assets/GazeControl/Scripts/Runtime/Motion/`; direct axis-angle → Unity quaternion (no 6D detour); AgentA plays a TalkingWithHands clip _(done 2026-07-13)_
+  - [x] **SMPL-X .npz motion playback** — `NpyReader`/`SmplxMotionClip`/`SmplxAnimUtils`/`SmplxMotionPlayer` under `Assets/GazeControl/Scripts/Runtime/Motion/`; direct axis-angle → Unity quaternion (no 6D detour); AgentA plays a TalkingWithHands clip _(done 2026-07-13 · 050720b)_
     - Verified in edit mode via posed frame render; awaiting user check in Play Mode.
 - [ ] **Gaze control system** — drive agents' eye/head gaze from the collected patterns (aversion, partner-directed gaze, pre-turn shifts)
 - [ ] **Scene 1: agent↔agent turn-taking** — turn-taking between agent A and B; the user only watches
@@ -40,6 +40,7 @@ recent few completed items and compacts older ones.
 - 2026-07-13 — Agent body model: **SMPL-X with visemes** (`Assets/SMPLX/smplx-visemes-unity.fbx`), imported as Generic rig.
 - 2026-07-13 — Triad layout: regular triangle, **side 1 m**, centered on world origin, everyone facing the centroid. Agents at (±0.5, 0, 0.2887); User at (0, 0, −0.5774) represented by the Main Camera at 1.6 m eye height under a `User` root.
 - 2026-07-13 — Motion data format: **SMPL-X .npz** (TalkingWithHands): `poses` frames×165 axis-angle (55 joints), `trans`, 60 fps, Y-up right-handed, betas all zero. `*.npz` tracked via Git LFS.
+- 2026-07-13 — Motion datasets stay **local-only**; git keeps just two whitelisted example clips (`…interloctr_000` + `…main-agent_000`, via LFS). New `.npz` under `Assets/MotionData/` is git-ignored unless whitelisted in `.gitignore`.
 - 2026-07-13 — Coordinate conversion: **direct axis-angle → Unity quaternion**, skipping 6D (that representation is for network regression, not playback). RH→LH mirror across the YZ plane: axis `(x,y,z)` → `(x,−y,−z)`, angle kept; positions `(x,y,z)` → `(−x,y,z)`. No up-axis correction needed (data already Y-up; the FBX pelvis parent chain −90°X·+90°X cancels).
 - 2026-07-13 — Root translation applied **relative to the clip's first frame** by default, so agents stay anchored at their triad vertices (raw dataset positions available via a toggle on `SmplxMotionPlayer`).
 
