@@ -171,16 +171,66 @@ PrefabInstance:
       propertyPath: m_Name
       value: smplx-visemes-unity
       objectReference: {fileID: 0}
+    - target: {fileID: 3094101975524841333, guid: 074bc99083525c94b981ace03a694ab0, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 65453595b6a25c54da8d4d0ec1ad2ec5, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 074bc99083525c94b981ace03a694ab0, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 166573878}
   m_SourcePrefab: {fileID: 100100000, guid: 074bc99083525c94b981ace03a694ab0, type: 3}
 --- !u!4 &166573876 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 074bc99083525c94b981ace03a694ab0, type: 3}
   m_PrefabInstance: {fileID: 166573875}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &166573877 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 074bc99083525c94b981ace03a694ab0, type: 3}
+  m_PrefabInstance: {fileID: 166573875}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &166573878
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 166573877}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c60d9f735c9b97c4faa1c3d39e6a533f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SMPLX
+  modelType: 3
+  betas:
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  expressions:
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  usePoseCorrectives: 1
+  poseCorrectivesQuality: 0
+  showJointPositions: 0
 --- !u!1 &184681074
 GameObject:
   m_ObjectHideFlags: 0
@@ -476,16 +526,66 @@ PrefabInstance:
       propertyPath: m_Name
       value: smplx-visemes-unity
       objectReference: {fileID: 0}
+    - target: {fileID: 3094101975524841333, guid: 074bc99083525c94b981ace03a694ab0, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 65453595b6a25c54da8d4d0ec1ad2ec5, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 074bc99083525c94b981ace03a694ab0, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 953799575}
   m_SourcePrefab: {fileID: 100100000, guid: 074bc99083525c94b981ace03a694ab0, type: 3}
 --- !u!4 &953799573 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 074bc99083525c94b981ace03a694ab0, type: 3}
   m_PrefabInstance: {fileID: 953799572}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &953799574 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 074bc99083525c94b981ace03a694ab0, type: 3}
+  m_PrefabInstance: {fileID: 953799572}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &953799575
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 953799574}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c60d9f735c9b97c4faa1c3d39e6a533f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SMPLX
+  modelType: 3
+  betas:
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  expressions:
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  usePoseCorrectives: 1
+  poseCorrectivesQuality: 0
+  showJointPositions: 0
 --- !u!1 &982743563
 GameObject:
   m_ObjectHideFlags: 0

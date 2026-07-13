@@ -17,6 +17,16 @@ Target demo scenes:
 - **Timeline** and **Unity Test Framework** packages are installed.
 - The project is currently a fresh URP template: `Assets/Scenes/SampleScene.unity`, URP settings under `Assets/Settings/`, and removable template files under `Assets/TutorialInfo/`.
 
+## SMPL-X
+
+The agents use the SMPL-X body model. Two code layers drive it:
+- `Assets/GazeControl/Scripts/Runtime/Motion/` (ours) — .npz clip loading and playback (`SmplxMotionPlayer` writes joint local rotations in `Update`).
+- `Assets/SMPLX/Scripts/SMPLX.cs` (official MPI package, imported verbatim — do not restyle) — pose correctives (486 blendshapes recomputed in `LateUpdate` from current joint rotations, composing cleanly with our player), betas/expressions, hand/body pose presets. Depends on `Assets/SMPLX/ThirdParty/` and the regressor JSONs in `Assets/SMPLX/Resources/`.
+
+License: SMPL-X model license (research use; cite the SMPL-X paper in publications). The Meshcapade sample textures are CC BY-NC.
+
+Caveat: with the Unity editor unfocused, edit-mode `Camera.Render()` captures show stale skinning (bones move, mesh doesn't). Verify posing in Play Mode, or trust bone transforms.
+
 ## Motion data conventions
 
 TalkingWithHands clips come in pairs from the same recorded take: one `interloctr` file and one `main-agent` file whose names differ only in that token (e.g. `trn_2023_v0_000_interloctr_000.npz` / `trn_2023_v0_000_main-agent_000.npz`). **The two agents must always play a matched pair**: one agent uses the `interloctr` clip and the other the `main-agent` clip of the same take. Only two example clips are committed (via LFS); other `.npz` files under `Assets/MotionData/` are git-ignored.

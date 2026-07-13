@@ -26,6 +26,7 @@ recent few completed items and compacts older ones.
 - [~] **Virtual agents** — two conversational agents with data-driven motion control
   - [x] **SMPL-X .npz motion playback** — `NpyReader`/`SmplxMotionClip`/`SmplxAnimUtils`/`SmplxMotionPlayer` under `Assets/GazeControl/Scripts/Runtime/Motion/`; direct axis-angle → Unity quaternion (no 6D detour); AgentA plays a TalkingWithHands clip _(done 2026-07-13 · 050720b)_
     - Motion verified by user in Play Mode. Both agents now play paired clips (A: `interloctr_000`, B: `main-agent_000`).
+  - [x] **Official SMPL-X package integration** — imported MPI `SMPLX.cs` (+SimpleJSON, Matrix, regressor JSONs) for pose correctives / betas / expressions; attached to both agents (Male, correctives High); Meshcapade male texture on a URP/Lit material; verified in Play Mode _(done 2026-07-13)_
 - [ ] **Gaze control system** — drive agents' eye/head gaze from the collected patterns (aversion, partner-directed gaze, pre-turn shifts)
 - [ ] **Scene 1: agent↔agent turn-taking** — turn-taking between agent A and B; the user only watches
 - [ ] **Scene 2: turn-yielding to user** — agent A signals the user to take the turn via gaze
@@ -45,6 +46,8 @@ recent few completed items and compacts older ones.
 - 2026-07-13 — Triangle side length increased **1 m → 1.5 m** (agents at (±0.75, 0, 0.4330), user at (0, 0, −0.8660)).
 - 2026-07-13 — Coordinate conversion: **direct axis-angle → Unity quaternion**, skipping 6D (that representation is for network regression, not playback). RH→LH mirror across the YZ plane: axis `(x,y,z)` → `(x,−y,−z)`, angle kept; positions `(x,y,z)` → `(−x,y,z)`. No up-axis correction needed (data already Y-up; the FBX pelvis parent chain −90°X·+90°X cancels).
 - 2026-07-13 — Root translation applied **relative to the clip's first frame** by default, so agents stay anchored at their triad vertices (raw dataset positions available via a toggle on `SmplxMotionPlayer`).
+
+- 2026-07-13 — Adopted the **official MPI SMPL-X Unity package** (from `E:\Unity_Projects\smplx-unity`) for pose correctives, shape, and expressions — kept verbatim under `Assets/SMPLX/`. Our custom code stays for what the package lacks: npz motion loading/playback and visemes. Its `QuatFromRodrigues` confirmed our axis-angle conversion is identical. License: research use, citation required; textures CC BY-NC.
 
 ## Parked / open questions
 
