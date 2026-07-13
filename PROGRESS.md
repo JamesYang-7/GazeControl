@@ -16,11 +16,15 @@ recent few completed items and compacts older ones.
 
 - [x] **Project initialization** — Unity 6 URP project, git, working docs _(done 2026-07-13)_
   - [x] **Initial commit** — Unity 6000.5.3f1 URP template, `.gitignore`/`.gitattributes` (Unity templates, Git LFS), `CLAUDE.md` _(done 2026-07-13 · 49c8ca2)_
-  - [x] **Progress board setup** — `PROGRESS.md` + `progress-board` skill + pre-commit dashboard sync, adapted from the VR-Chat project _(done 2026-07-13)_
+  - [x] **Progress board setup** — `PROGRESS.md` + `progress-board` skill + pre-commit dashboard sync, adapted from the VR-Chat project _(done 2026-07-13 · 7c46fe9)_
+- [x] **Triad scene setup** — TriadScene.unity: 3 participants on a regular triangle, side 1 m _(done 2026-07-13)_
+  - [x] **SMPL-X agent model** — `Assets/SMPLX/smplx-visemes-unity.fbx` imported (Generic rig, 56 bones, 520 blendshapes incl. visemes, ~1.8 m tall) _(done 2026-07-13)_
+  - [x] **Scene layout** — AgentA/AgentB (SMPL-X instances) + User (Main Camera at 1.6 m eye height) at triangle vertices centered on origin, all facing the centroid; ground plane + URP Global Volume _(done 2026-07-13)_
+  - [x] **`Assets/MotionData/` folder** — drop-in location for motion files _(done 2026-07-13)_
 - [ ] **Gaze data pipeline** — import the collected pre-turn-taking gaze behaviour patterns into Unity
   - What format is the collected gaze data in (CSV/JSON? gaze targets vs angles? timing relative to turn end)?
 - [ ] **Virtual agents** — two conversational agents with data-driven motion control
-  - Where do the character models/rigs come from, and what motion data drives them?
+  - Model is SMPL-X (see Triad scene setup); what motion data format drives it (SMPL-X poses? BVH? FBX clips)?
 - [ ] **Gaze control system** — drive agents' eye/head gaze from the collected patterns (aversion, partner-directed gaze, pre-turn shifts)
 - [ ] **Scene 1: agent↔agent turn-taking** — turn-taking between agent A and B; the user only watches
 - [ ] **Scene 2: turn-yielding to user** — agent A signals the user to take the turn via gaze
@@ -32,10 +36,12 @@ recent few completed items and compacts older ones.
 - 2026-07-13 — Two target scenes: (1) A↔B turn-taking with the user watching; (2) agent A yields the turn to the user with gaze implication.
 - 2026-07-13 — Kept the stock GitHub Unity `.gitignore`/`.gitattributes` templates already in the repo; binary media goes through Git LFS (git-lfs 3.4.0 installed).
 - 2026-07-13 — Adopted the VR-Chat project's progress-board system (PROGRESS.md → progress.html via pre-commit hook) rather than inventing a new format.
+- 2026-07-13 — Agent body model: **SMPL-X with visemes** (`Assets/SMPLX/smplx-visemes-unity.fbx`), imported as Generic rig.
+- 2026-07-13 — Triad layout: regular triangle, **side 1 m**, centered on world origin, everyone facing the centroid. Agents at (±0.5, 0, 0.2887); User at (0, 0, −0.5774) represented by the Main Camera at 1.6 m eye height under a `User` root.
 
 ## Parked / open questions
 
 - Gaze data format and contents (fields, timing convention, per-role patterns?) — needed before the data pipeline task.
-- Character models: source and rig requirements (eyes as separate bones? blendshapes for eyelids?).
+- SMPL-X rig details for gaze: confirm eye bones exist and how eyelids are driven (bones vs blendshapes).
 - Platform: desktop screen demo or VR/eye-tracked user? Affects how the "user" participant is represented and sensed.
 - Audio/speech: are the conversations voiced (recorded audio, TTS, silent placeholders)?
