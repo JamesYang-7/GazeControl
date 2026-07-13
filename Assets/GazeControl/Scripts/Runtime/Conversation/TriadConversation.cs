@@ -13,10 +13,11 @@ namespace GazeControl.Conversation
     /// before A starts so there is no TTS delay between the turns.
     ///
     /// Gaze follows the "turn-taking" prototype of Fig. 8d in the ICMI paper
-    /// (Assets/Docs): in the last second of the current speaker's turn, they
-    /// glance at the next speaker twice (otherwise gaze None); the next speaker's
-    /// gaze stays None; the listener — the user, whose camera plays the listener
-    /// track — stays on the current speaker and moves to B when B takes the turn.
+    /// (raw data: p3_ks40_4): early in the last second of the current speaker's
+    /// turn they micro-glance at the next speaker twice, then hold gaze aversion
+    /// (None) up to the turn boundary; the next speaker's gaze stays None. The
+    /// pattern plays verbatim from <see cref="GazePatterns"/> at 60 fps, optionally
+    /// stretched by <see cref="PatternTimeScale"/> for visibility.
     /// </summary>
     public class TriadConversation : MonoBehaviour
     {
@@ -58,6 +59,10 @@ namespace GazeControl.Conversation
         [field: Tooltip("Pre-turn gaze window: the pattern runs in the last second of A's turn (paper uses 1 s windows)")]
         public float PreTurnWindowSeconds { get; set; } = 1f;
 
+        [field: SerializeField]
+        [field: Tooltip("Stretch factor for the gaze pattern. 1 = data-faithful (the two glances span ~0.1 s); raise to make the micro-glances easier to see.")]
+        public float PatternTimeScale { get; set; } = 1f;
+
         async Awaitable Start()
         {
             try
@@ -76,11 +81,17 @@ namespace GazeControl.Conversation
 
                 SpeakerA.PlayClip(question);
 
-                // Fig. 8d pattern in the last second of A's turn: two glances at B.
-                await Awaitable.WaitForSecondsAsync(Mathf.Max(0f, question.length - PreTurnWindowSeconds), ct);
-                await GazeA.GlanceAsync(GazeB.Head, 0.25f, ct);
-                await Awaitable.WaitForSecondsAsync(0.15f, ct);
-                await GazeA.GlanceAsync(GazeB.Head, 0.3f, ct);
+                // p3_ks40_4 (Fig. 8d) in the last second of A's turn, straight from the
+                // raw prototype: double micro-glance at B, then aversion to the boundary.
+                var windowStart = question.length - PreTurnWindowSeconds * PatternTimeScale;
+                await Awaitable.WaitForSecondsAsync(Mathf.Max(0f, windowStart), ct);
+                await Awaitable.WaitForSecondsAsync(GazePatterns.TurnYieldingWindowOffsetSeconds * PatternTimeScale, ct);
+                foreach (var (seconds, target) in GazePatterns.TurnYieldingDoubleGlance)
+                {
+                    GazeA.SetTarget(ResolveRoleForA(target));
+                    await Awaitable.WaitForSecondsAsync(seconds * PatternTimeScale, ct);
+                }
+                GazeA.SetTarget(null); // hold the pattern's final aversion until the turn
                 await WaitWhileSpeaking(SpeakerA, ct);
 
                 await Awaitable.WaitForSecondsAsync(TurnGapSeconds, ct);
@@ -103,6 +114,14 @@ namespace GazeControl.Conversation
                 // play mode ended / object destroyed mid-conversation; nothing to clean up
             }
         }
+
+        /// <summary>Role → transform mapping for agent A as the current speaker (user is the listener).</summary>
+        Transform ResolveRoleForA(GazeRole role) => role switch
+        {
+            GazeRole.NextSpeaker => GazeB.Head,
+            GazeRole.Listener => Camera.main != null ? Camera.main.transform : null,
+            _ => null,
+        };
 
         static async Awaitable WaitWhileSpeaking(TtsSpeaker speaker, CancellationToken ct)
         {
