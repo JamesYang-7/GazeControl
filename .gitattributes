@@ -167,5 +167,8 @@ Packages/packages-lock.json linguist-generated
 # Spine export file for Unity
 *.skel.bytes            lfs
 
+# Motion capture data (SMPL-X npz clips)
+*.npz                   lfs
+
 # Exceptions for .asset files such as lightning pre-baking
 LightingData.asset     binary
