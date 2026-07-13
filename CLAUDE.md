@@ -25,6 +25,10 @@ The agents use the SMPL-X body model. Two code layers drive it:
 
 License: SMPL-X model license (research use; cite the SMPL-X paper in publications). The Meshcapade sample textures are CC BY-NC.
 
+## Text-to-speech
+
+Agents speak via Kokoro-82M TTS running locally on Unity Inference Engine. `Assets/TTS/` holds the inference core adapted from Unity's sentis-samples TextToSpeechSample (`MisakiSharp` G2P + `KokoroHandler`); `GazeControl.TTS.KokoroTts` is the shared service (one worker, serialized generations) and `TtsSpeaker` (on each agent, next to the AudioSource) generates and plays speech — lipsync needs no extra wiring. The model (`Assets/Models/Kokoro-82M-v1.0.onnx`, ~310 MB) and voice `.bin` files are **git-ignored**; the editor menu **GazeControl → Download Kokoro TTS Files** fetches them (see README.md). Model/voice loading uses `AssetDatabase`, so TTS is editor-only for now; builds would need them moved into Resources.
+
 ## Lip sync
 
 Oculus LipSync (`Assets/Oculus/LipSync/`, third-party, verbatim) drives the mesh's 14 viseme blendshapes (indices 506–519, Oculus order minus `sil`) from each agent's `AudioSource`. Per agent: `AudioSource` (paired wav, loop) + `OVRLipSyncContext` (`audioLoopback` **on**, or the voice is muted) + `OVRLipSyncContextMorphTarget` (`laughterBlendTarget` must be **−1**; the default 15 would drive an expression blendshape). The scene needs one `LipSync` GameObject with the `OVRLipSync` component. Audio wavs pair 1:1 with the npz clips (same name) and are exactly the same 20 s length, so independent looping stays in sync.

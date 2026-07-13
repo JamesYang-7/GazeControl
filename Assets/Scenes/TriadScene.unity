@@ -199,6 +199,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 074bc99083525c94b981ace03a694ab0, type: 3}
       insertIndex: -1
       addedObject: {fileID: 166573880}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 074bc99083525c94b981ace03a694ab0, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 166573883}
   m_SourcePrefab: {fileID: 100100000, guid: 074bc99083525c94b981ace03a694ab0, type: 3}
 --- !u!4 &166573876 stripped
 Transform:
@@ -312,10 +315,10 @@ AudioSource:
   OutputAudioMixerGroup: {fileID: 0}
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 8300000, guid: 85432ed583735d2479675d42da6da191, type: 3}
-  m_PlayOnAwake: 1
+  m_PlayOnAwake: 0
   m_Volume: 1
   m_Pitch: 1
-  Loop: 1
+  Loop: 0
   Mute: 0
   Spatialize: 0
   SpatializePostEffects: 0
@@ -397,6 +400,23 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &166573883
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 166573877}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ac798b73610c92e4393b8aba67b7a4e3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GazeControl.TTS.TtsSpeaker
+  <Text>k__BackingField: Yes, I noticed that. Gaze is such a strong cue for turn
+    taking. Even a brief glance can change who speaks next.
+  <VoiceName>k__BackingField: am_michael
+  <Speed>k__BackingField: 1
+  <PlayOnStart>k__BackingField: 1
 --- !u!1 &184681074
 GameObject:
   m_ObjectHideFlags: 0
@@ -759,6 +779,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 074bc99083525c94b981ace03a694ab0, type: 3}
       insertIndex: -1
       addedObject: {fileID: 953799577}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 074bc99083525c94b981ace03a694ab0, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 953799580}
   m_SourcePrefab: {fileID: 100100000, guid: 074bc99083525c94b981ace03a694ab0, type: 3}
 --- !u!4 &953799573 stripped
 Transform:
@@ -872,10 +895,10 @@ AudioSource:
   OutputAudioMixerGroup: {fileID: 0}
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 8300000, guid: e0535cc7b9dc89e45819f913316e71a4, type: 3}
-  m_PlayOnAwake: 1
+  m_PlayOnAwake: 0
   m_Volume: 1
   m_Pitch: 1
-  Loop: 1
+  Loop: 0
   Mute: 0
   Spatialize: 0
   SpatializePostEffects: 0
@@ -957,6 +980,23 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &953799580
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 953799574}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ac798b73610c92e4393b8aba67b7a4e3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GazeControl.TTS.TtsSpeaker
+  <Text>k__BackingField: Have you tried the new gaze control demo? The agents actually
+    look at each other before taking turns, just like people do in real conversations.
+  <VoiceName>k__BackingField: am_adam
+  <Speed>k__BackingField: 1
+  <PlayOnStart>k__BackingField: 1
 --- !u!1 &982743563
 GameObject:
   m_ObjectHideFlags: 0

@@ -27,7 +27,9 @@ recent few completed items and compacts older ones.
   - [x] **SMPL-X .npz motion playback** — `NpyReader`/`SmplxMotionClip`/`SmplxAnimUtils`/`SmplxMotionPlayer` under `Assets/GazeControl/Scripts/Runtime/Motion/`; direct axis-angle → Unity quaternion (no 6D detour); AgentA plays a TalkingWithHands clip _(done 2026-07-13 · 050720b)_
     - Motion verified by user in Play Mode. Both agents now play paired clips (A: `interloctr_000`, B: `main-agent_000`).
   - [x] **Lip sync from conversation audio** — Oculus LipSync drives the 14 viseme blendshapes from each agent's paired 20 s wav (loops in sync with motion); verified visemes firing in Play Mode during speech _(done 2026-07-13 · 9adfa09)_
-  - [x] **Legacy-input console errors fixed** — Oculus LipSync debug/test input (viseme+laughter hotkeys, touchpad helper) polls legacy `UnityEngine.Input`, which throws under Input System-only handling; guarded those paths with `#if ENABLE_LEGACY_INPUT_MANAGER`; Play Mode now error-free _(done 2026-07-13)_
+  - [x] **Kokoro text-to-speech replaces wav playback** — `Assets/TTS/` (inference core adapted from Unity sentis-samples) + `KokoroTts` service + `TtsSpeaker` on both agents (A: am_adam, B: am_michael); model+voices git-ignored under `Assets/Models/` with an editor download menu; verified end-to-end in Play Mode (26 s utterance playing with visemes firing) _(done 2026-07-13)_
+    - G2P occasionally misses dictionary words (e.g. "finishes", "Listeners") and skips them — minor speech quality issue to revisit if noticeable.
+  - [x] **Legacy-input console errors fixed** — Oculus LipSync debug/test input (viseme+laughter hotkeys, touchpad helper) polls legacy `UnityEngine.Input`, which throws under Input System-only handling; guarded those paths with `#if ENABLE_LEGACY_INPUT_MANAGER`; Play Mode now error-free _(done 2026-07-13 · 71cef4c)_
   - [x] **Mouth cavity fix** — SMPL-X has no mouth interior (skybox showed through the open mouth as white); added a dark unlit `MouthCavity` blocker sphere under each `head` bone; verified no leak at max jaw opening (`aa`=100) _(done 2026-07-13 · 337940a)_
   - [x] **Official SMPL-X package integration** — imported MPI `SMPLX.cs` (+SimpleJSON, Matrix, regressor JSONs) for pose correctives / betas / expressions; attached to both agents (Male, correctives High); Meshcapade male texture on a URP/Lit material; verified in Play Mode _(done 2026-07-13 · a870451)_
 - [ ] **Gaze control system** — drive agents' eye/head gaze from the collected patterns (aversion, partner-directed gaze, pre-turn shifts)
@@ -53,6 +55,8 @@ recent few completed items and compacts older ones.
 - 2026-07-13 — Adopted the **official MPI SMPL-X Unity package** (from `E:\Unity_Projects\smplx-unity`) for pose correctives, shape, and expressions — kept verbatim under `Assets/SMPLX/`. Our custom code stays for what the package lacks: npz motion loading/playback and visemes. Its `QuatFromRodrigues` confirmed our axis-angle conversion is identical. License: research use, citation required; textures CC BY-NC.
 
 - 2026-07-13 — Speech: **recorded conversation audio** (TalkingWithHands wavs, paired 1:1 with the npz clips) + **Oculus LipSync** driving the mesh's viseme blendshapes. Viseme map: Oculus `sil` → none, `PP…ou` → blendshapes 506–519; laughter target disabled. Editor `runInBackground` enabled so Play Mode advances while Unity is unfocused.
+
+- 2026-07-13 — Speech switched from recorded wavs to **local TTS**: Kokoro-82M ONNX on Unity Inference Engine, ported from Unity's sentis-samples TextToSpeechSample. Model (~310 MB) + voice bins stay **out of git** (`Assets/Models/` ignored); README links the Hugging Face sources and an editor menu downloads them. Editor-only loading via AssetDatabase for now.
 
 ## Parked / open questions
 

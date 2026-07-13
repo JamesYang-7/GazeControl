@@ -106,6 +106,10 @@ InitTestScene*.unity*
 # Auto-generated scenes by play mode tests
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
 
+# TTS model + voices stay local (Kokoro-82M ~310 MB) - see README.md for download
+/Assets/Models/
+/Assets/Models.meta
+
 # Motion datasets stay local; only whitelisted example clips are committed (via LFS)
 /Assets/MotionData/**/*.npz*
 /Assets/MotionData/**/*.wav*
