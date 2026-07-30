@@ -31,6 +31,9 @@
 # Recordings can get excessive in size
 /[Rr]ecordings/
 
+# Per-frame gaze logs from experimental condition runs
+/[Gg]aze[Ll]ogs/
+
 # Uncomment this line if you wish to ignore the asset store tools plugin
 # /[Aa]ssets/AssetStoreTools*
 
@@ -117,3 +120,8 @@ InitTestScene*.unity*
 !/Assets/MotionData/TalkingWithHands/trn_2023_v0_000_interloctr_000.wav*
 !/Assets/MotionData/TalkingWithHands/trn_2023_v0_000_main-agent_000.npz*
 !/Assets/MotionData/TalkingWithHands/trn_2023_v0_000_main-agent_000.wav*
+
+# Local research material: raw gaze corpora, papers, exports. Outside Assets/ so
+# Unity never imports it; the README is committed so the convention survives a clone.
+/Research/*
+!/Research/README.md

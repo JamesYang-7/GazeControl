@@ -71,6 +71,10 @@ namespace GazeControl.Conversation
         [field: Tooltip("Which turn-taking prototype plays before the A→B hand-over")]
         public PreTurnPattern Pattern { get; set; } = PreTurnPattern.CheckAvertReengage7e;
 
+        [field: SerializeField]
+        [field: Tooltip("Off when a baseline condition owns gaze: speech and turn timing still run, but gaze targets are left to the policy")]
+        public bool DriveGaze { get; set; } = true;
+
         async Awaitable Start()
         {
             try
@@ -82,10 +86,13 @@ namespace GazeControl.Conversation
 
                 // Pre-turn roles (Fig. 8d): speaker A gaze None, next speaker B gaze
                 // None, listener (user camera) on the current speaker.
-                GazeA.SetTarget(null);
-                GazeB.SetTarget(null);
-                if (ListenerView != null)
-                    ListenerView.SetTarget(GazeA.Head);
+                if (DriveGaze)
+                {
+                    GazeA.SetTarget(null);
+                    GazeB.SetTarget(null);
+                    if (ListenerView != null)
+                        ListenerView.SetTarget(GazeA.Head);
+                }
 
                 SpeakerA.PlayClip(question);
 
@@ -111,9 +118,12 @@ namespace GazeControl.Conversation
 
                 // Turn switch: user (listener) moves to the new speaker; A now
                 // listens and looks at B.
-                if (ListenerView != null)
-                    ListenerView.SetTarget(GazeB.Head);
-                GazeA.SetTarget(GazeB.Head);
+                if (DriveGaze)
+                {
+                    if (ListenerView != null)
+                        ListenerView.SetTarget(GazeB.Head);
+                    GazeA.SetTarget(GazeB.Head);
+                }
 
                 SpeakerB.PlayClip(answer);
 
@@ -121,7 +131,8 @@ namespace GazeControl.Conversation
                 // onset; engaging the addressee shortly after is a heuristic bridge
                 // beyond the 1 s data window.
                 await Awaitable.WaitForSecondsAsync(0.8f, ct);
-                GazeB.SetTarget(GazeA.Head);
+                if (DriveGaze)
+                    GazeB.SetTarget(GazeA.Head);
                 await WaitWhileSpeaking(SpeakerB, ct);
 
                 foreach (var player in MotionPlayers)
@@ -147,12 +158,17 @@ namespace GazeControl.Conversation
             return clip.length;
         }
 
-        /// <summary>Play one role's (duration, target) track on an agent, holding the final target.</summary>
+        /// <summary>
+        /// Play one role's (duration, target) track on an agent, holding the final
+        /// target. When <see cref="DriveGaze"/> is off the timing still runs but no
+        /// target is set, so the turn sequence is identical across conditions.
+        /// </summary>
         async Awaitable PlayTrack(GazeController gaze, (float seconds, GazeRole target)[] track, CancellationToken ct)
         {
             foreach (var (seconds, target) in track)
             {
-                gaze.SetTarget(ResolveRole(target));
+                if (DriveGaze)
+                    gaze.SetTarget(ResolveRole(target));
                 await Awaitable.WaitForSecondsAsync(seconds * PatternTimeScale, ct);
             }
         }

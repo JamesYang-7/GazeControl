@@ -38,6 +38,16 @@ namespace GazeControl.Gaze
         /// <summary>This agent's head bone (gaze target for others).</summary>
         public Transform Head { get; private set; }
 
+        /// <summary>
+        /// Where the eyes are actually pointing, averaged over both. Measured from
+        /// the bones rather than derived from <see cref="Target"/> so the gaze log
+        /// records what was rendered, not what was commanded.
+        /// </summary>
+        public Vector3 GazeDirection => (_leftEye.forward + _rightEye.forward).normalized;
+
+        /// <summary>Midpoint between the eyes — the origin of <see cref="GazeDirection"/>.</summary>
+        public Vector3 GazeOrigin => (_leftEye.position + _rightEye.position) * 0.5f;
+
         Transform _leftEye;
         Transform _rightEye;
         float _headWeight;

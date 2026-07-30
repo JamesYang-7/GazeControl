@@ -1,0 +1,14 @@
+{
+    "name": "GazeControl.Gaze.Policy",
+    "rootNamespace": "GazeControl.Gaze.Policy",
+    "references": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
