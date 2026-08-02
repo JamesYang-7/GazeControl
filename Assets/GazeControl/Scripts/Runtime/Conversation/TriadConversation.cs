@@ -54,6 +54,10 @@ namespace GazeControl.Conversation
         public ListenerCamera ListenerView { get; set; }
 
         [field: SerializeField]
+        [field: Tooltip("Optional: publishes this script's turn schedule to the gaze policies. Required by baseline A.")]
+        public ConversationDirector Director { get; set; }
+
+        [field: SerializeField]
         [field: Tooltip("Pre-turn gaze window: the pattern runs in the last second of A's turn (paper uses 1 s windows)")]
         public float PreTurnWindowSeconds { get; set; } = 1f;
 
@@ -94,7 +98,13 @@ namespace GazeControl.Conversation
                         ListenerView.SetTarget(GazeA.Head);
                 }
 
+                // End-of-turn is when the speaker stops talking, which can be before
+                // clip end (TTS clips carry trailing silence) — anchor to speech end.
+                var endOfTurn = SpeechEndSeconds(question);
+
                 SpeakerA.PlayClip(question);
+                if (Director != null)
+                    Director.BeginTurn(GazeA, endOfTurn);
 
                 // Play the selected turn-taking prototype in the last second of A's
                 // turn, straight from the raw data: both agents' tracks run in
@@ -102,9 +112,6 @@ namespace GazeControl.Conversation
                 var pattern = Pattern == PreTurnPattern.DoubleGlance8d
                     ? GazePatterns.TurnYieldingDoubleGlance
                     : GazePatterns.CheckAvertReengage;
-                // End-of-turn is when the speaker stops talking, which can be before
-                // clip end (TTS clips carry trailing silence) — anchor to speech end.
-                var endOfTurn = SpeechEndSeconds(question);
                 var windowStart = endOfTurn - PreTurnWindowSeconds * PatternTimeScale;
                 await Awaitable.WaitForSecondsAsync(Mathf.Max(0f, windowStart), ct);
                 await Awaitable.WaitForSecondsAsync(pattern.WindowOffsetSeconds * PatternTimeScale, ct);
@@ -126,6 +133,8 @@ namespace GazeControl.Conversation
                 }
 
                 SpeakerB.PlayClip(answer);
+                if (Director != null)
+                    Director.BeginTurn(GazeB, SpeechEndSeconds(answer));
 
                 // The 7e prototype ends with the new speaker's gaze averted at turn
                 // onset; engaging the addressee shortly after is a heuristic bridge

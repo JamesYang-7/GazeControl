@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Text;
 using System.Threading;
 using GazeControl.Conversation;
+using GazeControl.Gaze;
 using GazeControl.Gaze.Policy;
 using GazeControl.Logging;
 using UnityEngine;
@@ -20,11 +21,16 @@ namespace GazeControl.Experiment
     /// </summary>
     public class GazeConditionRunner : MonoBehaviour
     {
-        /// <summary>Experimental conditions. Only baseline B is implemented so far.</summary>
+        /// <summary>Experimental conditions.</summary>
         public enum GazeCondition
         {
+            /// <summary>Baseline B (§3): follow whoever is speaking, driven by voice activity alone.</summary>
             SpeakerFollowing,
+
+            /// <summary>Baseline A (§2): the role-conditioned Shintani et al. sampler, fitted to our corpus.</summary>
             RoleConditioned,
+
+            /// <summary>The paper's gaze patterns; still played by <see cref="TriadConversation"/> itself.</summary>
             Proposed,
         }
 
@@ -39,6 +45,10 @@ namespace GazeControl.Experiment
         [field: SerializeField]
         [field: Tooltip("Scripted conversation; its own gaze control is switched off unless the condition is Proposed")]
         public TriadConversation Conversation { get; set; }
+
+        [field: SerializeField]
+        [field: Tooltip("Publishes the scripted turn schedule; required by the RoleConditioned condition")]
+        public ConversationDirector Director { get; set; }
 
         [field: SerializeField]
         [field: Range(10f, 60f)]
@@ -92,11 +102,12 @@ namespace GazeControl.Experiment
         GazeTarget[] _targets;
         Vector3[] _previousGazeDirections;
         bool[] _rawVoiced;
+        ShintaniGazeParameters _roleConditionedParameters;
         GazeLogWriter _log;
         float _accumulator;
         float _sessionTime;
         float _nextVoiceReportTime;
-        bool _warnedAboutAversion;
+        bool _warnedAboutMissingTarget;
 
         void Awake()
         {
@@ -106,7 +117,7 @@ namespace GazeControl.Experiment
             // mode and the runtime flag resets on exit, so it is set every session.
             Application.runInBackground = true;
 
-            if (!TryCollectParticipants())
+            if (!TryCollectParticipants() || !TryPrepareCondition())
             {
                 enabled = false;
                 return;
@@ -181,7 +192,7 @@ namespace GazeControl.Experiment
                     ReportVoiceActivity(Participants[i], _rawVoiced[Participants[i].Id]);
             }
 
-            var speaker = ConfirmedSpeaker();
+            var turn = CurrentTurn();
 
             for (var i = 0; i < _agents.Length; i++)
             {
@@ -191,7 +202,7 @@ namespace GazeControl.Experiment
                     continue;
                 }
 
-                var state = BuildState(_agents[i], speaker);
+                var state = BuildState(_agents[i], turn);
                 _targets[i] = _policies[i].Update(deltaTime, in state);
                 Apply(_agents[i], _targets[i]);
             }
@@ -207,26 +218,26 @@ namespace GazeControl.Experiment
             Debug.Log($"[voice] t={_sessionTime:0.00} {participant.DisplayName} raw={voiced} ({state})", this);
         }
 
-        ConversationState BuildState(GazeParticipant self, ParticipantId speaker)
+        ConversationState BuildState(GazeParticipant self, in Turn turn)
         {
-            var addressee = AddresseeOf(speaker);
             var partners = PartnersOf(self);
 
             return new ConversationState
             {
                 Time = _sessionTime,
-                CurrentSpeaker = speaker,
-                CurrentAddressee = addressee,
+                CurrentSpeaker = turn.Speaker,
+                CurrentAddressee = turn.Addressee,
                 SelfId = self.ParticipantId,
-                SelfRole = RoleOf(self.ParticipantId, speaker, addressee),
+                SelfRole = RoleOf(self.ParticipantId, turn.Speaker, turn.Addressee),
                 FirstPartner = partners.first,
                 SecondPartner = partners.second,
 
-                // Turn phase and turn-end prediction need the scripted schedule,
-                // which arrives with the ConversationDirector (Baseline A work).
-                // Baseline B ignores both fields by design.
-                TurnPhase = self.ParticipantId == speaker ? TurnPhase.TurnMiddle : TurnPhase.NotSpeaking,
-                PredictedTimeToTurnEnd = -1f,
+                // Only the scripted schedule can say where a turn is going; with
+                // no director these stay "unknown", which is all baseline B needs
+                // since it ignores them by design.
+                TurnPhase = Director != null ? Director.PhaseOf(self) : TurnPhase.NotSpeaking,
+                TimeSinceTurnInstant = Director != null ? Director.TimeSinceTurnInstant : float.PositiveInfinity,
+                PredictedTimeToTurnEnd = Director != null ? Director.PredictedTimeToTurnEnd : -1f,
 
                 MutualGazeActive = IsInMutualGazeWithAnAgent(self),
                 MutualGazeDuration = 0f,
@@ -235,22 +246,24 @@ namespace GazeControl.Experiment
 
         void Apply(GazeParticipant agent, in GazeTarget target)
         {
-            if (target.Type == GazeTargetType.Person)
+            if (target.Type == GazeTargetType.Aversion)
             {
-                var person = FindParticipant(target.Person);
-                agent.Gaze.SetTarget(person != null ? person.LookAtAnchor : null);
+                agent.Gaze.SetAversion(target.AversionOffset);
                 return;
             }
 
-            // Aversion needs a direction-based fixation point, which the shared
-            // animation layer does not support yet (spec §4 rewrite). Baseline B
-            // never averts, so this is unreachable today — warn rather than
-            // silently hold, so it cannot pass unnoticed once Baseline A lands.
-            if (_warnedAboutAversion)
+            var person = FindParticipant(target.Person);
+            if (person != null)
+            {
+                agent.Gaze.SetTarget(person.LookAtAnchor);
+                return;
+            }
+
+            if (_warnedAboutMissingTarget)
                 return;
 
-            _warnedAboutAversion = true;
-            Debug.LogWarning($"{name}: aversion targets are not supported by the animation layer yet; holding gaze.", this);
+            _warnedAboutMissingTarget = true;
+            Debug.LogWarning($"{name}: a policy asked for participant {target.Person}, who is not in the triad; holding gaze.", this);
         }
 
         /// <summary>
@@ -270,21 +283,55 @@ namespace GazeControl.Experiment
             {
                 GazeCondition.SpeakerFollowing =>
                     new SpeakerFollowingGazePolicy(SpeakerFollowing, _voiceActivity, human.ParticipantId),
+                GazeCondition.RoleConditioned =>
+                    new ShintaniGazePolicy(_roleConditionedParameters, human.ParticipantId),
                 GazeCondition.Proposed => null,
-                _ => throw new NotImplementedException(
-                    $"Condition {Condition} is not implemented yet; " +
-                    $"{nameof(GazeCondition.SpeakerFollowing)} and {nameof(GazeCondition.Proposed)} are available."),
+                _ => throw new NotImplementedException($"Condition {Condition} is not implemented."),
             };
         }
 
         /// <summary>
+        /// Load whatever the selected condition needs before any policy is built.
+        /// Baseline A is refused rather than degraded when its inputs are missing:
+        /// without the scripted schedule every fixation would be coded as if it
+        /// were far from a turn boundary, which silently produces a plausible but
+        /// wrong condition.
+        /// </summary>
+        bool TryPrepareCondition()
+        {
+            if (Condition != GazeCondition.RoleConditioned)
+                return true;
+
+            if (Director == null)
+            {
+                Debug.LogError($"{name}: the RoleConditioned condition needs a ConversationDirector to know when turns end.", this);
+                return false;
+            }
+
+            try
+            {
+                _roleConditionedParameters = ShintaniGazeParameters.LoadDefault();
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"{name}: could not load the RoleConditioned parameters: {e.Message}", this);
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
         /// Read back what the gaze controller was actually told to look at, for
-        /// conditions the runner does not drive. A null target is the scripted
-        /// pattern's "None", which currently recenters the eyes rather than
-        /// choosing an aversion direction — logged as an aversion with no offset.
+        /// conditions the runner does not drive. The scripted pattern's "None"
+        /// recentres the eyes rather than choosing an aversion direction, so it is
+        /// logged as an aversion with no offset.
         /// </summary>
         GazeTarget ObserveTarget(GazeParticipant agent)
         {
+            if (agent.Gaze.Mode == GazeController.GazeMode.Aversion)
+                return GazeTarget.Away(agent.Gaze.AversionOffset);
+
             var target = agent.Gaze.Target;
             if (target == null)
                 return GazeTarget.Away(Vector2.zero);
@@ -323,8 +370,7 @@ namespace GazeControl.Experiment
 
         void RecordFrame()
         {
-            var speaker = ConfirmedSpeaker();
-            var addressee = AddresseeOf(speaker);
+            var turn = CurrentTurn();
             var human = FindHuman();
 
             for (var i = 0; i < _agents.Length; i++)
@@ -342,10 +388,10 @@ namespace GazeControl.Experiment
                     ParticipantId = StudyParticipantId,
                     Condition = Condition.ToString(),
                     AgentId = agent.DisplayName,
-                    SelfRole = RoleOf(agent.ParticipantId, speaker, addressee).ToString(),
-                    TurnPhase = (agent.ParticipantId == speaker ? TurnPhase.TurnMiddle : TurnPhase.NotSpeaking).ToString(),
-                    CurrentSpeaker = speaker.Index,
-                    CurrentAddressee = addressee.Index,
+                    SelfRole = RoleOf(agent.ParticipantId, turn.Speaker, turn.Addressee).ToString(),
+                    TurnPhase = (Director != null ? Director.PhaseOf(agent) : TurnPhase.NotSpeaking).ToString(),
+                    CurrentSpeaker = turn.Speaker.Index,
+                    CurrentAddressee = turn.Addressee.Index,
                     TargetType = _targets[i].Type.ToString(),
                     TargetId = _targets[i].Person.Index,
                     AversionYaw = _targets[i].AversionOffset.x,
@@ -396,6 +442,36 @@ namespace GazeControl.Experiment
             }
 
             return false;
+        }
+
+        /// <summary>Who holds the floor and who they address, at one instant.</summary>
+        readonly struct Turn
+        {
+            public Turn(ParticipantId speaker, ParticipantId addressee)
+            {
+                Speaker = speaker;
+                Addressee = addressee;
+            }
+
+            public ParticipantId Speaker { get; }
+
+            public ParticipantId Addressee { get; }
+        }
+
+        /// <summary>
+        /// The scripted schedule when there is one, voice activity otherwise. The
+        /// script is preferred because it keeps the roles defined through the gaps
+        /// between turns, where the VAD only reports that nobody is speaking —
+        /// baseline B is unaffected either way, since it reads voice activity
+        /// directly rather than through the conversation state.
+        /// </summary>
+        Turn CurrentTurn()
+        {
+            if (Director != null && Director.HasTurn)
+                return new Turn(Director.SpeakerId, Director.AddresseeId);
+
+            var speaker = ConfirmedSpeaker();
+            return new Turn(speaker, AddresseeOf(speaker));
         }
 
         ParticipantId ConfirmedSpeaker()
@@ -603,6 +679,17 @@ namespace GazeControl.Experiment
             json.Append($"    \"backchannel_s\": {SpeakerFollowing.BackchannelSeconds.ToString("0.###", c)},\n");
             json.Append($"    \"minimum_dwell_s\": {SpeakerFollowing.MinimumDwellSeconds.ToString("0.###", c)}\n");
             json.Append("  },\n");
+
+            if (_roleConditionedParameters != null)
+            {
+                json.Append("  \"role_conditioned\": {\n");
+                json.Append("    \"parameters\": \"Resources/BaselineAParameters.json\",\n");
+                json.Append($"    \"min_dwell_s\": {_roleConditionedParameters.MinDwellSeconds.ToString("0.###", c)},\n");
+                json.Append($"    \"max_dwell_s\": {_roleConditionedParameters.MaxDwellSeconds.ToString("0.###", c)},\n");
+                json.Append($"    \"turn_window_s\": {_roleConditionedParameters.TurnWindowSeconds.ToString("0.###", c)}\n");
+                json.Append("  },\n");
+            }
+
             json.Append("  \"agents\": [\n");
 
             for (var i = 0; i < _agents.Length; i++)

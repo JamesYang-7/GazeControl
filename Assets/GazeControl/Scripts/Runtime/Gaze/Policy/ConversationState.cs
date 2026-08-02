@@ -25,7 +25,14 @@ namespace GazeControl.Gaze.Policy
 
         public TurnPhase TurnPhase { get; set; }
 
-        public float TimeSinceTurnStart { get; set; }
+        /// <summary>
+        /// Seconds since the most recent turn instant — a speaker taking or
+        /// releasing the floor, whichever happened last. Measured from the
+        /// instant rather than from the turn's start because that is what the
+        /// corpus's "changing" window is centred on, and a gap between turns is
+        /// as close to a turn instant as the last second of a turn is.
+        /// </summary>
+        public float TimeSinceTurnInstant { get; set; }
 
         /// <summary>
         /// Seconds until the current speaker stops. Negative when unknown. Known in

@@ -1,0 +1,642 @@
+{
+  "meta": {
+    "model": "Shintani et al. 2024, re-estimated on our three-party EoT corpus",
+    "source": "Research/corpora (git-ignored); regenerate with Tools/build_baseline_a_params.py",
+    "corpus": "gaze_events_md6.csv - 120,765 fixations, 38 sessions, 60 fps",
+    "durationLaw": "lognormal on log-seconds; chi-square (the paper's Eq 9) has no interior mode on this data",
+    "retargetLaw": "empirical quantiles of un-clipped direction segments, spanning p0..p99",
+    "states": [
+      "sp",
+      "ad",
+      "sd",
+      "aversion"
+    ],
+    "directions": [
+      "lu",
+      "u",
+      "ru",
+      "l",
+      "f",
+      "r",
+      "ld",
+      "d",
+      "rd"
+    ]
+  },
+  "minDwellSeconds": 0.1,
+  "maxDwellSeconds": 8.0,
+  "turnWindowSeconds": 1.0,
+  "targetRatios": [
+    {
+      "role": "sp",
+      "turnState": "changing",
+      "ratios": [
+        0.0,
+        0.3424369998348039,
+        0.2265212941154431,
+        0.43104170604975295
+      ]
+    },
+    {
+      "role": "sp",
+      "turnState": "holding",
+      "ratios": [
+        0.0,
+        0.3305123362058789,
+        0.22735214260417896,
+        0.44213552118994215
+      ]
+    },
+    {
+      "role": "ad",
+      "turnState": "changing",
+      "ratios": [
+        0.4051831238330519,
+        0.0,
+        0.17712621068076584,
+        0.4176906654861823
+      ]
+    },
+    {
+      "role": "ad",
+      "turnState": "holding",
+      "ratios": [
+        0.5147029597386356,
+        0.0,
+        0.12630997275838335,
+        0.3589870675029811
+      ]
+    },
+    {
+      "role": "sd",
+      "turnState": "changing",
+      "ratios": [
+        0.3487878285937825,
+        0.22475656130285077,
+        0.0,
+        0.42645561010336674
+      ]
+    },
+    {
+      "role": "sd",
+      "turnState": "holding",
+      "ratios": [
+        0.4583085060659933,
+        0.15202346298864947,
+        0.0,
+        0.38966803094535724
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "role": "sp",
+      "from": "ad",
+      "to": [
+        0.0,
+        0.0,
+        0.16859695565850433,
+        0.8314030443414957
+      ]
+    },
+    {
+      "role": "sp",
+      "from": "sd",
+      "to": [
+        0.0,
+        0.20315202767634058,
+        0.0,
+        0.7968479723236594
+      ]
+    },
+    {
+      "role": "sp",
+      "from": "aversion",
+      "to": [
+        0.0,
+        0.5554955149681184,
+        0.44450448503188156,
+        0.0
+      ]
+    },
+    {
+      "role": "ad",
+      "from": "sp",
+      "to": [
+        0.0,
+        0.0,
+        0.13156649313771887,
+        0.8684335068622812
+      ]
+    },
+    {
+      "role": "ad",
+      "from": "sd",
+      "to": [
+        0.2303681466266393,
+        0.0,
+        0.0,
+        0.7696318533733608
+      ]
+    },
+    {
+      "role": "ad",
+      "from": "aversion",
+      "to": [
+        0.6665734265734266,
+        0.0,
+        0.33342657342657345,
+        0.0
+      ]
+    },
+    {
+      "role": "sd",
+      "from": "sp",
+      "to": [
+        0.0,
+        0.12354608542664451,
+        0.0,
+        0.8764539145733554
+      ]
+    },
+    {
+      "role": "sd",
+      "from": "ad",
+      "to": [
+        0.19231337767923135,
+        0.0,
+        0.0,
+        0.8076866223207687
+      ]
+    },
+    {
+      "role": "sd",
+      "from": "aversion",
+      "to": [
+        0.6248018198111256,
+        0.37519818018887435,
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "dwells": [
+    {
+      "role": "ad",
+      "turnState": "changing",
+      "target": "aversion",
+      "mu": -0.806449,
+      "sigma": 0.961771,
+      "n": 10493,
+      "empiricalMedianSeconds": 0.4167,
+      "empiricalMeanSeconds": 0.7434
+    },
+    {
+      "role": "ad",
+      "turnState": "changing",
+      "target": "sd",
+      "mu": -0.848063,
+      "sigma": 0.867197,
+      "n": 4968,
+      "empiricalMedianSeconds": 0.4,
+      "empiricalMeanSeconds": 0.6658
+    },
+    {
+      "role": "ad",
+      "turnState": "changing",
+      "target": "sp",
+      "mu": -0.581003,
+      "sigma": 0.989779,
+      "n": 7855,
+      "empiricalMedianSeconds": 0.5333,
+      "empiricalMeanSeconds": 0.9633
+    },
+    {
+      "role": "ad",
+      "turnState": "holding",
+      "target": "aversion",
+      "mu": -0.844633,
+      "sigma": 0.98883,
+      "n": 6605,
+      "empiricalMedianSeconds": 0.4,
+      "empiricalMeanSeconds": 0.7475
+    },
+    {
+      "role": "ad",
+      "turnState": "holding",
+      "target": "sd",
+      "mu": -0.842792,
+      "sigma": 0.860864,
+      "n": 2678,
+      "empiricalMedianSeconds": 0.4,
+      "empiricalMeanSeconds": 0.6487
+    },
+    {
+      "role": "ad",
+      "turnState": "holding",
+      "target": "sp",
+      "mu": -0.361069,
+      "sigma": 1.100007,
+      "n": 5339,
+      "empiricalMedianSeconds": 0.65,
+      "empiricalMeanSeconds": 1.3259
+    },
+    {
+      "role": "sd",
+      "turnState": "changing",
+      "target": "ad",
+      "mu": -0.72884,
+      "sigma": 0.953488,
+      "n": 5129,
+      "empiricalMedianSeconds": 0.4333,
+      "empiricalMeanSeconds": 0.8289
+    },
+    {
+      "role": "sd",
+      "turnState": "changing",
+      "target": "aversion",
+      "mu": -0.750377,
+      "sigma": 0.995582,
+      "n": 9837,
+      "empiricalMedianSeconds": 0.4333,
+      "empiricalMeanSeconds": 0.8201
+    },
+    {
+      "role": "sd",
+      "turnState": "changing",
+      "target": "sp",
+      "mu": -0.569896,
+      "sigma": 0.977523,
+      "n": 6957,
+      "empiricalMedianSeconds": 0.55,
+      "empiricalMeanSeconds": 0.9484
+    },
+    {
+      "role": "sd",
+      "turnState": "holding",
+      "target": "ad",
+      "mu": -0.786641,
+      "sigma": 0.9438,
+      "n": 2696,
+      "empiricalMedianSeconds": 0.4167,
+      "empiricalMeanSeconds": 0.7697
+    },
+    {
+      "role": "sd",
+      "turnState": "holding",
+      "target": "aversion",
+      "mu": -0.786182,
+      "sigma": 1.036262,
+      "n": 6417,
+      "empiricalMedianSeconds": 0.4167,
+      "empiricalMeanSeconds": 0.8289
+    },
+    {
+      "role": "sd",
+      "turnState": "holding",
+      "target": "sp",
+      "mu": -0.395786,
+      "sigma": 1.074477,
+      "n": 4958,
+      "empiricalMedianSeconds": 0.6333,
+      "empiricalMeanSeconds": 1.2618
+    },
+    {
+      "role": "sp",
+      "turnState": "changing",
+      "target": "ad",
+      "mu": -0.680228,
+      "sigma": 0.946396,
+      "n": 7987,
+      "empiricalMedianSeconds": 0.4667,
+      "empiricalMeanSeconds": 0.8392
+    },
+    {
+      "role": "sp",
+      "turnState": "changing",
+      "target": "aversion",
+      "mu": -0.832502,
+      "sigma": 0.937479,
+      "n": 11905,
+      "empiricalMedianSeconds": 0.4,
+      "empiricalMeanSeconds": 0.7087
+    },
+    {
+      "role": "sp",
+      "turnState": "changing",
+      "target": "sd",
+      "mu": -0.819921,
+      "sigma": 0.863932,
+      "n": 6594,
+      "empiricalMedianSeconds": 0.4333,
+      "empiricalMeanSeconds": 0.6724
+    },
+    {
+      "role": "sp",
+      "turnState": "holding",
+      "target": "ad",
+      "mu": -0.758201,
+      "sigma": 0.925497,
+      "n": 6130,
+      "empiricalMedianSeconds": 0.4333,
+      "empiricalMeanSeconds": 0.7612
+    },
+    {
+      "role": "sp",
+      "turnState": "holding",
+      "target": "aversion",
+      "mu": -0.837641,
+      "sigma": 0.935885,
+      "n": 8923,
+      "empiricalMedianSeconds": 0.4,
+      "empiricalMeanSeconds": 0.6996
+    },
+    {
+      "role": "sp",
+      "turnState": "holding",
+      "target": "sd",
+      "mu": -0.868119,
+      "sigma": 0.846022,
+      "n": 5109,
+      "empiricalMedianSeconds": 0.4,
+      "empiricalMeanSeconds": 0.6283
+    }
+  ],
+  "aversionDirections": [
+    {
+      "role": "ad",
+      "weights": [
+        0.10302746780063111,
+        0.05202009317711537,
+        0.10097049274539589,
+        0.12731343989655552,
+        0.08925414505003144,
+        0.13050052475641316,
+        0.15060421452112255,
+        0.10011371182375194,
+        0.146195910228983
+      ]
+    },
+    {
+      "role": "sd",
+      "weights": [
+        0.09829112661685269,
+        0.055350881964602736,
+        0.1139193976167752,
+        0.11962113682031197,
+        0.0821254844170594,
+        0.14100389511701011,
+        0.1514760400028352,
+        0.08689259334352031,
+        0.15131944410103237
+      ]
+    },
+    {
+      "role": "sp",
+      "weights": [
+        0.09396075319906634,
+        0.050139464223659405,
+        0.1025361884289286,
+        0.12965406106903093,
+        0.08828531274121776,
+        0.11063034138750757,
+        0.1525034366321927,
+        0.13105792916386047,
+        0.1412325131545362
+      ]
+    }
+  ],
+  "aversionConditional": [
+    {
+      "from": "lu",
+      "weights": [
+        0.0,
+        0.23397260273972603,
+        0.22684931506849315,
+        0.20273972602739726,
+        0.09643835616438357,
+        0.13972602739726028,
+        0.028493150684931506,
+        0.03945205479452055,
+        0.03232876712328767
+      ]
+    },
+    {
+      "from": "u",
+      "weights": [
+        0.3232758620689655,
+        0.0,
+        0.3135775862068966,
+        0.061422413793103446,
+        0.14655172413793102,
+        0.08297413793103449,
+        0.02478448275862069,
+        0.014008620689655173,
+        0.0334051724137931
+      ]
+    },
+    {
+      "from": "ru",
+      "weights": [
+        0.2609802673456397,
+        0.20178230426479948,
+        0.0,
+        0.10502864417568428,
+        0.06556333545512412,
+        0.25270528325907066,
+        0.04455760661998727,
+        0.0426479949077021,
+        0.02673456397199236
+      ]
+    },
+    {
+      "from": "l",
+      "weights": [
+        0.13598673300165837,
+        0.027860696517412936,
+        0.029519071310116086,
+        0.0,
+        0.19933665008291873,
+        0.16218905472636816,
+        0.21791044776119403,
+        0.10912106135986734,
+        0.11807628524046435
+      ]
+    },
+    {
+      "from": "f",
+      "weights": [
+        0.0777027027027027,
+        0.09065315315315316,
+        0.04504504504504504,
+        0.2376126126126126,
+        0.0,
+        0.22972972972972974,
+        0.07826576576576577,
+        0.14132882882882883,
+        0.09966216216216216
+      ]
+    },
+    {
+      "from": "r",
+      "weights": [
+        0.06789054381711118,
+        0.025978524419812955,
+        0.16903359889158295,
+        0.18600623484586076,
+        0.17977138898510564,
+        0.0,
+        0.10045029442327676,
+        0.08520956009698649,
+        0.18565985452026326
+      ]
+    },
+    {
+      "from": "ld",
+      "weights": [
+        0.01809805857189865,
+        0.009871668311944718,
+        0.009871668311944718,
+        0.27673576834485025,
+        0.057913787430075685,
+        0.07535373478117802,
+        0.0,
+        0.3297137216189536,
+        0.22244159262915433
+      ]
+    },
+    {
+      "from": "d",
+      "weights": [
+        0.017695099818511795,
+        0.010435571687840291,
+        0.016333938294010888,
+        0.09392014519056262,
+        0.13294010889292196,
+        0.060798548094373864,
+        0.35980036297640655,
+        0.0,
+        0.3080762250453721
+      ]
+    },
+    {
+      "from": "rd",
+      "weights": [
+        0.014044943820224719,
+        0.010533707865168539,
+        0.02457865168539326,
+        0.10182584269662921,
+        0.05898876404494382,
+        0.21594101123595505,
+        0.28230337078651685,
+        0.29178370786516855,
+        0.0
+      ]
+    }
+  ],
+  "aversionAngles": [
+    {
+      "direction": "lu",
+      "yaw": -18.918,
+      "pitch": 11.302,
+      "n": 7252
+    },
+    {
+      "direction": "u",
+      "yaw": -1.025,
+      "pitch": 11.026,
+      "n": 4440
+    },
+    {
+      "direction": "ru",
+      "yaw": 24.451,
+      "pitch": 10.084,
+      "n": 6434
+    },
+    {
+      "direction": "l",
+      "yaw": -20.079,
+      "pitch": -1.572,
+      "n": 11571
+    },
+    {
+      "direction": "f",
+      "yaw": -0.892,
+      "pitch": -0.818,
+      "n": 8065
+    },
+    {
+      "direction": "r",
+      "yaw": 20.698,
+      "pitch": -1.153,
+      "n": 10719
+    },
+    {
+      "direction": "ld",
+      "yaw": -20.765,
+      "pitch": -13.484,
+      "n": 13910
+    },
+    {
+      "direction": "d",
+      "yaw": 0.143,
+      "pitch": -13.877,
+      "n": 10913
+    },
+    {
+      "direction": "rd",
+      "yaw": 19.933,
+      "pitch": -12.992,
+      "n": 13007
+    }
+  ],
+  "aversionInterval": {
+    "quantiles": [
+      0.0167,
+      0.0167,
+      0.0167,
+      0.0333,
+      0.0333,
+      0.05,
+      0.0667,
+      0.0833,
+      0.1,
+      0.1,
+      0.1167,
+      0.1167,
+      0.1333,
+      0.1333,
+      0.15,
+      0.1667,
+      0.1667,
+      0.1833,
+      0.2,
+      0.2,
+      0.2167,
+      0.2333,
+      0.25,
+      0.2667,
+      0.2833,
+      0.3,
+      0.3167,
+      0.3333,
+      0.3667,
+      0.3833,
+      0.4167,
+      0.45,
+      0.4833,
+      0.5333,
+      0.6,
+      0.65,
+      0.75,
+      0.8667,
+      1.0333,
+      1.35,
+      2.35
+    ],
+    "quantileMax": 0.99,
+    "n": 52542,
+    "empiricalMeanSeconds": 0.3609,
+    "empiricalMedianSeconds": 0.2167
+  }
+}

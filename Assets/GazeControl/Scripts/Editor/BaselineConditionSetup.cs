@@ -49,10 +49,11 @@ namespace GazeControl.Editor
             participantA.DefaultAddressee = participantB;
             participantB.DefaultAddressee = participantA;
 
-            ConfigureRunner(new[] { participantA, participantB, participantUser });
+            var participants = new[] { participantA, participantB, participantUser };
+            ConfigureRunner(participants);
 
             Undo.CollapseUndoOperations(undoGroup);
-            Debug.Log("Set Up Gaze Conditions: wired AgentA, AgentB and User to a GazeConditionRunner (condition: SpeakerFollowing).");
+            Debug.Log($"Set Up Gaze Conditions: wired AgentA, AgentB and User to a GazeConditionRunner on '{RunnerObjectName}'.");
         }
 
         static GazeParticipant ConfigureAgent(GameObject agent, int id, string displayName)
@@ -129,7 +130,21 @@ namespace GazeControl.Editor
             if (runner.Conversation == null)
                 Debug.LogWarning("Set Up Gaze Conditions: no TriadConversation found; its gaze control cannot be switched off automatically.");
 
+            // The director sits on the runner object rather than on the scripted
+            // conversation: it is experiment machinery, and keeping it here means
+            // the whole condition rig can be removed by deleting one object.
+            var director = GetOrAddComponent<ConversationDirector>(runnerObject);
+            director.Participants = participants;
+            runner.Director = director;
+
+            if (runner.Conversation != null)
+                runner.Conversation.Director = director;
+
+            EditorUtility.SetDirty(director);
             EditorUtility.SetDirty(runner);
+
+            if (runner.Conversation != null)
+                EditorUtility.SetDirty(runner.Conversation);
         }
 
         /// <summary>
