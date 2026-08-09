@@ -1,4 +1,5 @@
 using GazeControl.Conversation;
+using GazeControl.Experiment;
 using UnityEditor;
 using UnityEditor.Recorder;
 using UnityEditor.Recorder.Encoder;
@@ -58,10 +59,7 @@ namespace GazeControl.Editor
             if (s_Conversation == null)
                 s_Conversation = Object.FindFirstObjectByType<TriadConversation>();
 
-            var demoEnded = s_Conversation != null
-                            && s_Conversation.MotionPlayers is { Length: > 0 }
-                            && !s_Conversation.MotionPlayers[0].enabled;
-            if (s_StopAt < 0f && demoEnded)
+            if (s_StopAt < 0f && s_Conversation != null && s_Conversation.HasFinished)
                 s_StopAt = Time.time + k_TailSeconds;
 
             if (s_StopAt > 0f && Time.time >= s_StopAt)
@@ -86,7 +84,22 @@ namespace GazeControl.Editor
                 OutputWidth = 1920,
                 OutputHeight = 1080,
             };
-            movie.OutputFile = $"Recordings/GazeDemo_{System.DateTime.Now:yyyyMMdd_HHmmss}";
+            // Video and gaze log share one folder per take, so a recording is never
+            // separated from the log that explains it. The condition also goes in
+            // the file name: three takes shot minutes apart are otherwise told
+            // apart only by their timestamps.
+            var runner = Object.FindFirstObjectByType<GazeConditionRunner>();
+            var condition = runner != null ? runner.Condition.ToString() : "NoCondition";
+            var directory = runner != null
+                ? $"{runner.OutputDirectory}/{runner.CaseName}"
+                : "Recordings";
+
+            // Unity Recorder does not create missing intermediate folders, and a
+            // failed write only shows up as a silently absent file at the end.
+            System.IO.Directory.CreateDirectory(
+                System.IO.Path.Combine(Application.dataPath, "..", directory));
+
+            movie.OutputFile = $"{directory}/GazeDemo_{condition}_{System.DateTime.Now:yyyyMMdd_HHmmss}";
 
             var settings = ScriptableObject.CreateInstance<RecorderControllerSettings>();
             settings.AddRecorderSettings(movie);

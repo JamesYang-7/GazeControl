@@ -120,10 +120,13 @@ namespace GazeControl.Editor
             var runner = GetOrAddComponent<GazeConditionRunner>(runnerObject);
             runner.Participants = participants;
 
-            // "Logs" is Unity's own editor log folder; repair components wired
-            // before the default moved, so gaze CSVs do not land among them.
-            if (string.IsNullOrEmpty(runner.LogDirectory) || runner.LogDirectory == "Logs")
-                runner.LogDirectory = "GazeLogs";
+            // Repair components wired before the video and the gaze log were
+            // brought together under one folder per take.
+            if (string.IsNullOrEmpty(runner.OutputDirectory))
+                runner.OutputDirectory = "Recordings";
+
+            if (string.IsNullOrEmpty(runner.CaseName))
+                runner.CaseName = "case1_01";
 
             runner.Conversation = Object.FindAnyObjectByType<TriadConversation>();
 

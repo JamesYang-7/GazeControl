@@ -26,15 +26,6 @@ namespace GazeControl.Gaze.Policy
             return sum;
         }
 
-        static float LargestRetargetSample(ShintaniGazeParameters parameters, int steps)
-        {
-            var largest = 0f;
-            for (var i = 0; i < steps; i++)
-                largest = Math.Max(largest, parameters.SampleRetargetSeconds((float)i / (steps - 1)));
-
-            return largest;
-        }
-
         [Test]
         public void LoadDefault_FromResources_ReadsTheCorpusTurnWindow()
         {
@@ -91,15 +82,13 @@ namespace GazeControl.Gaze.Policy
         }
 
         [Test]
-        public void SampleRetargetSeconds_AcrossTheUnitInterval_StaysUnderTheCorpusTail()
+        public void RetargetSeconds_FromTheParameterFile_IsShintanisConstant()
         {
             var sut = CreateSystemUnderTest();
 
-            var actual = LargestRetargetSample(sut, steps: 1000);
-
-            // The table is cut at the 99th percentile of measured direction
-            // segments, so no draw may exceed it.
-            Assert.That(actual, Is.LessThanOrEqualTo(2.4f));
+            // The corpus's own 0.217 s segment median is deliberately not used —
+            // it makes the eyes dart. See the property's documentation.
+            Assert.That(sut.RetargetSeconds, Is.EqualTo(0.7f).Within(0.001f));
         }
 
         [Test]

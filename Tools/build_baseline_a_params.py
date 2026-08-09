@@ -22,10 +22,15 @@ Three departures from the paper, each forced by what the corpus actually shows
 * Target selection uses the corpus transition matrix's jump chain, not i.i.d.
   draws from ``S``. Sampling i.i.d. would put person->person shifts at 0.35
   where we measure 0.10.
-* The aversion re-target interval is sampled from an empirical quantile table
-  rather than a fitted law. Direction segments are clipped by the ends of their
-  aversion, so a sixth of them fall below the corpus's 0.1 s fixation floor and
-  the tail reaches 16 s; no two-parameter law covers both ends usefully.
+The aversion re-target interval is the one place we keep the paper's constant
+over our own measurement. Sampling the corpus's direction-segment distribution
+(median 0.217 s) makes the eyes visibly dart: a four-second aversion picks up
+thirteen direction changes. Those segments come from a head-mounted eye tracker
+and include movements below what an annotator would call a gaze shift, they are
+clipped by the ends of their aversion, and the corpus's own unbiased estimator
+puts the period at 0.939 s -- so 0.217 s is the doubtful number, and Shintani's
+0.7 s constant sits inside the corpus's own 0.6-0.94 s range. The measured
+statistics are still emitted, as provenance for that choice.
 """
 
 from __future__ import annotations
@@ -63,11 +68,12 @@ MIN_DWELL_SECONDS = 0.1
 MAX_DWELL_SECONDS = 8.0
 # Corpus `turn_state` is `changing` within +/-1 s of the nearest turn instant.
 TURN_WINDOW_SECONDS = 1.0
-# Quantile resolution of the empirical re-target interval table, and the top
-# quantile it spans. The last 1% of segments run from 2.4 s to 16.6 s; letting
-# the table reach the maximum would smear that whole range over its top bin.
-QUANTILE_STEPS = 41
-QUANTILE_MAX = 0.99
+# Shintani et al.'s re-targeting period: the eyes pick a new direction this often
+# while gaze is averted. See the module docstring for why the paper's constant is
+# used here rather than the corpus's own segment distribution.
+RETARGET_SECONDS = 0.7
+# The corpus README's unbiased estimate of the same quantity, for the record.
+CORPUS_RETARGET_ESTIMATE_SECONDS = 0.939
 
 
 def read_npy(raw: bytes):
@@ -243,20 +249,17 @@ def load_aversion_geometry() -> tuple[list[dict], dict]:
         "n": len(azimuths[direction]),
     } for direction in DIRECTIONS]
 
-    segments.sort()
-    quantiles = [
-        round(segments[int(round(i / (QUANTILE_STEPS - 1) * QUANTILE_MAX * (len(segments) - 1)))], 4)
-        for i in range(QUANTILE_STEPS)
-    ]
-    interval = {
-        "quantiles": quantiles,
-        "quantileMax": QUANTILE_MAX,
-        "n": len(segments),
-        "empiricalMeanSeconds": round(statistics.fmean(segments), 4),
-        "empiricalMedianSeconds": round(statistics.median(segments), 4),
+    retarget = {
+        "seconds": RETARGET_SECONDS,
+        "source": "Shintani et al. 2024 constant",
+        "corpusSegmentCount": len(segments),
+        "corpusSegmentMeanSeconds": round(statistics.fmean(segments), 4),
+        "corpusSegmentMedianSeconds": round(statistics.median(segments), 4),
+        "corpusUnbiasedEstimateSeconds": CORPUS_RETARGET_ESTIMATE_SECONDS,
+        "note": "Segment statistics are provenance only; the sampler uses 'seconds'.",
     }
 
-    return angles, interval
+    return angles, retarget
 
 
 def main() -> None:
@@ -264,14 +267,14 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=OUTPUT)
     args = parser.parse_args()
 
-    angles, interval = load_aversion_geometry()
+    angles, retarget = load_aversion_geometry()
     document = {
         "meta": {
             "model": "Shintani et al. 2024, re-estimated on our three-party EoT corpus",
             "source": "Research/corpora (git-ignored); regenerate with Tools/build_baseline_a_params.py",
             "corpus": "gaze_events_md6.csv - 120,765 fixations, 38 sessions, 60 fps",
             "durationLaw": "lognormal on log-seconds; chi-square (the paper's Eq 9) has no interior mode on this data",
-            "retargetLaw": "empirical quantiles of un-clipped direction segments, spanning p0..p99",
+            "retargetLaw": "Shintani's 0.7 s constant; the corpus's 0.217 s segment median reads as darting",
             "states": STATES,
             "directions": DIRECTIONS,
         },
@@ -284,7 +287,7 @@ def main() -> None:
         "aversionDirections": load_aversion_directions(),
         "aversionConditional": load_aversion_conditional(),
         "aversionAngles": angles,
-        "aversionInterval": interval,
+        "aversionRetarget": retarget,
     }
 
     args.output.parent.mkdir(parents=True, exist_ok=True)

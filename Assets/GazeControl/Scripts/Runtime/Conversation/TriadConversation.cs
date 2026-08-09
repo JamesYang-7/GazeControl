@@ -1,5 +1,4 @@
 using System;
-using System.Threading;
 using GazeControl.Gaze;
 using GazeControl.Motion;
 using GazeControl.TTS;
@@ -8,14 +7,15 @@ using UnityEngine;
 namespace GazeControl.Conversation
 {
     /// <summary>
-    /// Scripted first demo: agent A asks a question, agent B answers, and the
-    /// body animation freezes when B finishes. Both utterances are generated
-    /// before A starts so there is no TTS delay between the turns.
+    /// Scripted first demo: agent A asks a question, agent B answers, and the body
+    /// animation freezes when B finishes. Both utterances are generated before A
+    /// starts so there is no TTS delay between the turns.
     ///
-    /// Gaze follows a selectable turn-taking prototype from the ICMI paper
-    /// (<see cref="GazePatterns"/>, transcribed from the raw data), played in the
-    /// last second of A's turn with both agents' role tracks running in parallel,
-    /// optionally stretched by <see cref="PatternTimeScale"/> for visibility.
+    /// This drives speech and turn timing only — gaze belongs entirely to the
+    /// experimental condition's policy. It publishes each turn to a
+    /// <see cref="ConversationDirector"/> so a policy can see a boundary coming;
+    /// with no director wired, the demo still runs, just without a schedule for
+    /// anyone to read.
     /// </summary>
     public class TriadConversation : MonoBehaviour
     {
@@ -44,40 +44,19 @@ namespace GazeControl.Conversation
         public SmplxMotionPlayer[] MotionPlayers { get; set; }
 
         [field: SerializeField]
+        [field: Tooltip("Agent A's gaze actuator; identifies A as the speaker to the director")]
         public GazeController GazeA { get; set; }
 
         [field: SerializeField]
+        [field: Tooltip("Agent B's gaze actuator; identifies B as the speaker to the director")]
         public GazeController GazeB { get; set; }
 
         [field: SerializeField]
-        [field: Tooltip("Optional: user view playing the listener gaze track. Leave empty for a fixed camera that shows both agents.")]
-        public ListenerCamera ListenerView { get; set; }
-
-        [field: SerializeField]
-        [field: Tooltip("Optional: publishes this script's turn schedule to the gaze policies. Required by baseline A.")]
+        [field: Tooltip("Publishes this script's turn schedule to the gaze policies")]
         public ConversationDirector Director { get; set; }
 
-        [field: SerializeField]
-        [field: Tooltip("Pre-turn gaze window: the pattern runs in the last second of A's turn (paper uses 1 s windows)")]
-        public float PreTurnWindowSeconds { get; set; } = 1f;
-
-        [field: SerializeField]
-        [field: Tooltip("Stretch factor for the gaze pattern. 1 = data-faithful; raise to make fast segments easier to see.")]
-        public float PatternTimeScale { get; set; } = 1f;
-
-        public enum PreTurnPattern
-        {
-            DoubleGlance8d,
-            CheckAvertReengage7e,
-        }
-
-        [field: SerializeField]
-        [field: Tooltip("Which turn-taking prototype plays before the A→B hand-over")]
-        public PreTurnPattern Pattern { get; set; } = PreTurnPattern.CheckAvertReengage7e;
-
-        [field: SerializeField]
-        [field: Tooltip("Off when a baseline condition owns gaze: speech and turn timing still run, but gaze targets are left to the policy")]
-        public bool DriveGaze { get; set; } = true;
+        /// <summary>True once the answer has finished and the motion players are frozen.</summary>
+        public bool HasFinished { get; private set; }
 
         async Awaitable Start()
         {
@@ -88,69 +67,39 @@ namespace GazeControl.Conversation
                 var question = await SpeakerA.GenerateAsync(QuestionText);
                 var answer = await SpeakerB.GenerateAsync(AnswerText);
 
-                // Pre-turn roles (Fig. 8d): speaker A gaze None, next speaker B gaze
-                // None, listener (user camera) on the current speaker.
-                if (DriveGaze)
-                {
-                    GazeA.SetTarget(null);
-                    GazeB.SetTarget(null);
-                    if (ListenerView != null)
-                        ListenerView.SetTarget(GazeA.Head);
-                }
-
-                // End-of-turn is when the speaker stops talking, which can be before
-                // clip end (TTS clips carry trailing silence) — anchor to speech end.
-                var endOfTurn = SpeechEndSeconds(question);
-
-                SpeakerA.PlayClip(question);
-                if (Director != null)
-                    Director.BeginTurn(GazeA, endOfTurn);
-
-                // Play the selected turn-taking prototype in the last second of A's
-                // turn, straight from the raw data: both agents' tracks run in
-                // parallel and each holds its final gaze until the turn switch.
-                var pattern = Pattern == PreTurnPattern.DoubleGlance8d
-                    ? GazePatterns.TurnYieldingDoubleGlance
-                    : GazePatterns.CheckAvertReengage;
-                var windowStart = endOfTurn - PreTurnWindowSeconds * PatternTimeScale;
-                await Awaitable.WaitForSecondsAsync(Mathf.Max(0f, windowStart), ct);
-                await Awaitable.WaitForSecondsAsync(pattern.WindowOffsetSeconds * PatternTimeScale, ct);
-                var trackA = PlayTrack(GazeA, pattern.CurrentSpeakerTrack, ct);
-                var trackB = PlayTrack(GazeB, pattern.NextSpeakerTrack, ct);
-                await trackA;
-                await trackB;
-                await WaitWhileSpeaking(SpeakerA, ct);
-
+                await PlayTurnAsync(SpeakerA, GazeA, question);
                 await Awaitable.WaitForSecondsAsync(TurnGapSeconds, ct);
-
-                // Turn switch: user (listener) moves to the new speaker; A now
-                // listens and looks at B.
-                if (DriveGaze)
-                {
-                    if (ListenerView != null)
-                        ListenerView.SetTarget(GazeB.Head);
-                    GazeA.SetTarget(GazeB.Head);
-                }
-
-                SpeakerB.PlayClip(answer);
-                if (Director != null)
-                    Director.BeginTurn(GazeB, SpeechEndSeconds(answer));
-
-                // The 7e prototype ends with the new speaker's gaze averted at turn
-                // onset; engaging the addressee shortly after is a heuristic bridge
-                // beyond the 1 s data window.
-                await Awaitable.WaitForSecondsAsync(0.8f, ct);
-                if (DriveGaze)
-                    GazeB.SetTarget(GazeA.Head);
-                await WaitWhileSpeaking(SpeakerB, ct);
+                await PlayTurnAsync(SpeakerB, GazeB, answer);
 
                 foreach (var player in MotionPlayers)
                     player.enabled = false; // freezes the skeleton at the current pose
+
+                HasFinished = true;
             }
             catch (OperationCanceledException)
             {
                 // play mode ended / object destroyed mid-conversation; nothing to clean up
             }
+        }
+
+        /// <summary>
+        /// Speak one utterance, announcing its end to the director *before* it is
+        /// audible: the pre-turn gaze has to begin before the utterance ends, so
+        /// the schedule cannot be published reactively (§5.4).
+        /// </summary>
+        async Awaitable PlayTurnAsync(TtsSpeaker speaker, GazeController gaze, AudioClip clip)
+        {
+            // End-of-turn is when the speaker stops talking, which can be before
+            // clip end (TTS clips carry trailing silence) — anchor to speech end.
+            var speechSeconds = SpeechEndSeconds(clip);
+
+            speaker.PlayClip(clip);
+
+            if (Director != null)
+                Director.BeginTurn(gaze, speechSeconds);
+
+            while (speaker.IsSpeaking)
+                await Awaitable.NextFrameAsync(destroyCancellationToken);
         }
 
         /// <summary>Time of the last non-silent sample — the end-of-turn anchor for the gaze window.</summary>
@@ -165,36 +114,6 @@ namespace GazeControl.Conversation
                     return (float)(i + 1) / (clip.frequency * clip.channels);
             }
             return clip.length;
-        }
-
-        /// <summary>
-        /// Play one role's (duration, target) track on an agent, holding the final
-        /// target. When <see cref="DriveGaze"/> is off the timing still runs but no
-        /// target is set, so the turn sequence is identical across conditions.
-        /// </summary>
-        async Awaitable PlayTrack(GazeController gaze, (float seconds, GazeRole target)[] track, CancellationToken ct)
-        {
-            foreach (var (seconds, target) in track)
-            {
-                if (DriveGaze)
-                    gaze.SetTarget(ResolveRole(target));
-                await Awaitable.WaitForSecondsAsync(seconds * PatternTimeScale, ct);
-            }
-        }
-
-        /// <summary>Role → transform mapping for the A→B hand-over (A = current speaker, B = next speaker, user = listener).</summary>
-        Transform ResolveRole(GazeRole role) => role switch
-        {
-            GazeRole.CurrentSpeaker => GazeA.Head,
-            GazeRole.NextSpeaker => GazeB.Head,
-            GazeRole.Listener => Camera.main != null ? Camera.main.transform : null,
-            _ => null,
-        };
-
-        static async Awaitable WaitWhileSpeaking(TtsSpeaker speaker, CancellationToken ct)
-        {
-            while (speaker.IsSpeaking)
-                await Awaitable.NextFrameAsync(ct);
         }
     }
 }

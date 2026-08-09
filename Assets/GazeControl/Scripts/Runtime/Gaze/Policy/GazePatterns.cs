@@ -1,4 +1,4 @@
-namespace GazeControl.Gaze
+namespace GazeControl.Gaze.Policy
 {
     /// <summary>Gaze target categories used by the collected patterns (conversational roles).</summary>
     public enum GazeRole
@@ -7,6 +7,13 @@ namespace GazeControl.Gaze
         CurrentSpeaker,
         NextSpeaker,
         Listener,
+    }
+
+    /// <summary>Which pre-turn prototype the proposed condition plays.</summary>
+    public enum PreTurnPattern
+    {
+        DoubleGlance8d,
+        CheckAvertReengage7e,
     }
 
     /// <summary>
@@ -35,6 +42,12 @@ namespace GazeControl.Gaze
     public static class GazePatterns
     {
         const float Frame = 1f / 60f;
+
+        public static GazePattern Of(PreTurnPattern pattern) => pattern switch
+        {
+            PreTurnPattern.DoubleGlance8d => TurnYieldingDoubleGlance,
+            _ => CheckAvertReengage,
+        };
 
         /// <summary>
         /// Fig. 8d (p3_ks40_4, turn-taking): the current speaker micro-glances at the

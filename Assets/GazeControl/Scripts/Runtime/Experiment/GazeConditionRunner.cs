@@ -30,7 +30,7 @@ namespace GazeControl.Experiment
             /// <summary>Baseline A (§2): the role-conditioned Shintani et al. sampler, fitted to our corpus.</summary>
             RoleConditioned,
 
-            /// <summary>The paper's gaze patterns; still played by <see cref="TriadConversation"/> itself.</summary>
+            /// <summary>The paper's pre-turn patterns, played over a Baseline A substrate.</summary>
             Proposed,
         }
 
@@ -58,6 +58,10 @@ namespace GazeControl.Experiment
         [field: SerializeField]
         [field: Tooltip("Baseline B hysteresis thresholds")]
         public SpeakerFollowingSettings SpeakerFollowing { get; set; } = new();
+
+        [field: SerializeField]
+        [field: Tooltip("Proposed condition: which pre-turn prototype plays, and its window")]
+        public ProposedSettings Proposed { get; set; } = new();
 
         [field: SerializeField]
         [field: Tooltip("RMS above which a voice window counts as voiced")]
@@ -89,8 +93,22 @@ namespace GazeControl.Experiment
         public bool LogVoiceActivity { get; set; }
 
         [field: SerializeField]
-        [field: Tooltip("Log directory, relative to the project root")]
-        public string LogDirectory { get; set; } = "GazeLogs";
+        [field: Tooltip("Output root for this run's video and gaze log, relative to the project root")]
+        public string OutputDirectory { get; set; } = "Recordings";
+
+        /// <summary>
+        /// Names the folder that one demo's artefacts land in — the three
+        /// condition videos and the gaze log that goes with each. Bump it per
+        /// take, e.g. case1_01 → case1_02, so a video is never separated from the
+        /// log that explains it.
+        /// </summary>
+        [field: SerializeField]
+        [field: Tooltip("Folder for this demo's artefacts, e.g. case1_01. Bump per take.")]
+        public string CaseName { get; set; } = "case1_01";
+
+        /// <summary>Where this run's video and gaze log are written, absolute.</summary>
+        public string TakeDirectory => System.IO.Path.Combine(
+            Application.dataPath, "..", OutputDirectory, CaseName);
 
         const float VoiceReportInterval = 5f;
 
@@ -137,18 +155,16 @@ namespace GazeControl.Experiment
             _targets = new GazeTarget[_agents.Length];
             _previousGazeDirections = new Vector3[_agents.Length];
 
+            // One policy instance per agent, each with its own seed and no view of
+            // the other's target: uncoordinated gaze is the property under study,
+            // so sharing a policy would quietly destroy it (§0.3, §5.1).
             for (var i = 0; i < _agents.Length; i++)
             {
                 _seeds[i] = SeedFor(_agents[i]);
                 _policies[i] = CreatePolicy();
-                _policies[i]?.Reset(_seeds[i]);
+                _policies[i].Reset(_seeds[i]);
                 _targets[i] = GazeTarget.AtPerson(FindHuman().ParticipantId);
             }
-
-            // The scripted pattern playback and a baseline policy would fight over
-            // the same gaze targets, so only one of them may drive at a time.
-            if (Conversation != null)
-                Conversation.DriveGaze = Condition == GazeCondition.Proposed;
 
             if (LoggingEnabled)
                 OpenLog();
@@ -192,16 +208,17 @@ namespace GazeControl.Experiment
                     ReportVoiceActivity(Participants[i], _rawVoiced[Participants[i].Id]);
             }
 
+            // The demo freezes the motion players when the answer ends. Re-deciding
+            // gaze past that point leaves the gaze layer as the only thing moving
+            // on a still skeleton, which reads as the agent twitching rather than
+            // as the demo having ended. Hold the last target instead.
+            if (Conversation != null && Conversation.HasFinished)
+                return;
+
             var turn = CurrentTurn();
 
             for (var i = 0; i < _agents.Length; i++)
             {
-                if (_policies[i] == null)
-                {
-                    _targets[i] = ObserveTarget(_agents[i]);
-                    continue;
-                }
-
                 var state = BuildState(_agents[i], turn);
                 _targets[i] = _policies[i].Update(deltaTime, in state);
                 Apply(_agents[i], _targets[i]);
@@ -285,28 +302,41 @@ namespace GazeControl.Experiment
                     new SpeakerFollowingGazePolicy(SpeakerFollowing, _voiceActivity, human.ParticipantId),
                 GazeCondition.RoleConditioned =>
                     new ShintaniGazePolicy(_roleConditionedParameters, human.ParticipantId),
-                GazeCondition.Proposed => null,
+
+                // Baseline B is the substrate, so outside the pre-turn window this
+                // condition is bit-for-bit the speaker-following baseline and the
+                // pairwise contrast isolates the pattern (user's call 2026-08-09).
+                GazeCondition.Proposed =>
+                    new ProposedGazePolicy(
+                        new SpeakerFollowingGazePolicy(SpeakerFollowing, _voiceActivity, human.ParticipantId),
+                        Proposed),
                 _ => throw new NotImplementedException($"Condition {Condition} is not implemented."),
             };
         }
 
         /// <summary>
         /// Load whatever the selected condition needs before any policy is built.
-        /// Baseline A is refused rather than degraded when its inputs are missing:
-        /// without the scripted schedule every fixation would be coded as if it
-        /// were far from a turn boundary, which silently produces a plausible but
-        /// wrong condition.
+        /// Both schedule-driven conditions are refused rather than degraded when
+        /// the director is missing: baseline A would code every fixation as if it
+        /// were far from a turn boundary, and the proposed condition's window
+        /// would never open at all — each silently produces a plausible but wrong
+        /// trial.
         /// </summary>
         bool TryPrepareCondition()
         {
-            if (Condition != GazeCondition.RoleConditioned)
+            if (Condition == GazeCondition.SpeakerFollowing)
                 return true;
 
             if (Director == null)
             {
-                Debug.LogError($"{name}: the RoleConditioned condition needs a ConversationDirector to know when turns end.", this);
+                Debug.LogError($"{name}: the {Condition} condition needs a ConversationDirector to know when turns end.", this);
                 return false;
             }
+
+            // Only baseline A reads the corpus model now; the proposed condition
+            // runs on baseline B's substrate and needs no fitted parameters.
+            if (Condition != GazeCondition.RoleConditioned)
+                return true;
 
             try
             {
@@ -314,35 +344,11 @@ namespace GazeControl.Experiment
             }
             catch (Exception e)
             {
-                Debug.LogError($"{name}: could not load the RoleConditioned parameters: {e.Message}", this);
+                Debug.LogError($"{name}: could not load the gaze model parameters: {e.Message}", this);
                 return false;
             }
 
             return true;
-        }
-
-        /// <summary>
-        /// Read back what the gaze controller was actually told to look at, for
-        /// conditions the runner does not drive. The scripted pattern's "None"
-        /// recentres the eyes rather than choosing an aversion direction, so it is
-        /// logged as an aversion with no offset.
-        /// </summary>
-        GazeTarget ObserveTarget(GazeParticipant agent)
-        {
-            if (agent.Gaze.Mode == GazeController.GazeMode.Aversion)
-                return GazeTarget.Away(agent.Gaze.AversionOffset);
-
-            var target = agent.Gaze.Target;
-            if (target == null)
-                return GazeTarget.Away(Vector2.zero);
-
-            for (var i = 0; i < Participants.Length; i++)
-            {
-                if (Participants[i].LookAtAnchor == target)
-                    return GazeTarget.AtPerson(Participants[i].ParticipantId);
-            }
-
-            return GazeTarget.Away(Vector2.zero);
         }
 
         async Awaitable LogEveryFrameAsync(CancellationToken cancellationToken)
@@ -646,11 +652,10 @@ namespace GazeControl.Experiment
         void OpenLog()
         {
             var stem = $"{StudyParticipantId}_{Condition}_{DateTime.Now:yyyyMMdd_HHmmss}";
-            var directory = System.IO.Path.Combine(Application.dataPath, "..", LogDirectory);
 
             try
             {
-                _log = new GazeLogWriter(directory, stem);
+                _log = new GazeLogWriter(TakeDirectory, stem);
                 _log.WriteMetadata(BuildMetadataJson());
                 Debug.Log($"{name}: gaze log -> {_log.CsvPath}", this);
             }
@@ -668,6 +673,7 @@ namespace GazeControl.Experiment
 
             json.Append("{\n");
             json.Append($"  \"study_participant\": \"{StudyParticipantId}\",\n");
+            json.Append($"  \"case\": \"{CaseName}\",\n");
             json.Append($"  \"condition\": \"{Condition}\",\n");
             json.Append($"  \"base_seed\": {BaseSeed.ToString(c)},\n");
             json.Append($"  \"decision_hz\": {DecisionHz.ToString("0.##", c)},\n");
@@ -682,11 +688,21 @@ namespace GazeControl.Experiment
 
             if (_roleConditionedParameters != null)
             {
-                json.Append("  \"role_conditioned\": {\n");
+                json.Append("  \"gaze_model\": {\n");
                 json.Append("    \"parameters\": \"Resources/BaselineAParameters.json\",\n");
                 json.Append($"    \"min_dwell_s\": {_roleConditionedParameters.MinDwellSeconds.ToString("0.###", c)},\n");
                 json.Append($"    \"max_dwell_s\": {_roleConditionedParameters.MaxDwellSeconds.ToString("0.###", c)},\n");
                 json.Append($"    \"turn_window_s\": {_roleConditionedParameters.TurnWindowSeconds.ToString("0.###", c)}\n");
+                json.Append("  },\n");
+            }
+
+            if (Condition == GazeCondition.Proposed)
+            {
+                json.Append("  \"proposed\": {\n");
+                json.Append("    \"substrate\": \"SpeakerFollowing\",\n");
+                json.Append($"    \"pattern\": \"{GazePatterns.Of(Proposed.Pattern).Name}\",\n");
+                json.Append($"    \"pre_turn_window_s\": {Proposed.PreTurnWindowSeconds.ToString("0.###", c)},\n");
+                json.Append($"    \"pattern_time_scale\": {Proposed.PatternTimeScale.ToString("0.###", c)}\n");
                 json.Append("  },\n");
             }
 

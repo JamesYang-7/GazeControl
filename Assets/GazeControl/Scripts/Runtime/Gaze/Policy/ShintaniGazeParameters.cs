@@ -31,7 +31,6 @@ namespace GazeControl.Gaze.Policy
         readonly float[][] _directionMarginals = new float[RoleCount][];
         readonly float[][] _directionConditionals = new float[DirectionCount][];
         readonly Vector2[] _directionAngles = new Vector2[DirectionCount];
-        float[] _retargetQuantiles;
 
         ShintaniGazeParameters()
         {
@@ -45,6 +44,18 @@ namespace GazeControl.Gaze.Policy
 
         /// <summary>Distance to the nearest turn instant within which the corpus labels gaze "changing".</summary>
         public float TurnWindowSeconds { get; private set; }
+
+        /// <summary>
+        /// How often the eyes pick a new direction while gaze is averted.
+        ///
+        /// The one quantity taken from the paper rather than from our corpus.
+        /// Sampling the measured direction-segment distribution (median 0.217 s)
+        /// made a four-second aversion pick up thirteen direction changes, which
+        /// reads as darting; those segments come from an eye tracker and include
+        /// movement below what an annotator would call a gaze shift. The corpus's
+        /// own unbiased estimator says 0.939 s, so 0.7 s sits inside its range.
+        /// </summary>
+        public float RetargetSeconds { get; private set; }
 
         /// <summary>Load the committed parameter file from <c>Resources</c>.</summary>
         public static ShintaniGazeParameters LoadDefault()
@@ -98,18 +109,6 @@ namespace GazeControl.Gaze.Policy
         /// <summary>Measured eye-in-head yaw/pitch in degrees for a direction category.</summary>
         public Vector2 AversionAngles(AversionDirection direction) => _directionAngles[(int)direction];
 
-        /// <summary>
-        /// Inverse-CDF draw of the interval before the eyes re-target within an
-        /// aversion, from the empirical quantile table.
-        /// </summary>
-        /// <param name="uniform">A uniform sample in [0, 1).</param>
-        public float SampleRetargetSeconds(float uniform)
-        {
-            var position = Mathf.Clamp01(uniform) * (_retargetQuantiles.Length - 1);
-            var lower = Mathf.Min((int)position, _retargetQuantiles.Length - 2);
-            return Mathf.Lerp(_retargetQuantiles[lower], _retargetQuantiles[lower + 1], position - lower);
-        }
-
         void Fill(Document document)
         {
             RequireSection(document.targetRatios, nameof(document.targetRatios));
@@ -143,9 +142,9 @@ namespace GazeControl.Gaze.Policy
             foreach (var entry in document.aversionAngles)
                 _directionAngles[(int)ParseDirection(entry.direction)] = new Vector2(entry.yaw, entry.pitch);
 
-            _retargetQuantiles = document.aversionInterval?.quantiles;
-            if (_retargetQuantiles is not { Length: >= 2 })
-                throw new ArgumentException("Baseline A parameters: 'aversionInterval.quantiles' needs at least two entries.");
+            RetargetSeconds = document.aversionRetarget?.seconds ?? 0f;
+            if (RetargetSeconds <= 0f)
+                throw new ArgumentException("Baseline A parameters: 'aversionRetarget.seconds' must be positive.");
 
             Validate();
         }
@@ -264,7 +263,7 @@ namespace GazeControl.Gaze.Policy
             public DirectionWeightEntry[] aversionDirections;
             public ConditionalWeightEntry[] aversionConditional;
             public DirectionAngleEntry[] aversionAngles;
-            public IntervalEntry aversionInterval;
+            public RetargetEntry aversionRetarget;
         }
 
         [Serializable]
@@ -316,9 +315,9 @@ namespace GazeControl.Gaze.Policy
         }
 
         [Serializable]
-        sealed class IntervalEntry
+        sealed class RetargetEntry
         {
-            public float[] quantiles;
+            public float seconds;
         }
     }
 }

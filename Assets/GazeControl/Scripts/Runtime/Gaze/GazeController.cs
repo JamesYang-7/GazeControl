@@ -46,10 +46,22 @@ namespace GazeControl.Gaze
         [field: Tooltip("Max eye pitch away from the head's forward direction; smaller than yaw, as in humans")]
         public float MaxEyePitch { get; set; } = 25f;
 
+        /// <summary>
+        /// Fraction of the way the head turns toward a person being gazed at.
+        ///
+        /// Zero by design: the body animation is mocap loaded from file, and a
+        /// synthesised head turn layered on top both fights that data and, once
+        /// the mocap freezes at the end of the demo, becomes the only thing moving
+        /// — at 0.5 it swung the head ±23° every half second on a still skeleton.
+        /// The cost of zero is that the eyes alone must cover the gaze angle, so
+        /// when the mocap turns the head away from a partner the clamp is reached
+        /// and gaze visibly falls short. That is accepted: the loaded animation is
+        /// ground truth, and the shortfall is identical in every condition.
+        /// </summary>
         [field: SerializeField]
         [field: Range(0f, 1f)]
-        [field: Tooltip("How much the head turns toward a person being gazed at (0 = eyes only)")]
-        public float HeadContribution { get; set; } = 0.5f;
+        [field: Tooltip("How much the head turns toward a person being gazed at. 0 = eyes only, head stays on pure mocap.")]
+        public float HeadContribution { get; set; }
 
         [field: SerializeField]
         [field: Tooltip("Smoothing rate of the head contribution weight, 1/s")]

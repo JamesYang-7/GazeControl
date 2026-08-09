@@ -37,6 +37,7 @@ namespace GazeControl.Gaze.Policy
 
         readonly ShintaniGazeParameters _parameters;
         readonly DeterministicRandom _random = new(0);
+        readonly AversionSampler _aversion;
         readonly ParticipantId _fallbackTarget;
 
         ParticipantId _speaker;
@@ -47,10 +48,6 @@ namespace GazeControl.Gaze.Policy
         ParticipantId _target;
         bool _averting;
         float _dwellRemaining;
-
-        AversionDirection _direction;
-        float _directionRemaining;
-
         bool _sampling;
 
         /// <param name="parameters">Fitted model, normally <see cref="ShintaniGazeParameters.LoadDefault"/>.</param>
@@ -66,15 +63,13 @@ namespace GazeControl.Gaze.Policy
             if (!fallbackTarget.IsValid)
                 throw new ArgumentException("Fallback target must be a real participant.", nameof(fallbackTarget));
 
+            _aversion = new AversionSampler(parameters, _random);
             _fallbackTarget = fallbackTarget;
             Reset(0);
         }
 
         /// <summary>What the agent is looking at now, in the corpus's role coding.</summary>
         public GazeTargetRole State => _averting ? GazeTargetRole.Aversion : RoleOfTarget();
-
-        /// <summary>Eyeball direction category; meaningful only while <see cref="State"/> is aversion.</summary>
-        public AversionDirection Direction => _direction;
 
         /// <inheritdoc/>
         public void Reset(int seed)
@@ -89,9 +84,8 @@ namespace GazeControl.Gaze.Policy
             _target = _fallbackTarget;
             _averting = false;
             _dwellRemaining = 0f;
-            _direction = AversionDirection.Forward;
-            _directionRemaining = 0f;
             _sampling = false;
+            _aversion.Reset();
         }
 
         /// <inheritdoc/>
@@ -120,11 +114,7 @@ namespace GazeControl.Gaze.Policy
             }
 
             if (_averting)
-            {
-                _directionRemaining -= deltaTime;
-                if (_directionRemaining <= 0f)
-                    RetargetAversion();
-            }
+                _aversion.Tick(deltaTime);
 
             return CurrentTarget();
         }
@@ -204,20 +194,12 @@ namespace GazeControl.Gaze.Policy
             if (next == GazeTargetRole.Aversion)
             {
                 _averting = true;
-                _direction = (AversionDirection)_random.NextCategorical(_parameters.AversionDirectionWeights(role));
-                _directionRemaining = _parameters.SampleRetargetSeconds(_random.NextFloat());
+                _aversion.Begin(role);
                 return;
             }
 
             _averting = false;
             _target = PersonInRole(next);
-        }
-
-        /// <summary>Move the eyeballs to another direction without ending the aversion.</summary>
-        void RetargetAversion()
-        {
-            _direction = (AversionDirection)_random.NextCategorical(_parameters.AversionDirectionWeights(_direction));
-            _directionRemaining = _parameters.SampleRetargetSeconds(_random.NextFloat());
         }
 
         float SampleDwell(ParticipantRole role, TurnState turnState, GazeTargetRole target)
@@ -258,7 +240,7 @@ namespace GazeControl.Gaze.Policy
         };
 
         GazeTarget CurrentTarget() => _averting
-            ? GazeTarget.Away(_parameters.AversionAngles(_direction))
+            ? GazeTarget.Away(_aversion.Offset)
             : GazeTarget.AtPerson(_target);
     }
 }

@@ -668,12 +668,7 @@ MonoBehaviour:
   - {fileID: 1579353671}
   <GazeA>k__BackingField: {fileID: 672148329}
   <GazeB>k__BackingField: {fileID: 1579353672}
-  <ListenerView>k__BackingField: {fileID: 0}
   <Director>k__BackingField: {fileID: 696636976}
-  <PreTurnWindowSeconds>k__BackingField: 1
-  <PatternTimeScale>k__BackingField: 1
-  <Pattern>k__BackingField: 1
-  <DriveGaze>k__BackingField: 1
 --- !u!4 &644306068
 Transform:
   m_ObjectHideFlags: 0
@@ -755,7 +750,7 @@ MonoBehaviour:
   <EyeDegreesPerSecond>k__BackingField: 600
   <MaxEyeYaw>k__BackingField: 35
   <MaxEyePitch>k__BackingField: 25
-  <HeadContribution>k__BackingField: 0.5
+  <HeadContribution>k__BackingField: 0
   <HeadBlendSpeed>k__BackingField: 3
 --- !u!114 &672148330
 MonoBehaviour:
@@ -819,6 +814,10 @@ MonoBehaviour:
     <OffsetSeconds>k__BackingField: 0.5
     <BackchannelSeconds>k__BackingField: 0.6
     <MinimumDwellSeconds>k__BackingField: 0.7
+  <Proposed>k__BackingField:
+    <Pattern>k__BackingField: 1
+    <PreTurnWindowSeconds>k__BackingField: 1
+    <PatternTimeScale>k__BackingField: 1
   <VoiceRmsThreshold>k__BackingField: 0.01
   <MutualGazeAngleDegrees>k__BackingField: 15
   <ShiftAngularSpeed>k__BackingField: 20
@@ -826,7 +825,8 @@ MonoBehaviour:
   <BaseSeed>k__BackingField: 1
   <LoggingEnabled>k__BackingField: 1
   <LogVoiceActivity>k__BackingField: 0
-  <LogDirectory>k__BackingField: GazeLogs
+  <OutputDirectory>k__BackingField: Recordings
+  <CaseName>k__BackingField: case1_01
 --- !u!4 &696636975
 Transform:
   m_ObjectHideFlags: 0
@@ -1491,7 +1491,7 @@ MonoBehaviour:
   <EyeDegreesPerSecond>k__BackingField: 600
   <MaxEyeYaw>k__BackingField: 35
   <MaxEyePitch>k__BackingField: 25
-  <HeadContribution>k__BackingField: 0.5
+  <HeadContribution>k__BackingField: 0
   <HeadBlendSpeed>k__BackingField: 3
 --- !u!114 &1579353673
 MonoBehaviour:
