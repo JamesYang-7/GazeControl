@@ -809,7 +809,7 @@ MonoBehaviour:
   <LoggingEnabled>k__BackingField: 1
   <LogVoiceActivity>k__BackingField: 0
   <OutputDirectory>k__BackingField: Recordings
-  <CaseName>k__BackingField: case1_seg02_01
+  <CaseName>k__BackingField: case1_seg02_02
 --- !u!4 &696636975
 Transform:
   m_ObjectHideFlags: 0
