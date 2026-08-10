@@ -8,6 +8,20 @@ namespace GazeControl.Gaze.Policy
     /// paper's measured pre-turn prototypes for the last second of a turn, and
     /// takes it back at the boundary.
     ///
+    /// Each boundary gets its own prototype, drawn from the pool the paper
+    /// measured on boundaries of that class — an interruption is preceded by an
+    /// interruption prototype, never by a turn-taking one. The recorded
+    /// conversation supplies both the boundaries and their classes, so this is
+    /// the corpus's own annotation deciding which pattern plays.
+    ///
+    /// The draw is a hash of the run's pattern seed and the event's index, not a
+    /// running random stream. Two things follow, and both are needed: the two
+    /// agents pick the *same* prototype for a boundary even though they hold
+    /// separate policy instances with separate seeds — otherwise one would play
+    /// the current-speaker track of one prototype against the next-speaker track
+    /// of another — and the choice does not depend on how many ticks have gone
+    /// by, so it survives a change of decision rate.
+    ///
     /// The substrate is **Baseline B** (speaker-following), by the user's call of
     /// 2026-08-09. That reverses the 2026-07-27 decision to build on Baseline A,
     /// and it changes what each pairwise comparison means: against baseline B the
@@ -15,12 +29,10 @@ namespace GazeControl.Gaze.Policy
     /// the pattern exactly; against baseline A it is now a comparison of two whole
     /// gaze models. Report the pairings accordingly.
     ///
-    /// Two things fall out of the choice. Baseline B never averts (§3) and the
-    /// prototypes' "None" recentres the eyes, so this condition has no directional
-    /// aversion anywhere — consistent within itself, unlike the mixed rendering
-    /// the Baseline A substrate produced. And because baseline B carries no random
-    /// stream, the condition is fully deterministic: one recording is the
-    /// condition, not one draw from it.
+    /// Baseline B never averts (§3) and the prototypes' "None" recentres the
+    /// eyes, so this condition has no directional aversion anywhere — consistent
+    /// within itself, unlike the mixed rendering the Baseline A substrate
+    /// produced.
     ///
     /// The substrate is ticked on every call, including while the pattern is
     /// overriding it, so its hysteresis clocks follow the same trajectory whether
@@ -29,36 +41,36 @@ namespace GazeControl.Gaze.Policy
     /// </summary>
     public sealed class ProposedGazePolicy : IGazePolicy
     {
-        readonly GazePattern _pattern;
-        readonly float _windowSeconds;
-        readonly float _timeScale;
+        readonly ProposedSettings _settings;
+        readonly int _patternSeed;
         readonly IGazePolicy _substrate;
 
         /// <param name="substrate">Drives gaze outside the pre-turn window; baseline B in the study.</param>
-        /// <param name="settings">Which prototype to play, and the window it plays in.</param>
-        public ProposedGazePolicy(IGazePolicy substrate, ProposedSettings settings)
+        /// <param name="settings">How prototypes are chosen, and the window they play in.</param>
+        /// <param name="patternSeed">
+        /// Seeds the per-boundary draw. Shared by both agents on purpose — it is
+        /// the run's seed, not the agent's.
+        /// </param>
+        public ProposedGazePolicy(IGazePolicy substrate, ProposedSettings settings, int patternSeed)
         {
-            if (settings == null)
-                throw new ArgumentNullException(nameof(settings));
-
+            _settings = settings ?? throw new ArgumentNullException(nameof(settings));
             _substrate = substrate ?? throw new ArgumentNullException(nameof(substrate));
-            _pattern = GazePatterns.Of(settings.Pattern);
-            _windowSeconds = settings.PreTurnWindowSeconds;
-            _timeScale = settings.PatternTimeScale;
+            _patternSeed = patternSeed;
             Reset(0);
         }
 
-        /// <summary>The prototype currently loaded, for the log's metadata sidecar.</summary>
-        public string PatternName => _pattern.Name;
-
-        /// <summary>True while the pattern is overriding the substrate.</summary>
+        /// <summary>True while a prototype is overriding the substrate.</summary>
         public bool IsPatternActive { get; private set; }
+
+        /// <summary>The prototype currently playing, or null when the substrate has control.</summary>
+        public GazePattern ActivePattern { get; private set; }
 
         /// <inheritdoc/>
         public void Reset(int seed)
         {
             _substrate.Reset(seed);
             IsPatternActive = false;
+            ActivePattern = null;
         }
 
         /// <inheritdoc/>
@@ -69,6 +81,7 @@ namespace GazeControl.Gaze.Policy
             if (!TryPatternRole(in state, out var role))
             {
                 IsPatternActive = false;
+                ActivePattern = null;
                 return substrateTarget;
             }
 
@@ -79,46 +92,91 @@ namespace GazeControl.Gaze.Policy
 
             // The prototype's "None" recentres the eyes in the head rather than
             // choosing a direction. A zero offset is how that is expressed: the
-            // animation layer aims the eyes along the head's forward direction,
-            // which is the same pose the old scripted playback produced with a
-            // null target.
+            // animation layer aims the eyes along the head's forward direction.
             return GazeTarget.Away(Vector2.zero);
         }
 
         /// <summary>
-        /// The prototype segment covering this instant, or false when the pattern
-        /// has nothing to say — outside the window, between turns, or for the
-        /// participant the prototype carries no track for.
+        /// The prototype that plays before a given boundary. Public and static so
+        /// the run's metadata can record the whole mapping up front — the draw is
+        /// a pure function of the seed, the index and the class, so the log can
+        /// say which prototype every boundary will get before any of them does.
+        /// </summary>
+        public static GazePattern SelectPattern(ProposedSettings settings, int patternSeed, int eventIndex, EotType eotType)
+        {
+            if (settings.Selection == PatternSelection.Fixed)
+                return GazePatterns.Of(settings.Pattern);
+
+            var pool = GazePatterns.PoolFor(eotType);
+            return pool[(int)(Mix(patternSeed, eventIndex) % (uint)pool.Count)];
+        }
+
+        /// <summary>
+        /// FNV-1a over the two ints. Any decent mixer would do; this one is used
+        /// because the runner already seeds with FNV-1a and because
+        /// <c>GetHashCode</c> is randomised per process on modern .NET, which
+        /// would silently break replay.
+        /// </summary>
+        static uint Mix(int seed, int eventIndex)
+        {
+            const uint offsetBasis = 2166136261;
+            const uint prime = 16777619;
+
+            var hash = offsetBasis;
+            for (var shift = 0; shift < 32; shift += 8)
+            {
+                hash = (hash ^ (uint)((seed >> shift) & 0xFF)) * prime;
+                hash = (hash ^ (uint)((eventIndex >> shift) & 0xFF)) * prime;
+            }
+
+            return hash;
+        }
+
+        /// <summary>
+        /// The prototype segment covering this instant, or false when no pattern
+        /// has anything to say — outside the window, between turns, at a turn no
+        /// annotated event ends, or for a participant the prototype carries no
+        /// track for.
         /// </summary>
         bool TryPatternRole(in ConversationState state, out GazeRole role)
         {
             role = GazeRole.None;
 
             var secondsToTurnEnd = state.PredictedTimeToTurnEnd;
-            if (secondsToTurnEnd < 0f)
+            if (secondsToTurnEnd < 0f || state.UpcomingEventIndex < 0)
                 return false;
 
-            var track = TrackFor(in state);
+            var pattern = SelectPattern(_settings, _patternSeed, state.UpcomingEventIndex, state.UpcomingEventType);
+
+            var track = TrackFor(pattern, in state);
             if (track == null)
                 return false;
 
-            // The window is anchored on end-of-turn, and the prototype starts
+            // The window is anchored on the boundary, and the prototype starts
             // partway into it: the raw data's rank-0 subsequence begins at
             // WindowOffsetSeconds, not at the top of the window.
-            var secondsToEndAtPatternStart = (_windowSeconds - _pattern.WindowOffsetSeconds) * _timeScale;
+            var secondsToEndAtPatternStart =
+                (_settings.PreTurnWindowSeconds - pattern.WindowOffsetSeconds) * _settings.PatternTimeScale;
             if (secondsToTurnEnd > secondsToEndAtPatternStart)
                 return false;
 
+            ActivePattern = pattern;
             role = SegmentAt(track, secondsToEndAtPatternStart - secondsToTurnEnd);
             return true;
         }
 
-        (float seconds, GazeRole target)[] TrackFor(in ConversationState state)
+        /// <summary>
+        /// The track this participant plays. The listener track is deliberately
+        /// not returned: in this demo the listener is the human user, who has no
+        /// gaze to drive, and an agent is only ever the current or the next
+        /// speaker of the boundary it is heading into.
+        /// </summary>
+        static (float seconds, GazeRole target)[] TrackFor(GazePattern pattern, in ConversationState state)
         {
             if (state.SelfId == state.CurrentSpeaker)
-                return _pattern.CurrentSpeakerTrack;
+                return pattern.CurrentSpeakerTrack;
 
-            return state.SelfId == state.CurrentAddressee ? _pattern.NextSpeakerTrack : null;
+            return state.SelfId == state.CurrentAddressee ? pattern.NextSpeakerTrack : null;
         }
 
         /// <summary>
@@ -148,10 +206,9 @@ namespace GazeControl.Gaze.Policy
         };
 
         /// <summary>
-        /// The third party — whoever is neither speaking nor being addressed.
-        /// Unreachable with the two committed prototypes, whose tracks name only
-        /// the speaker, the next speaker and aversion; it exists so a prototype
-        /// transcribed later cannot silently mean something else.
+        /// The third party — whoever is neither speaking nor being addressed. In
+        /// this demo that is the human user, and several of the paper's
+        /// prototypes do name them as a gaze target.
         /// </summary>
         static ParticipantId Listener(in ConversationState state)
         {

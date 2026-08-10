@@ -42,6 +42,17 @@ namespace GazeControl.Gaze.Policy
         public float PredictedTimeToTurnEnd { get; set; }
 
         /// <summary>
+        /// Index of the annotated end-of-turn event the current turn runs into,
+        /// or -1 when no event ends it. Only the proposed condition reads it:
+        /// each boundary gets its own prototype, and the index is what makes
+        /// that choice stable across the two agents and across a replay.
+        /// </summary>
+        public int UpcomingEventIndex { get; set; }
+
+        /// <summary>The class of that event — interruption, overlap or turn-taking.</summary>
+        public EotType UpcomingEventType { get; set; }
+
+        /// <summary>
         /// The other two participants. Stored as two fields rather than an array so
         /// that building the state every tick allocates nothing.
         /// </summary>

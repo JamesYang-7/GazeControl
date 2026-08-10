@@ -3,18 +3,36 @@ using UnityEngine;
 
 namespace GazeControl.Gaze.Policy
 {
+    /// <summary>How the proposed condition picks the prototype for a turn boundary.</summary>
+    public enum PatternSelection
+    {
+        /// <summary>
+        /// Draw at random from the paper's prototypes for that boundary's own
+        /// class — an interruption gets an interruption prototype. The draw is
+        /// seeded, so a take is reproducible.
+        /// </summary>
+        RandomByEventClass,
+
+        /// <summary>Play one named prototype at every boundary, whatever its class.</summary>
+        Fixed,
+    }
+
     /// <summary>
     /// Which pre-turn prototype the proposed condition plays, and the window it
-    /// plays in. Configuration rather than constants so a prototype can be swapped
-    /// between takes without touching code.
+    /// plays in. Configuration rather than constants so a prototype can be
+    /// swapped between takes without touching code.
     /// </summary>
     [Serializable]
     public sealed class ProposedSettings
     {
-        /// <summary>Which turn-taking prototype from the paper drives the pre-turn window.</summary>
         [field: SerializeField]
-        [field: Tooltip("Which turn-taking prototype plays before a turn boundary")]
-        public PreTurnPattern Pattern { get; set; } = PreTurnPattern.CheckAvertReengage7e;
+        [field: Tooltip("Draw a prototype per boundary from its own event class, or play one fixed prototype")]
+        public PatternSelection Selection { get; set; } = PatternSelection.RandomByEventClass;
+
+        /// <summary>The prototype used when <see cref="Selection"/> is <see cref="PatternSelection.Fixed"/>.</summary>
+        [field: SerializeField]
+        [field: Tooltip("Prototype played at every boundary when Selection is Fixed")]
+        public PreTurnPattern Pattern { get; set; } = PreTurnPattern.Fig7e;
 
         /// <summary>Length of the pre-turn window the prototypes were measured in.</summary>
         [field: SerializeField]

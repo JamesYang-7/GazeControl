@@ -30,7 +30,7 @@ namespace GazeControl.Experiment
             /// <summary>Baseline A (§2): the role-conditioned Shintani et al. sampler, fitted to our corpus.</summary>
             RoleConditioned,
 
-            /// <summary>The paper's pre-turn patterns, played over a Baseline A substrate.</summary>
+            /// <summary>The paper's pre-turn patterns, played over a Baseline B substrate.</summary>
             Proposed,
         }
 
@@ -43,11 +43,11 @@ namespace GazeControl.Experiment
         public GazeParticipant[] Participants { get; set; }
 
         [field: SerializeField]
-        [field: Tooltip("Scripted conversation; its own gaze control is switched off unless the condition is Proposed")]
-        public TriadConversation Conversation { get; set; }
+        [field: Tooltip("The recorded corpus segment being replayed; gaze belongs entirely to the condition's policy")]
+        public RecordedConversation Conversation { get; set; }
 
         [field: SerializeField]
-        [field: Tooltip("Publishes the scripted turn schedule; required by the RoleConditioned condition")]
+        [field: Tooltip("Publishes the segment's turn schedule; required by the RoleConditioned and Proposed conditions")]
         public ConversationDirector Director { get; set; }
 
         [field: SerializeField]
@@ -172,7 +172,14 @@ namespace GazeControl.Experiment
 
         void OnDestroy() => _log?.Dispose();
 
-        void Start() => _ = LogEveryFrameAsync(destroyCancellationToken);
+        void Start()
+        {
+            // The sidecar is written here rather than in Awake because it records
+            // the replayed segment's turn boundaries, and the conversation only
+            // has them once every component's Awake has run.
+            _log?.WriteMetadata(BuildMetadataJson());
+            _ = LogEveryFrameAsync(destroyCancellationToken);
+        }
 
         void Update()
         {
@@ -255,6 +262,8 @@ namespace GazeControl.Experiment
                 TurnPhase = Director != null ? Director.PhaseOf(self) : TurnPhase.NotSpeaking,
                 TimeSinceTurnInstant = Director != null ? Director.TimeSinceTurnInstant : float.PositiveInfinity,
                 PredictedTimeToTurnEnd = Director != null ? Director.PredictedTimeToTurnEnd : -1f,
+                UpcomingEventIndex = Director != null ? Director.UpcomingEventIndex : -1,
+                UpcomingEventType = Director != null ? Director.UpcomingEventType : EotType.TurnTaking,
 
                 MutualGazeActive = IsInMutualGazeWithAnAgent(self),
                 MutualGazeDuration = 0f,
@@ -283,15 +292,7 @@ namespace GazeControl.Experiment
             Debug.LogWarning($"{name}: a policy asked for participant {target.Person}, who is not in the triad; holding gaze.", this);
         }
 
-        /// <summary>
-        /// The policy for this condition, or null when gaze is driven from outside
-        /// the runner. <see cref="GazeCondition.Proposed"/> is the null case today:
-        /// <see cref="TriadConversation"/> plays the paper's pattern itself, and the
-        /// runner only observes and logs, so that the proposed condition produces
-        /// the same per-frame CSV as the baselines (§6 requires every condition to
-        /// be logged). It stops being a null case once the pattern moves behind
-        /// <see cref="IGazePolicy"/> on a Baseline A substrate.
-        /// </summary>
+        /// <summary>The policy this condition runs, one fresh instance per agent.</summary>
         IGazePolicy CreatePolicy()
         {
             var human = FindHuman();
@@ -306,10 +307,14 @@ namespace GazeControl.Experiment
                 // Baseline B is the substrate, so outside the pre-turn window this
                 // condition is bit-for-bit the speaker-following baseline and the
                 // pairwise contrast isolates the pattern (user's call 2026-08-09).
+                // The pattern seed is the run's, not the agent's: both agents must
+                // draw the same prototype for a boundary or they would play two
+                // different patterns' tracks at each other.
                 GazeCondition.Proposed =>
                     new ProposedGazePolicy(
                         new SpeakerFollowingGazePolicy(SpeakerFollowing, _voiceActivity, human.ParticipantId),
-                        Proposed),
+                        Proposed,
+                        BaseSeed),
                 _ => throw new NotImplementedException($"Condition {Condition} is not implemented."),
             };
         }
@@ -656,7 +661,6 @@ namespace GazeControl.Experiment
             try
             {
                 _log = new GazeLogWriter(TakeDirectory, stem);
-                _log.WriteMetadata(BuildMetadataJson());
                 Debug.Log($"{name}: gaze log -> {_log.CsvPath}", this);
             }
             catch (System.IO.IOException e)
@@ -664,6 +668,54 @@ namespace GazeControl.Experiment
                 Debug.LogError($"{name}: could not open gaze log: {e.Message}", this);
                 _log = null;
             }
+        }
+
+        /// <summary>Which corpus segment this take replays, so a log identifies its own material.</summary>
+        void AppendSegment(StringBuilder json)
+        {
+            var segment = Conversation != null ? Conversation.Segment : null;
+            if (segment == null)
+                return;
+
+            var c = CultureInfo.InvariantCulture;
+            json.Append("  \"segment\": {\n");
+            json.Append($"    \"name\": \"{segment.name}\",\n");
+            json.Append($"    \"stem\": \"{segment.stem}\",\n");
+            json.Append($"    \"source_start_s\": {segment.sourceStartSeconds.ToString("0.###", c)},\n");
+            json.Append($"    \"duration_s\": {segment.durationSeconds.ToString("0.###", c)},\n");
+            json.Append($"    \"motion_start_frame\": {segment.motionStartFrame.ToString(c)},\n");
+            json.Append($"    \"eot_events\": {segment.events.Length.ToString(c)}\n");
+            json.Append("  },\n");
+        }
+
+        /// <summary>
+        /// The prototype each boundary will get. The draw is a pure function of
+        /// the pattern seed, the event index and the event's class, so the whole
+        /// mapping is known before the first boundary arrives — which is what
+        /// makes a take reproducible from its own log.
+        /// </summary>
+        void AppendPatternDraw(StringBuilder json)
+        {
+            var segment = Conversation != null ? Conversation.Segment : null;
+            if (segment == null || segment.events.Length == 0)
+            {
+                json.Append("    \"patterns\": []\n");
+                return;
+            }
+
+            json.Append("    \"patterns\": [\n");
+            for (var i = 0; i < segment.events.Length; i++)
+            {
+                var eotType = (EotType)segment.events[i].eotType;
+                var pattern = ProposedGazePolicy.SelectPattern(Proposed, BaseSeed, segment.events[i].index, eotType);
+                var comma = i < segment.events.Length - 1 ? "," : "";
+                json.Append(
+                    $"      {{ \"event\": {segment.events[i].index}, \"eot_type\": \"{eotType}\", " +
+                    $"\"turn_time_s\": {segment.events[i].turnTime.ToString("0.###", CultureInfo.InvariantCulture)}, " +
+                    $"\"prototype\": \"{pattern.Name}\" }}{comma}\n");
+            }
+
+            json.Append("    ]\n");
         }
 
         string BuildMetadataJson()
@@ -696,13 +748,17 @@ namespace GazeControl.Experiment
                 json.Append("  },\n");
             }
 
+            AppendSegment(json);
+
             if (Condition == GazeCondition.Proposed)
             {
                 json.Append("  \"proposed\": {\n");
                 json.Append("    \"substrate\": \"SpeakerFollowing\",\n");
-                json.Append($"    \"pattern\": \"{GazePatterns.Of(Proposed.Pattern).Name}\",\n");
+                json.Append($"    \"selection\": \"{Proposed.Selection}\",\n");
+                json.Append($"    \"pattern_seed\": {BaseSeed.ToString(c)},\n");
                 json.Append($"    \"pre_turn_window_s\": {Proposed.PreTurnWindowSeconds.ToString("0.###", c)},\n");
-                json.Append($"    \"pattern_time_scale\": {Proposed.PatternTimeScale.ToString("0.###", c)}\n");
+                json.Append($"    \"pattern_time_scale\": {Proposed.PatternTimeScale.ToString("0.###", c)},\n");
+                AppendPatternDraw(json);
                 json.Append("  },\n");
             }
 
@@ -716,6 +772,7 @@ namespace GazeControl.Experiment
 
             json.Append("  ],\n");
             json.Append($"  \"unity_version\": \"{Application.unityVersion}\",\n");
+            json.Append($"  \"blink_note\": \"no blink model (SMPL-X has no eyelid shapes); head motion is mocap only, identical in every condition\",\n");
             json.Append("  \"human_gaze_note\": \"mutual_gaze_with_human records only the agent->human direction; the human's gaze is unobserved (no eye tracking)\"\n");
             json.Append("}\n");
 

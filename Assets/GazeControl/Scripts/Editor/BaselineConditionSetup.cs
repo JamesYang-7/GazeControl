@@ -8,17 +8,20 @@ using UnityEngine;
 namespace GazeControl.Editor
 {
     /// <summary>
-    /// GazeControl → Set Up Gaze Conditions: wires the baseline machinery into the
-    /// open scene — a <see cref="GazeParticipant"/> on each triad member and a
-    /// <see cref="GazeConditionRunner"/> to drive them.
+    /// GazeControl → Set Up Gaze Conditions: wires the experiment machinery into
+    /// the open scene — a <see cref="GazeParticipant"/> on each triad member, a
+    /// <see cref="RecordedConversation"/> playing the chosen corpus segment, and
+    /// a <see cref="GazeConditionRunner"/> to drive them.
     ///
-    /// Deliberately a menu command rather than committed scene content: the scene
-    /// carries unrelated in-flight edits, and this keeps the condition wiring
-    /// opt-in and undoable instead of silently changing the demo.
+    /// A menu command rather than the only source of the wiring: the scene keeps
+    /// what this produces, and re-running it repairs the rig after a refactor
+    /// without anyone hand-editing scene YAML.
     /// </summary>
     public static class BaselineConditionSetup
     {
         const string RunnerObjectName = "GazeCondition";
+        const string ConversationObjectName = "Conversation";
+        const string DefaultSegmentPath = "Assets/DemoSegments/case1_seg01/segment.json";
 
         [MenuItem("GazeControl/Set Up Gaze Conditions")]
         public static void SetUp()
@@ -128,39 +131,74 @@ namespace GazeControl.Editor
             if (string.IsNullOrEmpty(runner.CaseName))
                 runner.CaseName = "case1_01";
 
-            runner.Conversation = Object.FindAnyObjectByType<TriadConversation>();
-
-            if (runner.Conversation == null)
-                Debug.LogWarning("Set Up Gaze Conditions: no TriadConversation found; its gaze control cannot be switched off automatically.");
-
-            // The director sits on the runner object rather than on the scripted
+            // The director sits on the runner object rather than on the
             // conversation: it is experiment machinery, and keeping it here means
             // the whole condition rig can be removed by deleting one object.
             var director = GetOrAddComponent<ConversationDirector>(runnerObject);
             director.Participants = participants;
             runner.Director = director;
 
-            if (runner.Conversation != null)
-                runner.Conversation.Director = director;
+            runner.Conversation = ConfigureConversation(participants, director);
 
             EditorUtility.SetDirty(director);
             EditorUtility.SetDirty(runner);
-
-            if (runner.Conversation != null)
-                EditorUtility.SetDirty(runner.Conversation);
         }
 
         /// <summary>
-        /// The speech AudioSource sits on the imported SMPL-X child alongside the
-        /// TtsSpeaker, not on the agent root, so a plain GetComponent misses it.
+        /// Wire the recorded segment onto the two agents: corpus speaker 1
+        /// (main-agent) plays agent A and speaker 2 (interloctr) plays agent B.
+        /// The pairing is the corpus's own — both sides come from one take, and
+        /// mixing takes would put two unrelated conversations in one room.
         /// </summary>
-        static AudioSource FindVoice(GameObject agent)
+        static RecordedConversation ConfigureConversation(GazeParticipant[] participants, ConversationDirector director)
         {
-            var speaker = agent.GetComponentInChildren<TTS.TtsSpeaker>(includeInactive: true);
-            return speaker != null
-                ? speaker.GetComponent<AudioSource>()
-                : agent.GetComponentInChildren<AudioSource>(includeInactive: true);
+            var conversationObject = GameObject.Find(ConversationObjectName);
+            if (conversationObject == null)
+            {
+                conversationObject = new GameObject(ConversationObjectName);
+                Undo.RegisterCreatedObjectUndo(conversationObject, "Create Conversation");
+            }
+
+            var conversation = GetOrAddComponent<RecordedConversation>(conversationObject);
+            conversation.Director = director;
+
+            if (string.IsNullOrEmpty(conversation.SegmentPath))
+                conversation.SegmentPath = DefaultSegmentPath;
+
+            conversation.Speakers = new[]
+            {
+                SpeakerFor(participants[0], speakerCode: 1),
+                SpeakerFor(participants[1], speakerCode: 2),
+            };
+
+            EditorUtility.SetDirty(conversation);
+            return conversation;
         }
+
+        static RecordedConversation.Speaker SpeakerFor(GazeParticipant participant, int speakerCode)
+        {
+            var motion = participant.GetComponentInChildren<SmplxMotionPlayer>(includeInactive: true);
+            if (motion == null)
+                Debug.LogWarning($"Set Up Gaze Conditions: {participant.DisplayName} has no SmplxMotionPlayer.", participant);
+
+            return new RecordedConversation.Speaker
+            {
+                SpeakerCode = speakerCode,
+                Participant = participant,
+                Motion = motion,
+                // Left empty on purpose: the conversation loads the trimmed wav
+                // named in the segment file, so switching segments is one path.
+                Clip = null,
+            };
+        }
+
+        /// <summary>
+        /// The speech AudioSource sits on the imported SMPL-X child (next to the
+        /// lipsync context), not on the agent root, so a plain GetComponent
+        /// misses it.
+        /// </summary>
+        static AudioSource FindVoice(GameObject agent) =>
+            agent.GetComponentInChildren<AudioSource>(includeInactive: true);
 
         static T GetOrAddComponent<T>(GameObject target) where T : Component
         {

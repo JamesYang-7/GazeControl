@@ -25,13 +25,25 @@ The agents use the SMPL-X body model. Two code layers drive it:
 
 License: SMPL-X model license (research use; cite the SMPL-X paper in publications). The Meshcapade sample textures are CC BY-NC.
 
-## Text-to-speech
+## Speech and the recorded conversation
 
-Agents speak via Kokoro-82M TTS running locally on Unity Inference Engine. `Assets/TTS/` holds the inference core adapted from Unity's sentis-samples TextToSpeechSample (`MisakiSharp` G2P + `KokoroHandler`); `GazeControl.TTS.KokoroTts` is the shared service (one worker, serialized generations) and `TtsSpeaker` (on each agent, next to the AudioSource) generates and plays speech — lipsync needs no extra wiring. The model (`Assets/Models/Kokoro-82M-v1.0.onnx`, ~310 MB) and voice `.bin` files are **git-ignored**; the editor menu **GazeControl → Download Kokoro TTS Files** fetches them (see README.md). Model/voice loading uses `AssetDatabase`, so TTS is editor-only for now; builds would need them moved into Resources.
+**The agents speak the corpus's own audio, not synthesised speech.** `RecordedConversation` replays a 20-30 s segment of a real TalkingWithHands dyadic conversation: each agent gets that recording's wav on its `AudioSource` and its 60 fps grounded SMPL-X motion, and the corpus's annotated end-of-turn events become the turn schedule the gaze policies read. Corpus speaker 1 (`main-agent`) is agent A, speaker 2 (`interloctr`) is agent B; the human user is the silent listener.
+
+Everything runs on one clock, `RecordedConversation.Elapsed` — the frame clock, because Unity Recorder writes one output frame per rendered frame, so a take's timeline *is* the frame count. Both voices are scheduled on a single DSP instant so the two sides cannot start a frame apart. An audio-clock version of `Elapsed` was tried and produced a take 0.7 s shorter than the segment with the last utterance clipped; see the property's comment.
+
+The Kokoro-82M TTS integration (`Assets/TTS/`, `KokoroTts`, `TtsSpeaker`) and the scripted `TriadConversation` were **deleted on 2026-08-10** when this replaced them. They are in the git history.
+
+## Demo segments
+
+The corpus is at `F:\Data\TalkingWithHandsCentered` (see its own README): `talkingwithHands-Audio/{main-agent,interloctr}/{wav,tsv}`, `SMPLX-60fps-grounded/` (the motion variant we use), and `EoT_TWH/` — 186 deduped conversations, 6,953 end-of-turn events typed 1 interruption / 2 overlapping / 3 turn-taking, times in ms.
+
+`Tools/find_demo_segments.py` picks the stretch that gets played and exports it to `Assets/DemoSegments/<name>/` (git-ignored): two trimmed wavs plus `segment.json` with the turn schedule, the events and the motion frame offset. Motion is read from the corpus in place. Selection requires 20-30 s, ≥2 events fully inside with lead, boundaries on utterance boundaries with nothing straddling them, and ≥2 s between consecutive turn instants; candidates are then ranked for demo readability. `--inspect <rank>` prints a segment as a transcript with its events marked.
+
+**The exporter peak-normalises the pair** (to 0.70, one gain for both sides from the louder track). The corpus records around **−42 dBFS**: at raw levels no frame reaches `VoiceRmsThreshold` (0.01), so baseline B never detects anyone speaking and both agents stare at the human user for the whole take. The gain is shared because the balance between the two speakers is recorded rather than incidental; it is written into `segment.json`. The base `wav/` tracks *are* properly speaker-separated (8-16× energy ratio during their own speaker's words) — only the level was wrong.
 
 ## Lip sync
 
-Oculus LipSync (`Assets/Oculus/LipSync/`, third-party, verbatim) drives the mesh's 14 viseme blendshapes (indices 506–519, Oculus order minus `sil`) from each agent's `AudioSource`. Per agent: `AudioSource` (paired wav, loop) + `OVRLipSyncContext` (`audioLoopback` **on**, or the voice is muted) + `OVRLipSyncContextMorphTarget` (`laughterBlendTarget` must be **−1**; the default 15 would drive an expression blendshape). The scene needs one `LipSync` GameObject with the `OVRLipSync` component. Audio wavs pair 1:1 with the npz clips (same name) and are exactly the same 20 s length, so independent looping stays in sync.
+Oculus LipSync (`Assets/Oculus/LipSync/`, third-party, verbatim) drives the mesh's 14 viseme blendshapes (indices 506–519, Oculus order minus `sil`) from each agent's `AudioSource`. Per agent: `AudioSource` + `OVRLipSyncContext` (`audioLoopback` **on**, or the voice is muted) + `OVRLipSyncContextMorphTarget` (`laughterBlendTarget` must be **−1**; the default 15 would drive an expression blendshape). The scene needs one `LipSync` GameObject with the `OVRLipSync` component. Nothing extra is wired for the demo segment: the context analyses whatever its `AudioSource` plays, which is the corpus wav.
 
 The mesh carries a **mouth bag** (added in Blender) so the open mouth is no longer a hole. The bag is unmapped — all 161 of its vertices sit on UV (0, 0) — so it would otherwise take the colour of the albedo's bottom-left texel, which differs per agent texture. `SmplxMouthInteriorSubmesh` (an `AssetPostprocessor`, editor-only) therefore moves every triangle whose three vertices are all on UV (0, 0) onto submesh 1 at import and assigns `Assets/SMPLX/Materials/SMPLX-MouthInterior.mat`. Adjust that material to change how dark the cavity reads; no reimport needed. `GazeControl → Visemes → Open Jaw` drives the `aa` viseme in Edit Mode so you can see inside.
 
@@ -39,15 +51,15 @@ Caveat: with the Unity editor unfocused, the player loop and edit-mode skinning 
 
 ## Gaze control
 
-Gaze patterns come from the ICMI paper in `Assets/Docs/` (Figures 6–8: top gaze subsequences in the 1 s before turn events, 60 Hz, encoded over conversational roles — red = current speaker, blue = next speaker, green = listener; y-axis = gaze target). They are transcribed verbatim from the paper's raw prototype data (`raw_prototypes/*.npz` under `F:\aF\My_Papers\ICMI_2026___Explainable_Gaze_Patterns_for_Turn_Taking\`; figure↔file mapping via the tex labels, e.g. `fig:prottp_p3_ks40_4` → `p3_ks40_4.npz`; `manifest.csv` lists matched subsequences) into `GazePatterns`.
+Gaze patterns come from the ICMI paper in `Assets/Docs/` (Figures 6–8: top gaze subsequences in the 1 s before turn events, 60 Hz, encoded over conversational roles — red = current speaker, blue = next speaker, green = listener; y-axis = gaze target). **All fifteen printed prototypes** are transcribed from the raw prototype archives (`raw_prototypes/*.npz` under `F:\aF\My_Papers\ICMI_2026___Explainable_Gaze_Patterns_for_Turn_Taking\`) by `Tools/build_gaze_patterns.py` into the generated `GazePatterns.g.cs` — never edit that file by hand. They are named by figure (`Fig6a`…`Fig8e`) and pooled by class: 5 interruption, 4 overlapping, 6 turn-taking. The generator asserts that Fig7e and Fig8d still decode to the two transcriptions the earlier demos were signed off on.
 
-**All gaze runs through `IGazePolicy`.** `GazeConditionRunner` builds one policy per agent, ticks it at a fixed 30 Hz decision rate decoupled from the frame rate, and applies the result; `TriadConversation` drives only speech and turn timing and never touches a gaze target. The three experimental conditions are the `Condition` dropdown on the `GazeCondition` object:
+**All gaze runs through `IGazePolicy`.** `GazeConditionRunner` builds one policy per agent, ticks it at a fixed 30 Hz decision rate decoupled from the frame rate, and applies the result; `RecordedConversation` drives only playback and the turn schedule and never touches a gaze target. The three experimental conditions are the `Condition` dropdown on the `GazeCondition` object:
 
-- `SpeakerFollowing` — baseline B, voice-activity driven, never averts.
+- `SpeakerFollowing` — baseline B, voice-activity driven, never averts. §3's rules apply symmetrically to the agent itself: it will not switch on its *own* sub-600 ms utterance (a backchannel is a backchannel whoever produces it), and it never takes itself as addressee — `ConversationState.CurrentAddressee` belongs to whoever holds the floor, so with real audio it can name the agent that is speaking off-schedule.
 - `RoleConditioned` — baseline A, the Shintani et al. 2024 model re-fitted to our corpus (`Assets/GazeControl/Resources/BaselineAParameters.json`, regenerated by `Tools/build_baseline_a_params.py`).
-- `Proposed` — the paper's pre-turn prototype played over a **baseline B substrate**, overriding it only in the last ~0.5 s of each turn. `ProposedSettings` on the runner selects the prototype and its window; `PatternTimeScale` 1 is data-faithful.
+- `Proposed` — a prototype played over a **baseline B substrate**, overriding it only in the window before each annotated end-of-turn event. Each event draws its own prototype from the pool matching **its own class**, so an interruption is preceded by an interruption prototype. The draw is `FNV-1a(BaseSeed, eventIndex)`, deliberately *not* per-agent — both agents must play tracks of the same prototype — and the whole mapping is written into the log's metadata sidecar before the first boundary. `ProposedSettings.Selection = Fixed` pins one prototype instead; `PatternTimeScale` 1 is data-faithful.
 
-`ConversationDirector` publishes the scripted turn schedule (who holds the floor, when the turn ends) so a policy can act *before* a boundary rather than react after it; baselines A and Proposed require it.
+`ConversationDirector` publishes the segment's turn schedule (who holds the floor, who takes it next, when the boundary is, and which event it is) so a policy can act *before* a boundary rather than react after it; baselines A and Proposed require it. It reads the conversation's clock through a delegate rather than caching it, because it and the runner both run in `Update` with no ordering guarantee. The segment's final turn carries `eventIndex = -1` and no prototype fires there.
 
 `GazeController` is the shared animation layer — identical in every condition, or the study measures animation instead of gaze policy. It drives the SMPL-X eye bones only: `HeadContribution` is **0**, so the head stays on pure mocap. Yaw and pitch are clamped separately (±35° / ±25°). Aversion is a direction (`SetAversion(yaw, pitch)`, eye-in-head); a zero offset means "eyes recentred in the head", which is how the proposed condition renders the prototypes' `None`. No blink model (SMPL-X has no eyelid shapes) and no idle micro-motion — body motion comes from the mocap clips.
 
@@ -55,7 +67,11 @@ Gaze patterns come from the ICMI paper in `Assets/Docs/` (Figures 6–8: top gaz
 
 ## Motion data conventions
 
-TalkingWithHands clips come in pairs from the same recorded take: one `interloctr` file and one `main-agent` file whose names differ only in that token (e.g. `trn_2023_v0_000_interloctr_000.npz` / `trn_2023_v0_000_main-agent_000.npz`). **The two agents must always play a matched pair**: one agent uses the `interloctr` clip and the other the `main-agent` clip of the same take. Only two example clips are committed (via LFS); other `.npz` files under `Assets/MotionData/` are git-ignored.
+TalkingWithHands clips come in pairs from the same recorded take: one `interloctr` file and one `main-agent` file whose names differ only in that token. **The two agents must always play a matched pair**: one agent uses the `interloctr` clip and the other the `main-agent` clip of the same take. Mixing takes would put two unrelated conversations in one room, and the corpus is *Centered* — each file's `trans` and global orientation are expressed in a frame anchored on that file's main agent, so only the two sides of one stem are mutually consistent.
+
+`SmplxMotionPlayer` plays a clip whole or as a segment (`StartFrame`/`FrameCount`), and root translation is anchored on the segment's **first frame**, not the clip's — several minutes into a recording the root has wandered far from where it started. Clear `Autoplay` when an external timeline calls `Seek`, which is what `RecordedConversation` does.
+
+Only two example clips are committed (via LFS); other `.npz` files under `Assets/MotionData/` are git-ignored, and the demo reads its motion straight from the corpus.
 
 ## Progress board
 

@@ -70,12 +70,14 @@ namespace GazeControl.Gaze.Policy
             if (_timeSinceSwitch < _settings.MinimumDwellSeconds)
                 return GazeTarget.AtPerson(_target);
 
-            // Self speaking -> look at the addressee.
-            if (_voiceActivity.IsVoiced(state.SelfId))
-            {
-                var addressee = state.CurrentAddressee.IsValid ? state.CurrentAddressee : _fallbackAddressee;
-                return SwitchTo(addressee);
-            }
+            // Self speaking -> look at the addressee. The backchannel threshold
+            // applies here as much as it does to a partner: §3 suppresses gaze
+            // switches driven by utterances under 600 ms, and with real
+            // conversation audio most of an agent's own short utterances are
+            // backchannels thrown in while the *other* agent holds the floor.
+            // Without this, every "yeah" re-aims the agent.
+            if (IsEstablishedSpeaker(state.SelfId))
+                return SwitchTo(AddresseeOf(in state));
 
             // Overlap — while the current target still holds the floor, stay with
             // them until they drop out past the offset threshold.
@@ -90,6 +92,22 @@ namespace GazeControl.Gaze.Policy
             // Silence or gap -> hold the last target.
             return GazeTarget.AtPerson(_target);
         }
+
+        /// <summary>
+        /// Who this agent looks at while speaking. The schedule's addressee
+        /// belongs to whoever holds the floor, so when voice activity and the
+        /// schedule disagree — an overlap, an interruption, a turn the agent
+        /// starts early — it can name this agent itself. An agent is not its own
+        /// addressee, and §3's fallback covers the case.
+        /// </summary>
+        ParticipantId AddresseeOf(in ConversationState state) =>
+            state.CurrentAddressee.IsValid && state.CurrentAddressee != state.SelfId
+                ? state.CurrentAddressee
+                : _fallbackAddressee;
+
+        /// <summary>Voiced, and voiced for longer than a backchannel.</summary>
+        bool IsEstablishedSpeaker(ParticipantId id) =>
+            _voiceActivity.IsVoiced(id) && _voiceActivity.UtteranceSeconds(id) >= _settings.BackchannelSeconds;
 
         /// <summary>
         /// The partner whose utterance has outlasted the backchannel threshold and
@@ -110,11 +128,11 @@ namespace GazeControl.Gaze.Policy
 
         void Consider(ParticipantId candidate, ref ParticipantId best, ref float bestSeconds)
         {
-            if (!_voiceActivity.IsVoiced(candidate))
+            if (!IsEstablishedSpeaker(candidate))
                 return;
 
             var seconds = _voiceActivity.UtteranceSeconds(candidate);
-            if (seconds < _settings.BackchannelSeconds || seconds <= bestSeconds)
+            if (seconds <= bestSeconds)
                 return;
 
             best = candidate;

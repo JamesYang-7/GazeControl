@@ -1,0 +1,141 @@
+using System;
+using System.IO;
+using UnityEngine;
+
+namespace GazeControl.Conversation
+{
+    /// <summary>
+    /// A stretch of a TalkingWithHands conversation, chosen to carry one demo:
+    /// where it sits in the recording, the trimmed audio, the turn schedule and
+    /// the end-of-turn events inside it.
+    ///
+    /// Written by <c>Tools/find_demo_segments.py</c>, which is also where the
+    /// selection rules live (20-30 s, at least two events, no sentence cut in
+    /// half, events far enough apart for their gaze patterns not to collide).
+    /// Every time in this file is measured from the start of the segment, so
+    /// nothing downstream has to know where in the recording it came from.
+    /// </summary>
+    [Serializable]
+    public sealed class DemoSegment
+    {
+        /// <summary>Format tag; bumped if the schema ever changes incompatibly.</summary>
+        public string schema;
+
+        /// <summary>Export folder name, e.g. <c>case1_seg01</c>.</summary>
+        public string name;
+
+        /// <summary>Source conversation, e.g. <c>trn_2023_v0_038</c>.</summary>
+        public string stem;
+
+        public float sourceStartSeconds;
+        public float sourceEndSeconds;
+        public float durationSeconds;
+
+        public int motionFrameRate;
+
+        /// <summary>First frame of the 60 fps grounded npz that belongs to this segment.</summary>
+        public int motionStartFrame;
+
+        public int motionFrameCount;
+
+        public DemoSegmentAgent[] agents;
+        public DemoSegmentTurn[] turns;
+        public DemoSegmentEvent[] events;
+        public DemoSegmentUtterance[] utterances;
+
+        /// <summary>Read a segment written by the selection tool.</summary>
+        /// <param name="path">Absolute, or relative to the project root.</param>
+        public static DemoSegment Load(string path)
+        {
+            var full = Path.IsPathRooted(path)
+                ? path
+                : Path.Combine(Application.dataPath, "..", path);
+
+            if (!File.Exists(full))
+                throw new FileNotFoundException($"demo segment not found: {full}", full);
+
+            var segment = JsonUtility.FromJson<DemoSegment>(File.ReadAllText(full));
+            if (segment == null || segment.turns == null || segment.turns.Length == 0)
+                throw new InvalidDataException($"{path} is not a demo segment (no turn schedule)");
+
+            return segment;
+        }
+
+        /// <summary>The record for one speaker, or null if the segment has no such speaker.</summary>
+        public DemoSegmentAgent AgentOf(int speaker)
+        {
+            foreach (var agent in agents)
+            {
+                if (agent.speaker == speaker)
+                    return agent;
+            }
+
+            return null;
+        }
+    }
+
+    /// <summary>One side of the recorded conversation and the media that drive it.</summary>
+    [Serializable]
+    public sealed class DemoSegmentAgent
+    {
+        /// <summary>Corpus speaker code: 1 is main-agent, 2 is interloctr.</summary>
+        public int speaker;
+
+        public string side;
+
+        /// <summary>Trimmed wav, project-relative.</summary>
+        public string audio;
+
+        /// <summary>Full 60 fps grounded npz; the segment is selected with the frame offset.</summary>
+        public string motion;
+
+        public int audioSamples;
+    }
+
+    /// <summary>
+    /// Who holds the floor between two boundaries. Derived from the events: the
+    /// turn ending at event <c>k</c> is held by that event's first speaker and
+    /// taken by its second. The final turn runs to the end of the segment and
+    /// carries <c>eventIndex = -1</c> — nothing is known about the boundary past
+    /// the clip, so no gaze pattern fires there.
+    /// </summary>
+    [Serializable]
+    public sealed class DemoSegmentTurn
+    {
+        public int speaker;
+        public int addressee;
+        public float startTime;
+        public float endTime;
+        public int eventIndex;
+    }
+
+    /// <summary>One end-of-turn event, from <c>EoT_TWH</c>.</summary>
+    [Serializable]
+    public sealed class DemoSegmentEvent
+    {
+        public int index;
+
+        /// <summary>1 interruption, 2 overlapping, 3 turn-taking.</summary>
+        public int eotType;
+
+        public string eotTypeName;
+        public int firstSpeaker;
+        public int secondSpeaker;
+
+        /// <summary>The transition instant — what a pre-turn pattern is anchored on.</summary>
+        public float turnTime;
+
+        public float startTime;
+        public float endTime;
+    }
+
+    /// <summary>One utterance, for captioning and for checking a segment by eye.</summary>
+    [Serializable]
+    public sealed class DemoSegmentUtterance
+    {
+        public int speaker;
+        public float startTime;
+        public float endTime;
+        public string text;
+    }
+}

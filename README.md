@@ -1,6 +1,6 @@
 # GazeControl
 
-A gaze control demo for virtual agents in a triad conversation: two virtual agents plus the user, standing on a regular triangle. Gaze behavior patterns collected before turn-taking in real triad conversations drive the agents' gaze; body motion is data-driven (TalkingWithHands SMPL-X mocap) and speech is generated locally with text-to-speech.
+A gaze control demo for virtual agents in a triad conversation: two virtual agents plus the user, standing on a regular triangle. Gaze behavior patterns collected before turn-taking in real triad conversations drive the agents' gaze. Everything else the agents do is replayed from a real recorded conversation: body motion is TalkingWithHands SMPL-X mocap, speech is that recording's own audio, and the turn boundaries the gaze patterns fire on are its annotated end-of-turn events.
 
 Progress, decisions, and open questions live in [PROGRESS.md](PROGRESS.md) (rendered dashboard: `progress.html`).
 
@@ -13,27 +13,36 @@ Progress, decisions, and open questions live in [PROGRESS.md](PROGRESS.md) (rend
 
 1. `git lfs install` (once per machine) — LFS assets download on checkout.
 2. `git config core.hooksPath .githooks` — enables the progress-board pre-commit hook.
-3. Download the git-ignored TTS files (see below), then open `Assets/Scenes/TriadScene.unity` and press Play.
+3. Export a demo segment (see below), then open `Assets/Scenes/TriadScene.unity` and press Play.
 
-## Text-to-speech model (not in git)
+## Demo segments (not in git)
 
-Speech is synthesized locally by [Kokoro-82M](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX) running on Unity Inference Engine. The model (~310 MB) and voice files are **not committed** — place them under the git-ignored `Assets/Models/`:
+The demo replays a stretch of a real TalkingWithHands conversation. The corpus lives outside the repo — `F:\Data\TalkingWithHandsCentered` on the development machine, holding synchronised audio, word-level transcripts, 60 fps grounded SMPL-X motion, and annotated end-of-turn events (`EoT_TWH/`).
 
-| File | Source |
-| --- | --- |
-| `Assets/Models/Kokoro-82M-v1.0.onnx` | [`onnx/model.onnx`](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/blob/main/onnx/model.onnx) |
-| `Assets/Models/Voices/am_adam.bin` | [`voices/am_adam.bin`](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/blob/main/voices/am_adam.bin) |
-| `Assets/Models/Voices/am_michael.bin` | [`voices/am_michael.bin`](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/blob/main/voices/am_michael.bin) |
+Pick and export a segment with:
 
-Or simply run the editor menu **GazeControl → Download Kokoro TTS Files**, which fetches whatever is missing.
+```bash
+python Tools/find_demo_segments.py                              # rank candidates
+python Tools/find_demo_segments.py --top 0 --inspect 1          # read one as a transcript
+python Tools/find_demo_segments.py --top 0 --export 1 --name case1_seg01
+```
+
+That writes `Assets/DemoSegments/<name>/` (git-ignored): the two trimmed wavs and a `segment.json` holding the turn schedule, the end-of-turn events and the motion frame offset. Point `RecordedConversation.SegmentPath` at the JSON — the motion npz is read from the corpus in place, so nothing large is copied into the project.
+
+Selection rules (20–30 s, at least two end-of-turn events, no sentence cut in half, events far enough apart that their gaze patterns do not collide) are documented in the script.
+
+## Gaze prototypes
+
+The paper's fifteen printed prototypes (Figures 6–8) are transcribed into `Assets/GazeControl/Scripts/Runtime/Gaze/Policy/GazePatterns.g.cs` by `python Tools/build_gaze_patterns.py`. The generated file is committed; regenerate it only when the raw prototype archives change.
 
 ## Motion data (mostly not in git)
 
-`Assets/MotionData/` holds TalkingWithHands SMPL-X clips (`.npz`, 55-joint axis-angle @ 60 fps) with paired conversation audio (`.wav`). Only one example take is committed (via LFS); other data dropped into the folder stays local (git-ignored). The two agents always play a matched `interloctr`/`main-agent` pair from the same take.
+`Assets/MotionData/` holds a committed example pair of TalkingWithHands SMPL-X clips (`.npz`, 55-joint axis-angle @ 60 fps) with paired audio (`.wav`), kept as a minimal sample for the motion loader. Everything else dropped into the folder stays local (git-ignored). The two agents always play a matched `interloctr`/`main-agent` pair from the same take.
 
 ## Third-party components
 
 - **SMPL-X** body model + official Unity package (`Assets/SMPLX/`) — [SMPL-X model license](https://smpl-x.is.tue.mpg.de/modellicense), research use; cite the SMPL-X paper in publications. Sample textures by Meshcapade (CC BY-NC 4.0).
 - **Oculus LipSync** (`Assets/Oculus/LipSync/`) — Oculus Audio SDK License; drives the mesh's viseme blendshapes from played audio.
-- **Kokoro TTS integration** (`Assets/TTS/`) — adapted from Unity's [sentis-samples](https://github.com/Unity-Technologies/sentis-samples) TextToSpeechSample (MisakiSharp G2P, Kokoro inference, notch filtering). Kokoro-82M model: Apache-2.0.
 - **TalkingWithHands** motion/audio data — see the dataset's own license/terms.
+
+The Kokoro-82M text-to-speech integration was removed on 2026-08-10, when the agents' speech became the corpus's own recorded audio. It is in the git history if it is ever wanted back.

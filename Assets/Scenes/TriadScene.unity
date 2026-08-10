@@ -200,9 +200,6 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 074bc99083525c94b981ace03a694ab0, type: 3}
       insertIndex: -1
       addedObject: {fileID: 166573880}
-    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 074bc99083525c94b981ace03a694ab0, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 166573883}
   m_SourcePrefab: {fileID: 100100000, guid: 074bc99083525c94b981ace03a694ab0, type: 3}
 --- !u!4 &166573876 stripped
 Transform:
@@ -401,23 +398,6 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
---- !u!114 &166573883
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 166573877}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ac798b73610c92e4393b8aba67b7a4e3, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::GazeControl.TTS.TtsSpeaker
-  <Text>k__BackingField: Yes, I noticed that. Gaze is such a strong cue for turn
-    taking. Even a brief glance can change who speaks next.
-  <VoiceName>k__BackingField: am_michael
-  <Speed>k__BackingField: 1
-  <PlayOnStart>k__BackingField: 0
 --- !u!1 &184681074
 GameObject:
   m_ObjectHideFlags: 0
@@ -636,7 +616,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 644306068}
-  - component: {fileID: 644306067}
+  - component: {fileID: 644306069}
   m_Layer: 0
   m_Name: Conversation
   m_TagString: Untagged
@@ -644,31 +624,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &644306067
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 644306066}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 42dadc97a78145248aae49d36a125fd2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::GazeControl.Conversation.TriadConversation
-  <SpeakerA>k__BackingField: {fileID: 953799580}
-  <SpeakerB>k__BackingField: {fileID: 166573883}
-  <QuestionText>k__BackingField: So, what do you think makes a conversation feel
-    natural?
-  <AnswerText>k__BackingField: Mostly timing. When gaze and speech line up, turn
-    taking just flows.
-  <TurnGapSeconds>k__BackingField: 0.4
-  <MotionPlayers>k__BackingField:
-  - {fileID: 672148328}
-  - {fileID: 1579353671}
-  <GazeA>k__BackingField: {fileID: 672148329}
-  <GazeB>k__BackingField: {fileID: 1579353672}
-  <Director>k__BackingField: {fileID: 696636976}
 --- !u!4 &644306068
 Transform:
   m_ObjectHideFlags: 0
@@ -684,6 +639,30 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &644306069
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 644306066}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a112d084700ec7242a0b5a119cc156cb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GazeControl.Conversation.RecordedConversation
+  <SegmentPath>k__BackingField: Assets/DemoSegments/case1_seg01/segment.json
+  <Speakers>k__BackingField:
+  - <SpeakerCode>k__BackingField: 1
+    <Participant>k__BackingField: {fileID: 672148330}
+    <Motion>k__BackingField: {fileID: 672148328}
+    <Clip>k__BackingField: {fileID: 0}
+  - <SpeakerCode>k__BackingField: 2
+    <Participant>k__BackingField: {fileID: 1579353673}
+    <Motion>k__BackingField: {fileID: 1579353671}
+    <Clip>k__BackingField: {fileID: 0}
+  <Director>k__BackingField: {fileID: 696636976}
+  <ScheduleLeadSeconds>k__BackingField: 0.2
 --- !u!1 &672148326
 GameObject:
   m_ObjectHideFlags: 0
@@ -732,7 +711,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GazeControl.Motion.SmplxMotionPlayer
   <ClipPath>k__BackingField: Assets/MotionData/TalkingWithHands/trn_2023_v0_000_interloctr_000.npz
+  <StartFrame>k__BackingField: 0
+  <FrameCount>k__BackingField: 0
   <Loop>k__BackingField: 1
+  <Autoplay>k__BackingField: 1
   <ApplyRootTranslation>k__BackingField: 1
   <RootTranslationRelative>k__BackingField: 1
 --- !u!114 &672148329
@@ -801,12 +783,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cfe0067aa042e4a45800900f5d86a275, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GazeControl.Experiment.GazeConditionRunner
-  <Condition>k__BackingField: 2
+  <Condition>k__BackingField: 1
   <Participants>k__BackingField:
   - {fileID: 672148330}
   - {fileID: 1579353673}
   - {fileID: 184681076}
-  <Conversation>k__BackingField: {fileID: 644306067}
+  <Conversation>k__BackingField: {fileID: 644306069}
   <Director>k__BackingField: {fileID: 696636976}
   <DecisionHz>k__BackingField: 30
   <SpeakerFollowing>k__BackingField:
@@ -815,7 +797,8 @@ MonoBehaviour:
     <BackchannelSeconds>k__BackingField: 0.6
     <MinimumDwellSeconds>k__BackingField: 0.7
   <Proposed>k__BackingField:
-    <Pattern>k__BackingField: 1
+    <Selection>k__BackingField: 0
+    <Pattern>k__BackingField: 9
     <PreTurnWindowSeconds>k__BackingField: 1
     <PatternTimeScale>k__BackingField: 1
   <VoiceRmsThreshold>k__BackingField: 0.01
@@ -826,7 +809,7 @@ MonoBehaviour:
   <LoggingEnabled>k__BackingField: 1
   <LogVoiceActivity>k__BackingField: 0
   <OutputDirectory>k__BackingField: Recordings
-  <CaseName>k__BackingField: case1_01
+  <CaseName>k__BackingField: case1_seg01_02
 --- !u!4 &696636975
 Transform:
   m_ObjectHideFlags: 0
@@ -988,9 +971,6 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 074bc99083525c94b981ace03a694ab0, type: 3}
       insertIndex: -1
       addedObject: {fileID: 953799577}
-    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 074bc99083525c94b981ace03a694ab0, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 953799580}
   m_SourcePrefab: {fileID: 100100000, guid: 074bc99083525c94b981ace03a694ab0, type: 3}
 --- !u!4 &953799573 stripped
 Transform:
@@ -1189,23 +1169,6 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
---- !u!114 &953799580
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 953799574}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ac798b73610c92e4393b8aba67b7a4e3, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::GazeControl.TTS.TtsSpeaker
-  <Text>k__BackingField: Have you tried the new gaze control demo? The agents actually
-    look at each other before taking turns, just like people do in real conversations.
-  <VoiceName>k__BackingField: am_adam
-  <Speed>k__BackingField: 1
-  <PlayOnStart>k__BackingField: 0
 --- !u!1 &982743563
 GameObject:
   m_ObjectHideFlags: 0
@@ -1473,7 +1436,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GazeControl.Motion.SmplxMotionPlayer
   <ClipPath>k__BackingField: Assets/MotionData/TalkingWithHands/trn_2023_v0_000_main-agent_000.npz
+  <StartFrame>k__BackingField: 0
+  <FrameCount>k__BackingField: 0
   <Loop>k__BackingField: 1
+  <Autoplay>k__BackingField: 1
   <ApplyRootTranslation>k__BackingField: 1
   <RootTranslationRelative>k__BackingField: 1
 --- !u!114 &1579353672

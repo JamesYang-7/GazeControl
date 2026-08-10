@@ -109,9 +109,15 @@ InitTestScene*.unity*
 # Auto-generated scenes by play mode tests
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
 
-# TTS model + voices stay local (Kokoro-82M ~310 MB) - see README.md for download
+# Kokoro TTS model + voices; the integration was removed on 2026-08-10 but a
+# clone that still has the downloads should not start committing them.
 /Assets/Models/
 /Assets/Models.meta
+
+# Exported demo segments: trimmed corpus audio + its segment.json. Re-export with
+# Tools/find_demo_segments.py rather than committing the dataset's audio.
+/Assets/DemoSegments/
+/Assets/DemoSegments.meta
 
 # Motion datasets stay local; only whitelisted example clips are committed (via LFS)
 /Assets/MotionData/**/*.npz*

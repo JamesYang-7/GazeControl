@@ -45,10 +45,39 @@ namespace GazeControl.Gaze.Policy
             var voiceActivity = CreateVoiceActivityTracker();
             var sut = CreateSystemUnderTest(voiceActivity);
 
-            voiceActivity.Tick(0.3f, new[] { true, false, false });
-            var actual = sut.Update(0.3f, StateAddressing(AgentB));
+            voiceActivity.Tick(0.7f, new[] { true, false, false });
+            var actual = sut.Update(0.7f, StateAddressing(AgentB));
 
             Assert.That(actual, Is.EqualTo(GazeTarget.AtPerson(AgentB)));
+        }
+
+        [Test]
+        public void Update_SelfUtteranceShorterThanBackchannelThreshold_HoldsPreviousTarget()
+        {
+            var voiceActivity = CreateVoiceActivityTracker();
+            var sut = CreateSystemUnderTest(voiceActivity);
+
+            // The agent's own "yeah" thrown in while the other agent holds the
+            // floor is a backchannel, and §3 says a backchannel triggers no gaze
+            // switch — whoever produced it.
+            voiceActivity.Tick(0.4f, new[] { true, false, false });
+            var actual = sut.Update(0.4f, StateAddressing(AgentB));
+
+            Assert.That(actual, Is.EqualTo(GazeTarget.AtPerson(User)), "still on the fallback it started on");
+        }
+
+        [Test]
+        public void Update_SelfSpeakingWhileTheScheduleAddressesSelf_LooksAtTheFallbackRatherThanItself()
+        {
+            var voiceActivity = CreateVoiceActivityTracker();
+            var sut = CreateSystemUnderTest(voiceActivity);
+
+            // current_addressee belongs to whoever holds the floor, so during an
+            // overlap it can name this agent. An agent is not its own addressee.
+            voiceActivity.Tick(0.7f, new[] { true, false, false });
+            var actual = sut.Update(0.7f, StateAddressing(AgentA));
+
+            Assert.That(actual, Is.EqualTo(GazeTarget.AtPerson(User)));
         }
 
         [Test]
@@ -83,8 +112,10 @@ namespace GazeControl.Gaze.Policy
             voiceActivity.Tick(0.7f, new[] { false, true, false });
             sut.Update(0.7f, StateAddressing(AgentB));
 
-            voiceActivity.Tick(0.3f, new[] { true, false, false });
-            var actual = sut.Update(0.3f, StateAddressing(User));
+            // Voiced past the backchannel threshold but still inside the 0.7 s
+            // dwell, so it is the dwell alone that holds the target here.
+            voiceActivity.Tick(0.65f, new[] { true, false, false });
+            var actual = sut.Update(0.65f, StateAddressing(User));
 
             Assert.That(actual, Is.EqualTo(GazeTarget.AtPerson(AgentB)));
         }
