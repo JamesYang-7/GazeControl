@@ -53,6 +53,7 @@ import argparse
 import ast
 import csv
 import json
+import math
 import struct
 import sys
 import wave
@@ -89,6 +90,30 @@ MIN_EVENT_SEPARATION = 2.0
 # Peak the exported pair is normalised to, leaving headroom for the two voices
 # summing during overlaps.
 PEAK_TARGET = 0.7
+
+# Voice pitch. The corpus records nothing about who is speaking, so a segment's
+# voices are classified by measuring them: median F0 over that speaker's own
+# voiced frames. The bands are the conventional ones for adult speech (male
+# ~85-155 Hz, female ~165-255 Hz) with the gap between them left as "unclear"
+# rather than forced into one side.
+VOICE_MALE_MAX_HZ = 155.0
+VOICE_FEMALE_MIN_HZ = 175.0
+
+# F0 search range, and the rate the signal is decimated to before searching.
+# 4410 Hz puts the range at lags 14-63, which resolves ~6 Hz either side of the
+# male/female boundary — far finer than the 20 Hz gap the bands leave.
+PITCH_MIN_HZ = 70.0
+PITCH_MAX_HZ = 320.0
+PITCH_RATE = 4410
+PITCH_DECIMATION = 10
+
+# How many voiced frames to measure per speaker. A median over this many is
+# stable to a few Hz, and the whole point is to avoid reading entire files.
+PITCH_FRAMES = 60
+PITCH_FRAME_SECONDS = 0.04
+
+# Normalised autocorrelation below which a frame is treated as unvoiced.
+PITCH_PERIODICITY = 0.35
 
 
 @dataclass
@@ -343,15 +368,35 @@ def best_per_stem(found: list[Segment], per_stem: int) -> list[Segment]:
     return kept
 
 
-def describe(segment: Segment, rank: int) -> str:
+def matches_voice(segment: Segment, wanted: str) -> bool:
+    classes = [voice_class(voice_pitch(segment.stem, speaker)) for speaker in sorted(SIDE_OF_CODE)]
+
+    if wanted == "mixed":
+        return set(classes) == {"male", "female"}
+
+    return all(voice == wanted for voice in classes)
+
+
+def voices_of(segment: Segment) -> str:
+    """The measured pitch of both speakers, for reporting. Cached, so it is cheap to repeat."""
+    parts = []
+    for speaker in sorted(SIDE_OF_CODE):
+        pitch = voice_pitch(segment.stem, speaker)
+        label = "AB"[speaker - 1]
+        parts.append(f"{label} {voice_class(pitch)}" + (f" {pitch:.0f}Hz" if pitch else ""))
+    return ", ".join(parts)
+
+
+def describe(segment: Segment, rank: int, voices: bool = False) -> str:
     types = ",".join(EOT_TYPE_NAMES[e.eot_type][0] + str(e.first_speaker) for e in segment.events)
-    return (
+    line = (
         f"{rank:>3}  {segment.stem}  {segment.start:7.2f}-{segment.end:7.2f}s "
         f"({segment.duration:5.2f}s)  score {segment.score:5.2f}  "
         f"events {len(segment.events)} [{types}]  "
         f"min-sep {segment.reasons['min_sep_s']:4.1f}s  "
         f"balance {segment.reasons['balance']:.2f}"
     )
+    return line + f"  [{voices_of(segment)}]" if voices else line
 
 
 def inspect(segment: Segment) -> None:
@@ -363,7 +408,8 @@ def inspect(segment: Segment) -> None:
     people talking past each other.
     """
     print(f"\n{segment.stem}  {segment.start:.2f}-{segment.end:.2f} s  ({segment.duration:.2f} s)")
-    print(f"  agent A = main-agent (speaker 1), agent B = interloctr (speaker 2)\n")
+    print(f"  agent A = main-agent (speaker 1), agent B = interloctr (speaker 2)")
+    print(f"  voices: {voices_of(segment)}\n")
 
     marks = [(u.start, "utterance", u) for u in segment.utterances]
     marks += [(e.turn_time, "event", e) for e in segment.events]
@@ -413,6 +459,118 @@ def build_turns(segment: Segment) -> list[dict]:
         "eventIndex": -1,
     })
     return turns
+
+
+_pitch_cache: dict[tuple[str, int], float | None] = {}
+
+
+def voice_pitch(stem: str, speaker: int) -> float | None:
+    """Median F0 of one speaker, in Hz, or None if too little voiced speech.
+
+    Measured only over that speaker's own utterances, taken from the word-level
+    TSV, so the other side of the conversation cannot pull the estimate. The
+    signal is decimated hard first: F0 lives well below 320 Hz, and searching
+    lags at 44.1 kHz would be a hundred times the work for no more accuracy.
+    """
+    key = (stem, speaker)
+    if key in _pitch_cache:
+        return _pitch_cache[key]
+
+    _pitch_cache[key] = measure_pitch(stem, speaker)
+    return _pitch_cache[key]
+
+
+def measure_pitch(stem: str, speaker: int) -> float | None:
+    side = SIDE_OF_CODE[speaker]
+    path = DATASET / "talkingwithHands-Audio" / side / "wav" / f"{stem}_{side}.wav"
+    frame_length = int(PITCH_FRAME_SECONDS * PITCH_RATE)
+    min_lag = int(PITCH_RATE / PITCH_MAX_HZ)
+    max_lag = int(PITCH_RATE / PITCH_MIN_HZ)
+
+    estimates: list[float] = []
+    with wave.open(str(path), "rb") as reader:
+        rate = reader.getframerate()
+        channels = reader.getnchannels()
+
+        for utterance in load_utterances(stem, speaker):
+            if len(estimates) >= PITCH_FRAMES:
+                break
+            if utterance.end - utterance.start < PITCH_FRAME_SECONDS * 2:
+                continue
+
+            reader.setpos(int(utterance.start * rate))
+            raw = array("h")
+            raw.frombytes(reader.readframes(int((utterance.end - utterance.start) * rate)))
+            if sys.byteorder == "big":
+                raw.byteswap()
+
+            signal = decimate(raw, channels)
+            for offset in range(0, len(signal) - frame_length, frame_length):
+                if len(estimates) >= PITCH_FRAMES:
+                    break
+
+                f0 = frame_pitch(signal[offset:offset + frame_length], min_lag, max_lag)
+                if f0 is not None:
+                    estimates.append(f0)
+
+    if len(estimates) < 10:
+        return None
+
+    estimates.sort()
+    return estimates[len(estimates) // 2]
+
+
+def decimate(samples: array, channels: int) -> list[float]:
+    """Average-and-drop down to PITCH_RATE. The averaging is the anti-alias filter."""
+    step = PITCH_DECIMATION * channels
+    out = []
+    for i in range(0, len(samples) - step, step):
+        out.append(sum(samples[i:i + step]) / step)
+    return out
+
+
+def frame_pitch(frame: list[float], min_lag: int, max_lag: int) -> float | None:
+    """Normalised-autocorrelation F0 of one frame, or None if it is not voiced."""
+    mean = sum(frame) / len(frame)
+    centred = [v - mean for v in frame]
+    energy = sum(v * v for v in centred)
+    if energy <= 0:
+        return None
+
+    best_lag = 0
+    best_score = 0.0
+    limit = min(max_lag, len(centred) - min_lag - 1)
+
+    for lag in range(min_lag, limit + 1):
+        overlap = len(centred) - lag
+        correlation = 0.0
+        tail = 0.0
+        for i in range(overlap):
+            correlation += centred[i] * centred[i + lag]
+            tail += centred[i + lag] * centred[i + lag]
+
+        head = sum(centred[i] * centred[i] for i in range(overlap))
+        norm = math.sqrt(head * tail)
+        if norm <= 0:
+            continue
+
+        score = correlation / norm
+        if score > best_score:
+            best_score = score
+            best_lag = lag
+
+    if best_lag == 0 or best_score < PITCH_PERIODICITY:
+        return None
+
+    return PITCH_RATE / best_lag
+
+
+def voice_class(pitch: float | None) -> str:
+    if pitch is None:
+        return "unknown"
+    if pitch <= VOICE_MALE_MAX_HZ:
+        return "male"
+    return "female" if pitch >= VOICE_FEMALE_MIN_HZ else "unclear"
 
 
 def read_trim(source: Path, start: float, end: float) -> tuple[array, dict]:
@@ -487,12 +645,17 @@ def export(segment: Segment, name: str) -> Path:
         wav_name = f"{side}.wav"
         samples, params = trims[code]
         written = write_wav(directory / wav_name, samples, params, gain)
+        pitch = voice_pitch(segment.stem, code)
         agents.append({
             "speaker": code,
             "side": side,
             "audio": f"Assets/DemoSegments/{name}/{wav_name}",
             "motion": str(DATASET / "SMPLX-60fps-grounded" / f"{segment.stem}_{side}.npz"),
             "audioSamples": written,
+            # Measured, not annotated: the corpus records nothing about who is
+            # speaking. Kept so the agent's appearance can be matched to it.
+            "voicePitchHz": round(pitch, 1) if pitch else None,
+            "voice": voice_class(pitch),
         })
 
     document = {
@@ -559,6 +722,8 @@ def main() -> int:
                         help="minimum seconds between consecutive turn instants")
     parser.add_argument("--per-stem", type=int, default=2,
                         help="how many non-overlapping segments to keep per conversation")
+    parser.add_argument("--voice", choices=["any", "male", "female", "mixed"], default="any",
+                        help="keep only segments whose two speakers have these measured voice pitches")
     parser.add_argument("--top", type=int, default=20, help="how many to report")
     parser.add_argument("--stem", help="restrict the search to one conversation")
     parser.add_argument("--csv", type=Path, help="write the full ranking here")
@@ -581,9 +746,27 @@ def main() -> int:
 
     ranked = best_per_stem(found, args.per_stem)
     print(f"{len(found)} windows over {len(pool)} conversations, "
-          f"{len(ranked)} kept after per-conversation de-overlap\n")
+          f"{len(ranked)} kept after per-conversation de-overlap")
+
+    if args.voice != "any":
+        # Measured lazily, in rank order: pitch analysis reads audio, and there
+        # is no reason to measure a conversation nobody will look at. Stop once
+        # there are comfortably more matches than will be reported.
+        wanted = max(args.top, args.export or 0, args.inspect or 0, 10)
+        kept = []
+        for segment in ranked:
+            if len(kept) >= wanted:
+                break
+            if matches_voice(segment, args.voice):
+                kept.append(segment)
+
+        print(f"{len(kept)} of the first {len(ranked)} match --voice {args.voice} "
+              f"({len(_pitch_cache)} speaker pitches measured)")
+        ranked = kept
+
+    print()
     for rank, segment in enumerate(ranked[: args.top], start=1):
-        print(describe(segment, rank))
+        print(describe(segment, rank, voices=args.voice != "any"))
 
     if args.csv:
         with args.csv.open("w", newline="", encoding="utf-8") as handle:

@@ -94,16 +94,31 @@ namespace GazeControl.Gaze.Policy
         }
 
         /// <summary>
-        /// Who this agent looks at while speaking. The schedule's addressee
-        /// belongs to whoever holds the floor, so when voice activity and the
-        /// schedule disagree — an overlap, an interruption, a turn the agent
-        /// starts early — it can name this agent itself. An agent is not its own
-        /// addressee, and §3's fallback covers the case.
+        /// Who this agent looks at while speaking.
+        ///
+        /// Normally the schedule's addressee, but that field belongs to whoever
+        /// holds the floor, so when voice activity and the schedule disagree it
+        /// names this agent itself — which happens constantly, because talking
+        /// while someone else holds the floor is what a backchannel is. An agent
+        /// is not its own addressee; the person it is addressing is then the
+        /// floor-holder it is responding to. Only with neither available does
+        /// §3's human fallback apply.
+        ///
+        /// Sending it to the human instead was tried and is visibly wrong: in a
+        /// segment where one agent backchannels through the other's long turn,
+        /// it left that agent staring at the user for 66% of the take rather
+        /// than at the speaker it was agreeing with.
         /// </summary>
-        ParticipantId AddresseeOf(in ConversationState state) =>
-            state.CurrentAddressee.IsValid && state.CurrentAddressee != state.SelfId
-                ? state.CurrentAddressee
-                : _fallbackAddressee;
+        ParticipantId AddresseeOf(in ConversationState state)
+        {
+            if (state.CurrentAddressee.IsValid && state.CurrentAddressee != state.SelfId)
+                return state.CurrentAddressee;
+
+            if (state.CurrentSpeaker.IsValid && state.CurrentSpeaker != state.SelfId)
+                return state.CurrentSpeaker;
+
+            return _fallbackAddressee;
+        }
 
         /// <summary>Voiced, and voiced for longer than a backchannel.</summary>
         bool IsEstablishedSpeaker(ParticipantId id) =>

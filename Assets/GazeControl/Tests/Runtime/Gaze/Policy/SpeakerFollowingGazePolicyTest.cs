@@ -39,6 +39,17 @@ namespace GazeControl.Gaze.Policy
             SecondPartner = User,
         };
 
+        /// The schedule during someone else's turn: they hold the floor and this
+        /// agent is the one they are addressing.
+        static ConversationState StateWhileOtherHoldsFloor(ParticipantId speaker) => new()
+        {
+            SelfId = AgentA,
+            CurrentSpeaker = speaker,
+            CurrentAddressee = AgentA,
+            FirstPartner = AgentB,
+            SecondPartner = User,
+        };
+
         [Test]
         public void Update_SelfSpeaking_LooksAtAddressee()
         {
@@ -67,15 +78,30 @@ namespace GazeControl.Gaze.Policy
         }
 
         [Test]
-        public void Update_SelfSpeakingWhileTheScheduleAddressesSelf_LooksAtTheFallbackRatherThanItself()
+        public void Update_SpeakingOverTheFloorHolder_LooksAtThemRatherThanAtItself()
         {
             var voiceActivity = CreateVoiceActivityTracker();
             var sut = CreateSystemUnderTest(voiceActivity);
 
-            // current_addressee belongs to whoever holds the floor, so during an
-            // overlap it can name this agent. An agent is not its own addressee.
+            // current_addressee belongs to whoever holds the floor, so while B
+            // is speaking to A it names A. An agent is not its own addressee —
+            // the one it is addressing is the floor-holder it is answering.
             voiceActivity.Tick(0.7f, new[] { true, false, false });
-            var actual = sut.Update(0.7f, StateAddressing(AgentA));
+            var actual = sut.Update(0.7f, StateWhileOtherHoldsFloor(AgentB));
+
+            Assert.That(actual, Is.EqualTo(GazeTarget.AtPerson(AgentB)));
+        }
+
+        [Test]
+        public void Update_SpeakingWithNobodyElseNamed_FallsBackToTheHuman()
+        {
+            var voiceActivity = CreateVoiceActivityTracker();
+            var sut = CreateSystemUnderTest(voiceActivity);
+
+            // No schedule at all: neither addressee nor speaker names anyone
+            // else, so §3's fallback is all that is left.
+            voiceActivity.Tick(0.7f, new[] { true, false, false });
+            var actual = sut.Update(0.7f, StateAddressing(ParticipantId.None));
 
             Assert.That(actual, Is.EqualTo(GazeTarget.AtPerson(User)));
         }

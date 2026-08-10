@@ -131,3 +131,6 @@ InitTestScene*.unity*
 # Unity never imports it; the README is committed so the convention survives a clone.
 /Research/*
 !/Research/README.md
+
+# Python bytecode from the Tools/ scripts
+__pycache__/
