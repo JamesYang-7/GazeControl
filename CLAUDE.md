@@ -65,6 +65,19 @@ Gaze patterns come from the ICMI paper in `Assets/Docs/` (Figures 6–8: top gaz
 
 `ListenerCamera` remains in the codebase but is wired to nothing since gaze moved behind the policy interface.
 
+## Agent appearance
+
+Both agents wear **female SMPLitex textures** (the demo segment is two female speakers): `smplitex_f00016_alb.png` on agent A, `smplitex_f00021_alb.png` on agent B, via `SMPLX-Female-URP-AgentA/B.mat` with the stock female normal map. The male texture and material are unused but kept.
+
+A SMPLitex output needs two passes before it is usable, both editor menu items under **GazeControl → Textures**:
+
+1. **Composite SMPLitex Eye Disc** — SMPLitex never generates the eyeball UV island and leaves it black, and both eyes share that one island, so an untreated texture gives an agent black eyes. The disc is copied from a stock SMPL-X albedo; it sits at (296, 221) r≈19 in 512²-scale, **top-left origin**.
+2. **Pad SMPLitex UV Islands** — fills the gaps between islands from the island edges, using the mesh's own UVs as the coverage mask so nothing a triangle covers is ever written. It also repairs the generator spilling a flat background colour *into* an island, but only when the background is measurably flat (the mode holds ≥50% of outside texels); both female textures fail that test and are padded only.
+
+Only the *body* is female. `SMPLX.modelType` stays `Male` on purpose: it selects the betas-to-joints regressor and so moves the **skeleton**, not the mesh surface, and the FBX carries one template mesh. A genuinely female body would need a female template export or non-zero betas.
+
+**Known artifact:** `smplitex_f00016_alb.png` (agent A) has yellow-green painted onto the fingers and toes inside the UV islands — it is in the SMPLitex sample itself, not introduced here, and no colour statistic separates it from legitimate content (the dominant non-island colours are greys and pinks that occur in tens of thousands of island texels). Swap the sample if it becomes distracting.
+
 ## Motion data conventions
 
 TalkingWithHands clips come in pairs from the same recorded take: one `interloctr` file and one `main-agent` file whose names differ only in that token. **The two agents must always play a matched pair**: one agent uses the `interloctr` clip and the other the `main-agent` clip of the same take. Mixing takes would put two unrelated conversations in one room, and the corpus is *Centered* — each file's `trans` and global orientation are expressed in a frame anchored on that file's main agent, so only the two sides of one stem are mutually consistent.
