@@ -797,6 +797,7 @@ MonoBehaviour:
     <BackchannelSeconds>k__BackingField: 0.6
     <MinimumDwellSeconds>k__BackingField: 0.7
   <Proposed>k__BackingField:
+    <Substrate>k__BackingField: 0
     <Selection>k__BackingField: 0
     <Pattern>k__BackingField: 9
     <PreTurnWindowSeconds>k__BackingField: 1
@@ -809,7 +810,7 @@ MonoBehaviour:
   <LoggingEnabled>k__BackingField: 1
   <LogVoiceActivity>k__BackingField: 0
   <OutputDirectory>k__BackingField: Recordings
-  <CaseName>k__BackingField: case1_seg02_02
+  <CaseName>k__BackingField: case1_seg02_03
 --- !u!4 &696636975
 Transform:
   m_ObjectHideFlags: 0
