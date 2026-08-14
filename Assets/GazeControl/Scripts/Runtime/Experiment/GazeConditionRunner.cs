@@ -121,6 +121,7 @@ namespace GazeControl.Experiment
         Vector3[] _previousGazeDirections;
         bool[] _rawVoiced;
         ShintaniGazeParameters _roleConditionedParameters;
+        HoldingSequenceBank _holdingBank;
         GazeLogWriter _log;
         float _accumulator;
         float _sessionTime;
@@ -304,20 +305,32 @@ namespace GazeControl.Experiment
                 GazeCondition.RoleConditioned =>
                     new ShintaniGazePolicy(_roleConditionedParameters, human.ParticipantId),
 
-                // Baseline B is the substrate, so outside the pre-turn window this
-                // condition is bit-for-bit the speaker-following baseline and the
-                // pairwise contrast isolates the pattern (user's call 2026-08-09).
                 // The pattern seed is the run's, not the agent's: both agents must
                 // draw the same prototype for a boundary or they would play two
                 // different patterns' tracks at each other.
                 GazeCondition.Proposed =>
-                    new ProposedGazePolicy(
-                        new SpeakerFollowingGazePolicy(SpeakerFollowing, _voiceActivity, human.ParticipantId),
-                        Proposed,
-                        BaseSeed),
+                    new ProposedGazePolicy(CreateProposedSubstrate(human), Proposed, BaseSeed),
                 _ => throw new NotImplementedException($"Condition {Condition} is not implemented."),
             };
         }
+
+        /// <summary>
+        /// What drives the proposed condition outside the prototype windows.
+        /// HoldingReplay (the method, 2026-08-14) replays measured holding
+        /// stretches and gets its per-agent draw stream for free — the runner's
+        /// per-agent seed reaches it through ProposedGazePolicy.Reset. The
+        /// SpeakerFollowing setting is the prototype-only ablation: bit-for-bit
+        /// baseline B outside the windows, isolating the pattern exactly (the
+        /// 2026-08-09 substrate decision, kept as a switchable comparison).
+        /// </summary>
+        IGazePolicy CreateProposedSubstrate(GazeParticipant human) => Proposed.Substrate switch
+        {
+            ProposedSubstrate.HoldingReplay =>
+                new HoldingReplayGazePolicy(_holdingBank, human.ParticipantId),
+            ProposedSubstrate.SpeakerFollowing =>
+                new SpeakerFollowingGazePolicy(SpeakerFollowing, _voiceActivity, human.ParticipantId),
+            _ => throw new NotImplementedException($"Substrate {Proposed.Substrate} is not implemented."),
+        };
 
         /// <summary>
         /// Load whatever the selected condition needs before any policy is built.
@@ -338,14 +351,15 @@ namespace GazeControl.Experiment
                 return false;
             }
 
-            // Only baseline A reads the corpus model now; the proposed condition
-            // runs on baseline B's substrate and needs no fitted parameters.
-            if (Condition != GazeCondition.RoleConditioned)
-                return true;
-
             try
             {
-                _roleConditionedParameters = ShintaniGazeParameters.LoadDefault();
+                if (Condition == GazeCondition.RoleConditioned)
+                    _roleConditionedParameters = ShintaniGazeParameters.LoadDefault();
+
+                // The prototype-only ablation (SpeakerFollowing substrate) is the
+                // one proposed configuration that needs no corpus data at all.
+                if (Condition == GazeCondition.Proposed && Proposed.Substrate == ProposedSubstrate.HoldingReplay)
+                    _holdingBank = HoldingSequenceBank.LoadDefault();
             }
             catch (Exception e)
             {
@@ -753,7 +767,17 @@ namespace GazeControl.Experiment
             if (Condition == GazeCondition.Proposed)
             {
                 json.Append("  \"proposed\": {\n");
-                json.Append("    \"substrate\": \"SpeakerFollowing\",\n");
+                json.Append($"    \"substrate\": \"{Proposed.Substrate}\",\n");
+
+                if (_holdingBank != null)
+                {
+                    json.Append("    \"holding_bank\": { \"resource\": \"Resources/HoldingSequences.json\", \"stretches\": { " +
+                        $"\"sp\": {_holdingBank.StretchCount(ParticipantRole.Speaker).ToString(c)}, " +
+                        $"\"ad\": {_holdingBank.StretchCount(ParticipantRole.Addressee).ToString(c)}, " +
+                        $"\"sd\": {_holdingBank.StretchCount(ParticipantRole.SideParticipant).ToString(c)}" +
+                        " } },\n");
+                }
+
                 json.Append($"    \"selection\": \"{Proposed.Selection}\",\n");
                 json.Append($"    \"pattern_seed\": {BaseSeed.ToString(c)},\n");
                 json.Append($"    \"pre_turn_window_s\": {Proposed.PreTurnWindowSeconds.ToString("0.###", c)},\n");

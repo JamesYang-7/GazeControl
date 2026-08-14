@@ -17,6 +17,21 @@ namespace GazeControl.Gaze.Policy
         Fixed,
     }
 
+    /// <summary>What drives gaze outside the pre-turn prototype windows.</summary>
+    public enum ProposedSubstrate
+    {
+        /// <summary>
+        /// Non-parametric replay of measured holding stretches. Declared first
+        /// on purpose: the scene's serialized ProposedSettings predates this
+        /// field, and a missing field deserializes to 0, so existing scenes get
+        /// the new default without a scene edit.
+        /// </summary>
+        HoldingReplay,
+
+        /// <summary>Baseline B underneath — the prototype-only ablation.</summary>
+        SpeakerFollowing,
+    }
+
     /// <summary>
     /// Which pre-turn prototype the proposed condition plays, and the window it
     /// plays in. Configuration rather than constants so a prototype can be
@@ -25,6 +40,10 @@ namespace GazeControl.Gaze.Policy
     [Serializable]
     public sealed class ProposedSettings
     {
+        [field: SerializeField]
+        [field: Tooltip("What drives gaze outside the prototype windows; SpeakerFollowing is the prototype-only ablation")]
+        public ProposedSubstrate Substrate { get; set; } = ProposedSubstrate.HoldingReplay;
+
         [field: SerializeField]
         [field: Tooltip("Draw a prototype per boundary from its own event class, or play one fixed prototype")]
         public PatternSelection Selection { get; set; } = PatternSelection.RandomByEventClass;

@@ -22,17 +22,20 @@ namespace GazeControl.Gaze.Policy
     /// of another — and the choice does not depend on how many ticks have gone
     /// by, so it survives a change of decision rate.
     ///
-    /// The substrate is **Baseline B** (speaker-following), by the user's call of
-    /// 2026-08-09. That reverses the 2026-07-27 decision to build on Baseline A,
-    /// and it changes what each pairwise comparison means: against baseline B the
-    /// two conditions are identical outside the window, so the contrast isolates
-    /// the pattern exactly; against baseline A it is now a comparison of two whole
-    /// gaze models. Report the pairings accordingly.
+    /// The substrate is **holding replay** as of 2026-08-14 (user's call): outside
+    /// the windows the agent replays measured holding-period fixation stretches
+    /// from our own corpus, so the method is one full data-driven model — corpus
+    /// sequences between turns, corpus prototypes before them. That supersedes
+    /// the 2026-08-09 baseline-B substrate, which survives as the
+    /// ProposedSettings.Substrate = SpeakerFollowing ablation: bit-for-bit
+    /// baseline B outside the window, isolating the pattern exactly. Report the
+    /// pairwise comparisons accordingly.
     ///
-    /// Baseline B never averts (§3) and the prototypes' "None" recentres the
-    /// eyes, so this condition has no directional aversion anywhere — consistent
-    /// within itself, unlike the mixed rendering the Baseline A substrate
-    /// produced.
+    /// Neither substrate averts directionally — holding replay renders its
+    /// aversion fixations as recentred eyes, exactly how the prototypes' "None"
+    /// renders — so this condition has no directional aversion anywhere,
+    /// consistent within itself, unlike the mixed rendering the Baseline A
+    /// substrate once produced.
     ///
     /// The substrate is ticked on every call, including while the pattern is
     /// overriding it, so its hysteresis clocks follow the same trajectory whether
