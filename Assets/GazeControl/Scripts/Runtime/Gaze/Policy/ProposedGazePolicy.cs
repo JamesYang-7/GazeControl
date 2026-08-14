@@ -137,9 +137,8 @@ namespace GazeControl.Gaze.Policy
 
         /// <summary>
         /// The prototype segment covering this instant, or false when no pattern
-        /// has anything to say — outside the window, between turns, at a turn no
-        /// annotated event ends, or for a participant the prototype carries no
-        /// track for.
+        /// has anything to say — outside the window, between turns, or at a turn
+        /// no annotated event ends.
         /// </summary>
         bool TryPatternRole(in ConversationState state, out GazeRole role)
         {
@@ -150,10 +149,7 @@ namespace GazeControl.Gaze.Policy
                 return false;
 
             var pattern = SelectPattern(_settings, _patternSeed, state.UpcomingEventIndex, state.UpcomingEventType);
-
             var track = TrackFor(pattern, in state);
-            if (track == null)
-                return false;
 
             // The window is anchored on the boundary, and the prototype starts
             // partway into it: the raw data's rank-0 subsequence begins at
@@ -169,17 +165,20 @@ namespace GazeControl.Gaze.Policy
         }
 
         /// <summary>
-        /// The track this participant plays. The listener track is deliberately
-        /// not returned: in this demo the listener is the human user, who has no
-        /// gaze to drive, and an agent is only ever the current or the next
-        /// speaker of the boundary it is heading into.
+        /// The track this participant plays: the role it holds at the boundary
+        /// it is heading into. A participant in neither named role is the
+        /// boundary's listener and plays the listener track — in scene 2 the
+        /// user takes the final turn, which puts the *other agent* in that
+        /// seat. Safe against self-gaze by the data itself: no prototype's
+        /// listener track contains <see cref="GazeRole.Listener"/>, so this
+        /// track can never resolve a target back to its own player.
         /// </summary>
         static (float seconds, GazeRole target)[] TrackFor(GazePattern pattern, in ConversationState state)
         {
             if (state.SelfId == state.CurrentSpeaker)
                 return pattern.CurrentSpeakerTrack;
 
-            return state.SelfId == state.CurrentAddressee ? pattern.NextSpeakerTrack : null;
+            return state.SelfId == state.CurrentAddressee ? pattern.NextSpeakerTrack : pattern.ListenerTrack;
         }
 
         /// <summary>
@@ -210,8 +209,8 @@ namespace GazeControl.Gaze.Policy
 
         /// <summary>
         /// The third party — whoever is neither speaking nor being addressed. In
-        /// this demo that is the human user, and several of the paper's
-        /// prototypes do name them as a gaze target.
+        /// scene 1 that is the human user; in scene 2's final turn the user is
+        /// the addressee, so the listener is the other agent.
         /// </summary>
         static ParticipantId Listener(in ConversationState state)
         {

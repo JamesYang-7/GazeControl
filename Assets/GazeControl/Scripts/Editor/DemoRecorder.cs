@@ -22,7 +22,7 @@ namespace GazeControl.Editor
     {
         // SessionState survives the domain reload that entering play mode triggers.
         const string k_PendingKey = "GazeControl.DemoRecorder.Pending";
-        const float k_TailSeconds = 1.5f;
+        const float k_DefaultTailSeconds = 1.5f;
 
         static RecorderController s_Controller;
         static RecordedConversation s_Conversation;
@@ -73,11 +73,21 @@ namespace GazeControl.Editor
                 s_Conversation = Object.FindFirstObjectByType<RecordedConversation>();
 
             if (s_StopAt < 0f && s_Conversation != null && s_Conversation.HasFinished)
-                s_StopAt = Time.time + k_TailSeconds;
+                s_StopAt = Time.time + TailSeconds(s_Conversation);
 
             if (s_StopAt > 0f && Time.time >= s_StopAt)
                 EditorApplication.isPlaying = false; // ExitingPlayMode handler stops the recorder
         }
+
+        /// <summary>
+        /// How long the take holds after the voices stop. Segment data, because
+        /// the hold is a property of what was played: a scene-2 yield needs a
+        /// few watchable seconds of gaze at the user, a scene-1 take does not.
+        /// </summary>
+        static float TailSeconds(RecordedConversation conversation) =>
+            conversation.Segment != null && conversation.Segment.tailSeconds > 0f
+                ? conversation.Segment.tailSeconds
+                : k_DefaultTailSeconds;
 
         static void StartRecording()
         {

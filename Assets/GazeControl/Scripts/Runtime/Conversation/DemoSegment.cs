@@ -18,6 +18,9 @@ namespace GazeControl.Conversation
     [Serializable]
     public sealed class DemoSegment
     {
+        /// <summary>Speaker code for the human user in turns and events; 1 and 2 are the corpus's.</summary>
+        public const int UserSpeakerCode = 0;
+
         /// <summary>Format tag; bumped if the schema ever changes incompatibly.</summary>
         public string schema;
 
@@ -38,10 +41,31 @@ namespace GazeControl.Conversation
 
         public int motionFrameCount;
 
+        /// <summary>
+        /// Scene 2: the final turn's addressee is the user (<see cref="UserSpeakerCode"/>)
+        /// and carries the yield event's real index, so the pre-turn pattern
+        /// fires at the yield. Absent in a scene-1 file, which JsonUtility
+        /// defaults to false.
+        /// </summary>
+        public bool yieldsToUser;
+
+        /// <summary>Seconds the recorder holds after the voices stop; 0 means its default.</summary>
+        public float tailSeconds;
+
         public DemoSegmentAgent[] agents;
         public DemoSegmentTurn[] turns;
         public DemoSegmentEvent[] events;
         public DemoSegmentUtterance[] utterances;
+
+        /// <summary>Parse a segment document; the caller supplies path context on failure.</summary>
+        public static DemoSegment Parse(string json)
+        {
+            var segment = JsonUtility.FromJson<DemoSegment>(json);
+            if (segment == null || segment.turns == null || segment.turns.Length == 0)
+                throw new InvalidDataException("not a demo segment (no turn schedule)");
+
+            return segment;
+        }
 
         /// <summary>Read a segment written by the selection tool.</summary>
         /// <param name="path">Absolute, or relative to the project root.</param>
@@ -54,11 +78,7 @@ namespace GazeControl.Conversation
             if (!File.Exists(full))
                 throw new FileNotFoundException($"demo segment not found: {full}", full);
 
-            var segment = JsonUtility.FromJson<DemoSegment>(File.ReadAllText(full));
-            if (segment == null || segment.turns == null || segment.turns.Length == 0)
-                throw new InvalidDataException($"{path} is not a demo segment (no turn schedule)");
-
-            return segment;
+            return Parse(File.ReadAllText(full));
         }
 
         /// <summary>The record for one speaker, or null if the segment has no such speaker.</summary>
@@ -95,9 +115,12 @@ namespace GazeControl.Conversation
     /// <summary>
     /// Who holds the floor between two boundaries. Derived from the events: the
     /// turn ending at event <c>k</c> is held by that event's first speaker and
-    /// taken by its second. The final turn runs to the end of the segment and
-    /// carries <c>eventIndex = -1</c> — nothing is known about the boundary past
-    /// the clip, so no gaze pattern fires there.
+    /// taken by its second. In a scene-1 segment the final turn runs past the
+    /// last event and carries <c>eventIndex = -1</c> — nothing is known about
+    /// the boundary past the clip, so no gaze pattern fires there. In a
+    /// scene-2 segment (<see cref="DemoSegment.yieldsToUser"/>) the final turn
+    /// is the yield itself: addressed to <see cref="DemoSegment.UserSpeakerCode"/>
+    /// and carrying the yield event's real index.
     /// </summary>
     [Serializable]
     public sealed class DemoSegmentTurn

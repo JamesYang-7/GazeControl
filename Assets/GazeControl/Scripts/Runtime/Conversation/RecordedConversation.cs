@@ -53,6 +53,10 @@ namespace GazeControl.Conversation
         public Speaker[] Speakers { get; set; }
 
         [field: SerializeField]
+        [field: Tooltip("The human participant; turns addressed to speaker code 0 (the user) resolve to them")]
+        public GazeParticipant User { get; set; }
+
+        [field: SerializeField]
         [field: Tooltip("Publishes the segment's turn schedule to the gaze policies")]
         public ConversationDirector Director { get; set; }
 
@@ -145,6 +149,15 @@ namespace GazeControl.Conversation
             catch (Exception e)
             {
                 Debug.LogError($"{name}: could not load '{SegmentPath}': {e.Message}", this);
+                return false;
+            }
+
+            // Refused rather than degraded: with no User wired, the yield turn's
+            // addressee would silently resolve to nobody and every policy would
+            // play a plausible-looking take with no yield in it.
+            if (Segment.yieldsToUser && User == null)
+            {
+                Debug.LogError($"{name}: '{SegmentPath}' yields to the user, but no User participant is assigned.", this);
                 return false;
             }
 
@@ -283,6 +296,9 @@ namespace GazeControl.Conversation
 
         ParticipantId IdOf(int speakerCode)
         {
+            if (speakerCode == DemoSegment.UserSpeakerCode)
+                return User != null ? User.ParticipantId : ParticipantId.None;
+
             foreach (var speaker in Speakers)
             {
                 if (speaker.SpeakerCode == speakerCode)
