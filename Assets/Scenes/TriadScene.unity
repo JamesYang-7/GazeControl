@@ -179,7 +179,7 @@ PrefabInstance:
     - target: {fileID: 3094101975524841333, guid: 074bc99083525c94b981ace03a694ab0, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: 46285bc5d3c948a686f1c82d3ef3526f, type: 2}
+      objectReference: {fileID: 2100000, guid: b663c92d62549904fbd02827e924797f, type: 2}
     - target: {fileID: 3094101975524841333, guid: 074bc99083525c94b981ace03a694ab0, type: 3}
       propertyPath: 'm_BlendShapeWeights.Array.data[515]'
       value: 0
@@ -651,7 +651,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a112d084700ec7242a0b5a119cc156cb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GazeControl.Conversation.RecordedConversation
-  <SegmentPath>k__BackingField: Assets/DemoSegments/case1_seg02/segment.json
+  <SegmentPath>k__BackingField: Assets/DemoSegments/case2_seg01/segment.json
   <Speakers>k__BackingField:
   - <SpeakerCode>k__BackingField: 1
     <Participant>k__BackingField: {fileID: 672148330}
@@ -661,6 +661,7 @@ MonoBehaviour:
     <Participant>k__BackingField: {fileID: 1579353673}
     <Motion>k__BackingField: {fileID: 1579353671}
     <Clip>k__BackingField: {fileID: 0}
+  <User>k__BackingField: {fileID: 184681076}
   <Director>k__BackingField: {fileID: 696636976}
   <ScheduleLeadSeconds>k__BackingField: 0.2
 --- !u!1 &672148326
@@ -806,11 +807,11 @@ MonoBehaviour:
   <MutualGazeAngleDegrees>k__BackingField: 15
   <ShiftAngularSpeed>k__BackingField: 20
   <StudyParticipantId>k__BackingField: P00
-  <BaseSeed>k__BackingField: 1
+  <BaseSeed>k__BackingField: 8
   <LoggingEnabled>k__BackingField: 1
   <LogVoiceActivity>k__BackingField: 0
   <OutputDirectory>k__BackingField: Recordings
-  <CaseName>k__BackingField: case1_seg02_03
+  <CaseName>k__BackingField: case2_seg01_03
 --- !u!4 &696636975
 Transform:
   m_ObjectHideFlags: 0
@@ -951,7 +952,7 @@ PrefabInstance:
     - target: {fileID: 3094101975524841333, guid: 074bc99083525c94b981ace03a694ab0, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: 65453595b6a25c54da8d4d0ec1ad2ec5, type: 2}
+      objectReference: {fileID: 2100000, guid: 72ee05d1a8d42e2428df48a60f9203f3, type: 2}
     - target: {fileID: 3094101975524841333, guid: 074bc99083525c94b981ace03a694ab0, type: 3}
       propertyPath: 'm_BlendShapeWeights.Array.data[515]'
       value: 0
