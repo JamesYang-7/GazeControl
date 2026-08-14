@@ -12,7 +12,7 @@ namespace GazeControl.Gaze.Policy
 
         // Fig. 7e starts 29 frames into the 1 s window, so the prototype's first
         // segment begins with this much of the turn left to run.
-        const float SecondsToEndAtPatternStart = 1f - 29f / 60f;
+        static readonly float SecondsToEndAtPatternStart = PatternStart(PreTurnPattern.Fig7e);
 
         static readonly ParticipantId AgentA = new(0);
         static readonly ParticipantId AgentB = new(1);
@@ -82,8 +82,14 @@ namespace GazeControl.Gaze.Policy
             UpcomingEventType = eventType,
         };
 
-        static GazeTarget TargetAt(ProposedGazePolicy sut, ParticipantId self, ParticipantRole role, float secondsToTurnEnd) =>
-            sut.Update(TickSeconds, StateFor(self, role, secondsToTurnEnd));
+        /// Where the pinned prototype's first segment begins, computed exactly
+        /// as the policy computes it — the one definition of "pattern start".
+        static float PatternStart(PreTurnPattern pattern) =>
+            1f - GazePatterns.Of(pattern).WindowOffsetSeconds;
+
+        static GazeTarget TargetAt(ProposedGazePolicy sut, ParticipantId self, ParticipantRole role,
+            float secondsToTurnEnd, ParticipantId? addressee = null) =>
+            sut.Update(TickSeconds, StateFor(self, role, secondsToTurnEnd, addressee: addressee));
 
         static GazeTarget[] RunProposed(ProposedGazePolicy sut, float secondsToTurnEnd, int ticks)
         {
@@ -100,7 +106,7 @@ namespace GazeControl.Gaze.Policy
         // the first tick lands on the prototype's first frame.
         static GazeTarget[] RunListenerWindow(ProposedGazePolicy sut, PreTurnPattern pattern)
         {
-            var patternStart = 1f - GazePatterns.Of(pattern).WindowOffsetSeconds;
+            var patternStart = PatternStart(pattern);
             var targets = new List<GazeTarget>();
             for (var secondsToTurnEnd = patternStart; secondsToTurnEnd >= 0f; secondsToTurnEnd -= TickSeconds)
                 targets.Add(TargetAt(sut, User, ParticipantRole.SideParticipant, secondsToTurnEnd));
@@ -222,8 +228,7 @@ namespace GazeControl.Gaze.Policy
 
             // 0.18 s to go is 0.337 s into the track — inside the 4-frame glance
             // at the current speaker in 7e's listener track.
-            var state = StateFor(self, ParticipantRole.SideParticipant, 0.18f, addressee: addressee);
-            var actual = sut.Update(TickSeconds, state);
+            var actual = TargetAt(sut, self, ParticipantRole.SideParticipant, 0.18f, addressee: addressee);
 
             Assert.That(actual, Is.EqualTo(GazeTarget.AtPerson(AgentA)));
         }
@@ -264,8 +269,7 @@ namespace GazeControl.Gaze.Policy
 
             // 7e's current-speaker track opens on the next speaker — here the
             // user, who is being yielded to.
-            var state = StateFor(AgentA, ParticipantRole.Speaker, SecondsToEndAtPatternStart, addressee: User);
-            var actual = sut.Update(TickSeconds, state);
+            var actual = TargetAt(sut, AgentA, ParticipantRole.Speaker, SecondsToEndAtPatternStart, addressee: User);
 
             Assert.That(actual, Is.EqualTo(GazeTarget.AtPerson(User)));
         }
@@ -279,10 +283,9 @@ namespace GazeControl.Gaze.Policy
             var settings = Settings();
             settings.Pattern = PreTurnPattern.Fig6b;
             var sut = CreateSystemUnderTest(settings: settings);
-            var patternStart = 1f - GazePatterns.Of(PreTurnPattern.Fig6b).WindowOffsetSeconds;
 
-            var state = StateFor(AgentA, ParticipantRole.Speaker, patternStart, addressee: User);
-            var actual = sut.Update(TickSeconds, state);
+            var actual = TargetAt(sut, AgentA, ParticipantRole.Speaker,
+                PatternStart(PreTurnPattern.Fig6b), addressee: User);
 
             Assert.That(actual, Is.EqualTo(GazeTarget.AtPerson(AgentB)));
         }

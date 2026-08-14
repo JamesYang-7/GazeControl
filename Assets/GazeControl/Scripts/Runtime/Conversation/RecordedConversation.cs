@@ -68,6 +68,13 @@ namespace GazeControl.Conversation
         /// <summary>True once the segment has played out and the motion players are frozen.</summary>
         public bool HasFinished { get; private set; }
 
+        /// <summary>
+        /// How long the take should hold after the voices stop; 0 when the
+        /// segment does not say. Exposed here so the recorder never reads the
+        /// segment's schema itself.
+        /// </summary>
+        public float HoldSeconds => Segment != null ? Segment.tailSeconds : 0f;
+
         /// <summary>The segment being played; null until it has loaded.</summary>
         public DemoSegment Segment { get; private set; }
 

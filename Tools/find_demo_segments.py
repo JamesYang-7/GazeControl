@@ -83,9 +83,13 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 DATASET = Path(r"F:\Data\TalkingWithHandsCentered")
 
-# Speaker codes as EoT_TWH writes them (see its _twh_meta.json).
+# Speaker codes as EoT_TWH writes them (see its _twh_meta.json). Code 0 is
+# ours, not the corpus's: the human user, as the taker of a scene-2 yield
+# (mirrored by DemoSegment.UserSpeakerCode on the C# side).
 SIDE_OF_CODE = {1: "main-agent", 2: "interloctr"}
+USER_CODE = 0
 EOT_TYPE_NAMES = {1: "interruption", 2: "overlapping", 3: "turn-taking"}
+TURN_TAKING = 3
 
 # The pause that separates two utterances, from the EoT builder's own choice.
 # Reproduced rather than re-tuned: segment boundaries have to agree with the
@@ -106,9 +110,8 @@ TAIL_SECONDS = 0.5
 MIN_EVENT_SEPARATION = 2.0
 
 # Scene 2. The window ends at a turn-taking event whose instant coincides with
-# the end of an utterance by the event's first speaker — the yield. The taker is
-# rewritten to the human user, speaker code 0 (1 and 2 are the corpus's).
-USER_CODE = 0
+# the end of an utterance by the event's first speaker — the yield; the taker
+# is rewritten to the human user (USER_CODE) at export.
 # Hold after the voices stop, so the yield gaze is watchable; segment data, read
 # by the demo recorder (0 means the recorder's own default).
 SCENE2_TAIL_SECONDS = 4.0
@@ -320,6 +323,11 @@ def min_separation(events: list[Event]) -> float:
     return min(b.turn_time - a.turn_time for a, b in zip(events, events[1:]))
 
 
+def length_score(duration: float) -> float:
+    """Long enough to breathe, short enough to watch: 25 s ideal, 5 s falloff."""
+    return max(0.0, 1.0 - abs(duration - 25.0) / 5.0)
+
+
 def score(segment: Segment) -> Segment:
     """Rank by demo readability, not by how typical the segment is.
 
@@ -343,7 +351,7 @@ def score(segment: Segment) -> Segment:
 
     # Case 1 is about turn-taking; interruptions and overlaps are welcome as
     # texture but a segment with no clean hand-over is the wrong demo.
-    turn_takings = sum(1 for e in events if e.eot_type == 3)
+    turn_takings = sum(1 for e in events if e.eot_type == TURN_TAKING)
     cleanliness = min(turn_takings, 2) / 2.0
 
     # Speech should be shared. Silence is fine; one speaker holding 90% of it
@@ -354,8 +362,7 @@ def score(segment: Segment) -> Segment:
     total = talk[1] + talk[2]
     balance = 0.0 if total <= 0 else 2.0 * min(talk[1], talk[2]) / total
 
-    # Long enough to breathe, short enough to watch.
-    length = 1.0 - abs(segment.duration - 25.0) / 5.0
+    length = length_score(segment.duration)
 
     segment.reasons = {
         "separation": separation,
@@ -363,7 +370,7 @@ def score(segment: Segment) -> Segment:
         "alternation": alternation,
         "cleanliness": cleanliness,
         "balance": balance,
-        "length": max(0.0, length),
+        "length": length,
         "min_sep_s": min_separation(events),
         "events": float(count),
         "turn_takings": float(turn_takings),
@@ -375,7 +382,7 @@ def score(segment: Segment) -> Segment:
         + 2.0 * alternation
         + 2.0 * cleanliness
         + 1.5 * balance
-        + 1.0 * max(0.0, length)
+        + 1.0 * length
     )
     return segment
 
@@ -398,7 +405,7 @@ def scene2_candidates(stem: str, args: argparse.Namespace) -> list[Segment]:
 
     found: list[Segment] = []
     for event in events:
-        if event.eot_type != 3:
+        if event.eot_type != TURN_TAKING:
             continue
 
         final = next((u for u in utterances if u.speaker == event.first_speaker
@@ -422,10 +429,13 @@ def scene2_candidates(stem: str, args: argparse.Namespace) -> list[Segment]:
                 continue
 
             internal = [e for e in events if e is not event and t0 <= e.turn_time < t1]
-            if args.allow_internal_events:
-                if any(changes_floor(e) for e in internal):
-                    continue
-            elif internal:
+            # Relaxed mode admits interruptions/overlaps — talk-over the monologue
+            # predicate has already bounded — but never an internal turn-taking:
+            # that is a genuine hand-over, and whether a bystander could join
+            # after one is a semantic judgment left to --inspect, not a rule.
+            blocking = ([e for e in internal if e.eot_type == TURN_TAKING]
+                        if args.allow_internal_events else internal)
+            if blocking:
                 continue
 
             other = [u for u in utterances
@@ -454,30 +464,19 @@ def scene2_candidates(stem: str, args: argparse.Namespace) -> list[Segment]:
     return found
 
 
-def changes_floor(event: Event) -> bool:
-    """Whether an internal event moves the floor for good.
+def final_utterance(segment: Segment) -> Utterance:
+    """The yielder's closing utterance — the one the window was built to end at.
 
-    A type-3 event is a genuine hand-over. An interruption or overlap inside a
-    window whose other-speaker speech is already backchannel-limited is a
-    moment of talk-over that the annotation recorded, not a floor change that
-    sticks — the monologue predicate has bounded its extent separately.
+    scene2_candidates ends the window at a yielder utterance, so the yielder's
+    last utterance in the segment is that one by construction.
     """
-    return event.eot_type == 3
+    yielder = segment.events[-1].first_speaker
+    return next(u for u in reversed(segment.utterances) if u.speaker == yielder)
 
 
 def is_question_final(segment: Segment) -> bool:
-    """Whether the yielder's closing utterance is a question.
-
-    The transcripts carry punctuation, so this is a direct test on the last
-    word token. Relies on scene2_candidates ending the window at a yielder
-    utterance, which is therefore the yielder's last one in the segment.
-    """
-    yielder = segment.events[-1].first_speaker
-    for utterance in reversed(segment.utterances):
-        if utterance.speaker == yielder:
-            return utterance.text.split()[-1].endswith("?")
-
-    return False
+    """The transcripts carry punctuation, so this is a direct test on the last word."""
+    return final_utterance(segment).text.split()[-1].endswith("?")
 
 
 def scene2_score(segment: Segment) -> Segment:
@@ -494,11 +493,9 @@ def scene2_score(segment: Segment) -> Segment:
     own = sum(u.end - u.start for u in segment.utterances if u.speaker == yielder)
     own_share = min(own / segment.duration, 1.0)
 
-    final = next(u for u in reversed(segment.utterances) if u.speaker == yielder)
+    final = final_utterance(segment)
     # A full closing sentence reads as an invitation; a fragment reads as a lapse.
     yield_clarity = min((final.end - final.start) / 3.0, 1.0)
-
-    length = max(0.0, 1.0 - abs(segment.duration - 25.0) / 5.0)
 
     backchannels = [u for u in segment.utterances if u.speaker != yielder]
     # A couple of "mm-hm"s read as a live dyad; total silence reads as a lecture.
@@ -508,23 +505,19 @@ def scene2_score(segment: Segment) -> Segment:
         "question": question,
         "own_share": own_share,
         "yield_clarity": yield_clarity,
-        "length": length,
+        "length": length_score(segment.duration),
         "life": life,
         "own_talk_s": own,
         "backchannel_count": float(len(backchannels)),
         "backchannel_total_s": sum(u.end - u.start for u in backchannels),
         "internal_events": float(len(segment.events) - 1),
         "final_utt_s": final.end - final.start,
-        # Filled so the shared --csv columns keep working in scene-2 mode.
-        "min_sep_s": min_separation(segment.events),
-        "turn_takings": float(sum(1 for e in segment.events if e.eot_type == 3)),
-        "balance": own_share,
     }
     segment.score = (
         10.0 * question
         + 1.5 * own_share
         + 1.5 * yield_clarity
-        + 1.0 * length
+        + 1.0 * segment.reasons["length"]
         + 1.0 * life
     )
     return segment
@@ -576,10 +569,12 @@ def voices_of(segment: Segment) -> str:
 
 
 def describe(segment: Segment, rank: int, voices: bool = False, scene2: bool = False) -> str:
+    head = (
+        f"{rank:>3}  {segment.stem}  {segment.start:7.2f}-{segment.end:7.2f}s "
+        f"({segment.duration:5.2f}s)  score {segment.score:5.2f}  "
+    )
     if scene2:
-        line = (
-            f"{rank:>3}  {segment.stem}  {segment.start:7.2f}-{segment.end:7.2f}s "
-            f"({segment.duration:5.2f}s)  score {segment.score:5.2f}  "
+        tail = (
             f"{'Q' if segment.reasons['question'] else '-'}  "
             f"yielder {'AB'[segment.events[-1].first_speaker - 1]}  "
             f"own {segment.reasons['own_share']:.2f}  "
@@ -587,13 +582,12 @@ def describe(segment: Segment, rank: int, voices: bool = False, scene2: bool = F
         )
     else:
         types = ",".join(EOT_TYPE_NAMES[e.eot_type][0] + str(e.first_speaker) for e in segment.events)
-        line = (
-            f"{rank:>3}  {segment.stem}  {segment.start:7.2f}-{segment.end:7.2f}s "
-            f"({segment.duration:5.2f}s)  score {segment.score:5.2f}  "
+        tail = (
             f"events {len(segment.events)} [{types}]  "
             f"min-sep {segment.reasons['min_sep_s']:4.1f}s  "
             f"balance {segment.reasons['balance']:.2f}"
         )
+    line = head + tail
     return line + f"  [{voices_of(segment)}]" if voices else line
 
 
@@ -660,22 +654,16 @@ def build_turns(segment: Segment, yields_to_user: bool = False) -> list[dict]:
         previous = event.turn_time - segment.start
 
     last = segment.events[-1]
-    if yields_to_user:
-        turns.append({
-            "speaker": last.first_speaker,
-            "addressee": USER_CODE,
-            "startTime": round(previous, 4),
-            "endTime": round(segment.duration, 4),
-            "eventIndex": len(segment.events) - 1,
-        })
-    else:
-        turns.append({
-            "speaker": last.second_speaker,
-            "addressee": last.first_speaker,
-            "startTime": round(previous, 4),
-            "endTime": round(segment.duration, 4),
-            "eventIndex": -1,
-        })
+    speaker, addressee, event_index = (
+        (last.first_speaker, USER_CODE, len(segment.events) - 1) if yields_to_user
+        else (last.second_speaker, last.first_speaker, -1))
+    turns.append({
+        "speaker": speaker,
+        "addressee": addressee,
+        "startTime": round(previous, 4),
+        "endTime": round(segment.duration, 4),
+        "eventIndex": event_index,
+    })
     return turns
 
 
@@ -877,6 +865,25 @@ def export(segment: Segment, name: str, *, yields_to_user: bool = False,
             "voice": voice_class(pitch),
         })
 
+    event_records = []
+    for index, event in enumerate(segment.events):
+        record = {
+            "index": index,
+            "eotType": event.eot_type,
+            "eotTypeName": EOT_TYPE_NAMES[event.eot_type],
+            "firstSpeaker": event.first_speaker,
+            "secondSpeaker": event.second_speaker,
+            "turnTime": round(event.turn_time - segment.start, 4),
+            "startTime": round(event.start - segment.start, 4),
+            "endTime": round(event.end - segment.start, 4),
+        }
+        if yields_to_user and index == len(segment.events) - 1:
+            # The yield event's taker is rewritten to the user; the corpus's own
+            # taker is kept as provenance (JsonUtility drops the unknown key).
+            record["secondSpeaker"] = USER_CODE
+            record["corpusSecondSpeaker"] = event.second_speaker
+        event_records.append(record)
+
     document = {
         # /2 adds yieldsToUser + tailSeconds and lets a final turn carry a real
         # event index; /1 files stay readable (the C# mirror defaults the new
@@ -896,25 +903,7 @@ def export(segment: Segment, name: str, *, yields_to_user: bool = False,
         "tailSeconds": round(tail_seconds, 3),
         "agents": agents,
         "turns": build_turns(segment, yields_to_user),
-        "events": [
-            {
-                "index": index,
-                "eotType": event.eot_type,
-                "eotTypeName": EOT_TYPE_NAMES[event.eot_type],
-                "firstSpeaker": event.first_speaker,
-                # The yield event's taker is rewritten to the user; the corpus's
-                # own taker is kept as provenance (JsonUtility drops the key).
-                "secondSpeaker": USER_CODE
-                    if yields_to_user and index == len(segment.events) - 1
-                    else event.second_speaker,
-                **({"corpusSecondSpeaker": event.second_speaker}
-                   if yields_to_user and index == len(segment.events) - 1 else {}),
-                "turnTime": round(event.turn_time - segment.start, 4),
-                "startTime": round(event.start - segment.start, 4),
-                "endTime": round(event.end - segment.start, 4),
-            }
-            for index, event in enumerate(segment.events)
-        ],
+        "events": event_records,
         "utterances": [
             {
                 "speaker": u.speaker,
@@ -1056,16 +1045,29 @@ def main() -> int:
     if args.csv:
         with args.csv.open("w", newline="", encoding="utf-8") as handle:
             writer = csv.writer(handle)
-            writer.writerow(["rank", "stem", "start_s", "end_s", "duration_s", "score",
-                             "n_events", "min_sep_s", "turn_takings", "balance", "event_types"])
+            shared = ["rank", "stem", "start_s", "end_s", "duration_s", "score"]
+            # Each mode reports what it measured; a scene-2 ranking in scene-1
+            # vocabulary would silently read as the wrong kind of search.
+            writer.writerow(shared + (
+                ["question", "yielder", "own_share", "backchannels", "internal_events"]
+                if args.scene2 else
+                ["n_events", "min_sep_s", "turn_takings", "balance", "event_types"]))
             for rank, segment in enumerate(ranked, start=1):
-                writer.writerow([
-                    rank, segment.stem, f"{segment.start:.3f}", f"{segment.end:.3f}",
-                    f"{segment.duration:.3f}", f"{segment.score:.4f}", len(segment.events),
-                    f"{segment.reasons['min_sep_s']:.3f}", int(segment.reasons["turn_takings"]),
-                    f"{segment.reasons['balance']:.3f}",
-                    "".join(str(e.eot_type) for e in segment.events),
-                ])
+                row = [rank, segment.stem, f"{segment.start:.3f}", f"{segment.end:.3f}",
+                       f"{segment.duration:.3f}", f"{segment.score:.4f}"]
+                if args.scene2:
+                    row += [int(segment.reasons["question"]),
+                            segment.events[-1].first_speaker,
+                            f"{segment.reasons['own_share']:.3f}",
+                            int(segment.reasons["backchannel_count"]),
+                            int(segment.reasons["internal_events"])]
+                else:
+                    row += [len(segment.events),
+                            f"{segment.reasons['min_sep_s']:.3f}",
+                            int(segment.reasons["turn_takings"]),
+                            f"{segment.reasons['balance']:.3f}",
+                            "".join(str(e.eot_type) for e in segment.events)]
+                writer.writerow(row)
         print(f"\nwrote {args.csv}")
 
     if args.inspect:

@@ -78,7 +78,14 @@ namespace GazeControl.Conversation
             if (!File.Exists(full))
                 throw new FileNotFoundException($"demo segment not found: {full}", full);
 
-            return Parse(File.ReadAllText(full));
+            try
+            {
+                return Parse(File.ReadAllText(full));
+            }
+            catch (InvalidDataException e)
+            {
+                throw new InvalidDataException($"{path}: {e.Message}");
+            }
         }
 
         /// <summary>The record for one speaker, or null if the segment has no such speaker.</summary>

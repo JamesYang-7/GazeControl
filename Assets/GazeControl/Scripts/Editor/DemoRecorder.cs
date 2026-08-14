@@ -85,9 +85,7 @@ namespace GazeControl.Editor
         /// few watchable seconds of gaze at the user, a scene-1 take does not.
         /// </summary>
         static float TailSeconds(RecordedConversation conversation) =>
-            conversation.Segment != null && conversation.Segment.tailSeconds > 0f
-                ? conversation.Segment.tailSeconds
-                : k_DefaultTailSeconds;
+            conversation.HoldSeconds > 0f ? conversation.HoldSeconds : k_DefaultTailSeconds;
 
         static void StartRecording()
         {
