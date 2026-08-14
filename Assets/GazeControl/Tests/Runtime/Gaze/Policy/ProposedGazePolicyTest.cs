@@ -41,6 +41,33 @@ namespace GazeControl.Gaze.Policy
             return sut;
         }
 
+        // Bank for the holding-replay substrate tests. The sp pool's lone
+        // stretch averts mid-way — which baseline B never does — so an aversion
+        // in a run witnesses that the holding material is what plays.
+        static HoldingSequenceBank CreateHoldingBank() => HoldingSequenceBank.Parse(
+            @"{""stretches"":[" +
+            @"{""role"":""sp"",""sessionId"":""s"",""gazerId"":""g"",""startFrame"":0,""targets"":[""ad"",""aversion"",""sd""],""durations"":[0.5,0.5,0.5]}," +
+            @"{""role"":""ad"",""sessionId"":""s"",""gazerId"":""g"",""startFrame"":0,""targets"":[""aversion""],""durations"":[5.0]}," +
+            @"{""role"":""sd"",""sessionId"":""s"",""gazerId"":""g"",""startFrame"":0,""targets"":[""sp""],""durations"":[5.0]}]}");
+
+        static HoldingReplayGazePolicy CreateHoldingSubstrate() => new(CreateHoldingBank(), User);
+
+        static ProposedGazePolicy CreateSystemUnderTestOnHoldingReplay(int seed)
+        {
+            var sut = new ProposedGazePolicy(CreateHoldingSubstrate(), Settings(), PatternSeed);
+            sut.Reset(seed);
+            return sut;
+        }
+
+        static GazeTarget[] RunHoldingSubstrate(HoldingReplayGazePolicy sut, float secondsToTurnEnd, int ticks)
+        {
+            var targets = new GazeTarget[ticks];
+            for (var i = 0; i < ticks; i++)
+                targets[i] = sut.Update(TickSeconds, StateFor(AgentA, ParticipantRole.Speaker, secondsToTurnEnd));
+
+            return targets;
+        }
+
         /// A speaks and addresses B, so A plays the prototype's current-speaker
         /// track, B its next-speaker track, and the user has no track at all.
         static ConversationState StateFor(
@@ -192,6 +219,21 @@ namespace GazeControl.Gaze.Policy
             // the per-agent seed changes nothing. One recording of this condition
             // is the condition, not one draw from it.
             Assert.That(actual, Is.EqualTo(other));
+        }
+
+        [Test]
+        [Category("Acceptance")]
+        public void Update_OutsideTheWindowWithAHoldingReplaySubstrate_DelegatesToTheSubstrate()
+        {
+            var reference = CreateHoldingSubstrate();
+            reference.Reset(3);
+            var expected = RunHoldingSubstrate(reference, secondsToTurnEnd: -1f, ticks: 2000);
+
+            var actual = RunProposed(CreateSystemUnderTestOnHoldingReplay(seed: 3), secondsToTurnEnd: -1f, ticks: 2000);
+
+            Assert.That(expected, Does.Contain(GazeTarget.Away(Vector2.zero)),
+                "the holding material plays — baseline B never averts");
+            Assert.That(actual, Is.EqualTo(expected), "every out-of-window tick comes from the substrate");
         }
 
         [Test]
