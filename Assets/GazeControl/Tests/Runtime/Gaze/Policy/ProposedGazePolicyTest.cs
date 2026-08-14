@@ -127,14 +127,25 @@ namespace GazeControl.Gaze.Policy
             Assert.That(actual, Is.EqualTo(expected));
         }
 
-        [Test]
-        public void Update_BeforeTheWindowOpens_DelegatesToTheBaselineSubstrate()
+        static readonly TestCaseData[] s_participantsBeforeTheWindow =
         {
+            new TestCaseData(AgentA, ParticipantRole.Speaker).SetName(
+                "Update_BeforeTheWindowOpens_LeavesTheSubstrateInCharge(the speaker)"),
+            new TestCaseData(User, ParticipantRole.SideParticipant).SetName(
+                "Update_BeforeTheWindowOpens_LeavesTheSubstrateInCharge(a participant in neither role)"),
+        };
+
+        [TestCaseSource(nameof(s_participantsBeforeTheWindow))]
+        public void Update_BeforeTheWindowOpens_LeavesTheSubstrateInCharge(ParticipantId self, ParticipantRole role)
+        {
+            var state = StateFor(self, role, SecondsToEndAtPatternStart + 0.1f);
+            var expected = CreateSubstrate().Update(TickSeconds, state);
             var sut = CreateSystemUnderTest();
 
-            TargetAt(sut, AgentA, ParticipantRole.Speaker, SecondsToEndAtPatternStart + 0.1f);
+            var actual = sut.Update(TickSeconds, state);
 
-            Assert.That(sut.IsPatternActive, Is.False);
+            Assert.That(sut.IsPatternActive, Is.False, "pattern active flag");
+            Assert.That(actual, Is.EqualTo(expected), "substrate's target");
         }
 
         [Test]
@@ -243,19 +254,6 @@ namespace GazeControl.Gaze.Policy
             // one can never be told to look at itself — the invariant the
             // ungated third branch rests on.
             Assert.That(targets, Has.None.EqualTo(GazeTarget.AtPerson(User)));
-        }
-
-        [Test]
-        public void Update_BeforeTheWindowOpensForAParticipantInNeitherRole_LeavesTheSubstrateInCharge()
-        {
-            var state = StateFor(User, ParticipantRole.SideParticipant, SecondsToEndAtPatternStart + 0.1f);
-            var expected = CreateSubstrate().Update(TickSeconds, state);
-            var sut = CreateSystemUnderTest();
-
-            var actual = sut.Update(TickSeconds, state);
-
-            Assert.That(sut.IsPatternActive, Is.False, "pattern active flag");
-            Assert.That(actual, Is.EqualTo(expected), "substrate's target");
         }
 
         [Test]
