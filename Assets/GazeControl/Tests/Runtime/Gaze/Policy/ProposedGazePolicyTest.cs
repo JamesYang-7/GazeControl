@@ -59,16 +59,21 @@ namespace GazeControl.Gaze.Policy
             return sut;
         }
 
-        /// A speaks and addresses B, so A plays the prototype's current-speaker
-        /// track, B its next-speaker track, and the user has no track at all.
+        /// A speaks and by default addresses B, so A plays the prototype's
+        /// current-speaker track, B its next-speaker track, and the user — in
+        /// neither role — its listener track. Passing an addressee reshapes the
+        /// triad: addressing the user puts B in the neither-role seat instead.
+        /// The partners are always the two participants other than self, so the
+        /// listener resolution can walk them whoever the addressee is.
         static ConversationState StateFor(
             ParticipantId self, ParticipantRole role, float secondsToTurnEnd,
-            int eventIndex = 0, EotType eventType = EotType.TurnTaking) => new()
+            int eventIndex = 0, EotType eventType = EotType.TurnTaking,
+            ParticipantId? addressee = null) => new()
         {
             SelfId = self,
             SelfRole = role,
             CurrentSpeaker = AgentA,
-            CurrentAddressee = AgentB,
+            CurrentAddressee = addressee ?? AgentB,
             FirstPartner = self == AgentA ? AgentB : AgentA,
             SecondPartner = self == User ? AgentB : User,
             TimeSinceTurnInstant = 30f,
@@ -87,6 +92,20 @@ namespace GazeControl.Gaze.Policy
                 targets[i] = TargetAt(sut, AgentA, ParticipantRole.Speaker, secondsToTurnEnd);
 
             return targets;
+        }
+
+        // Ticks the user — in neither role of the boundary — from the instant the
+        // pinned prototype starts down to the boundary itself, one decision tick
+        // at a time. The start is computed exactly as the policy computes it, so
+        // the first tick lands on the prototype's first frame.
+        static GazeTarget[] RunListenerWindow(ProposedGazePolicy sut, PreTurnPattern pattern)
+        {
+            var patternStart = 1f - GazePatterns.Of(pattern).WindowOffsetSeconds;
+            var targets = new List<GazeTarget>();
+            for (var secondsToTurnEnd = patternStart; secondsToTurnEnd >= 0f; secondsToTurnEnd -= TickSeconds)
+                targets.Add(TargetAt(sut, User, ParticipantRole.SideParticipant, secondsToTurnEnd));
+
+            return targets.ToArray();
         }
 
         static GazeTarget[] RunSubstrate(IGazePolicy sut, float secondsToTurnEnd, int ticks)
@@ -166,13 +185,108 @@ namespace GazeControl.Gaze.Policy
         }
 
         [Test]
-        public void Update_ForAParticipantWithNoTrack_LeavesTheSubstrateInCharge()
+        [Category("Acceptance")]
+        public void Update_ForAParticipantInNeitherRole_TheListenerTrackTakesOverFromTheSubstrate()
         {
             var sut = CreateSystemUnderTest();
 
             TargetAt(sut, User, ParticipantRole.SideParticipant, SecondsToEndAtPatternStart);
 
-            Assert.That(sut.IsPatternActive, Is.False);
+            Assert.That(sut.IsPatternActive, Is.True);
+        }
+
+        static readonly TestCaseData[] s_participantsInNeitherRole =
+        {
+            new TestCaseData(User, AgentB).SetName(
+                "Update_AtTheListenerTracksPersonSegment_LooksAtThatPerson(the user, while A addresses B)"),
+            new TestCaseData(AgentB, User).SetName(
+                "Update_AtTheListenerTracksPersonSegment_LooksAtThatPerson(agent B, while A addresses the user)"),
+        };
+
+        [TestCaseSource(nameof(s_participantsInNeitherRole))]
+        [Category("Acceptance")]
+        public void Update_AtTheListenerTracksPersonSegment_LooksAtThatPerson(ParticipantId self, ParticipantId addressee)
+        {
+            var sut = CreateSystemUnderTest();
+
+            // 0.18 s to go is 0.337 s into the track — inside the 4-frame glance
+            // at the current speaker in 7e's listener track.
+            var state = StateFor(self, ParticipantRole.SideParticipant, 0.18f, addressee: addressee);
+            var actual = sut.Update(TickSeconds, state);
+
+            Assert.That(actual, Is.EqualTo(GazeTarget.AtPerson(AgentA)));
+        }
+
+        [Test]
+        public void Update_AtTheListenerTracksAversionSegment_RecentresTheEyesInTheHead()
+        {
+            var sut = CreateSystemUnderTest();
+
+            // 7e's listener track opens with an 18-frame avert.
+            var actual = TargetAt(sut, User, ParticipantRole.SideParticipant, SecondsToEndAtPatternStart);
+
+            Assert.That(actual.Type, Is.EqualTo(GazeTargetType.Aversion), "aversion target");
+            Assert.That(actual.AversionOffset, Is.EqualTo(Vector2.zero), "eyes centred in the head");
+        }
+
+        [Test]
+        [Category("Acceptance")]
+        public void Update_ForAParticipantInNeitherRoleAcrossTheWindow_NeverTargetsSelf([Values] PreTurnPattern pattern)
+        {
+            var settings = Settings();
+            settings.Pattern = pattern;
+            var sut = CreateSystemUnderTest(settings: settings);
+
+            var targets = RunListenerWindow(sut, pattern);
+
+            // No printed listener track names the listener, so an agent playing
+            // one can never be told to look at itself — the invariant the
+            // ungated third branch rests on.
+            Assert.That(targets, Has.None.EqualTo(GazeTarget.AtPerson(User)));
+        }
+
+        [Test]
+        public void Update_BeforeTheWindowOpensForAParticipantInNeitherRole_LeavesTheSubstrateInCharge()
+        {
+            var state = StateFor(User, ParticipantRole.SideParticipant, SecondsToEndAtPatternStart + 0.1f);
+            var expected = CreateSubstrate().Update(TickSeconds, state);
+            var sut = CreateSystemUnderTest();
+
+            var actual = sut.Update(TickSeconds, state);
+
+            Assert.That(sut.IsPatternActive, Is.False, "pattern active flag");
+            Assert.That(actual, Is.EqualTo(expected), "substrate's target");
+        }
+
+        [Test]
+        [Category("Acceptance")]
+        public void Update_ForTheSpeakerYieldingToTheUser_LooksAtTheUser()
+        {
+            var sut = CreateSystemUnderTest();
+
+            // 7e's current-speaker track opens on the next speaker — here the
+            // user, who is being yielded to.
+            var state = StateFor(AgentA, ParticipantRole.Speaker, SecondsToEndAtPatternStart, addressee: User);
+            var actual = sut.Update(TickSeconds, state);
+
+            Assert.That(actual, Is.EqualTo(GazeTarget.AtPerson(User)));
+        }
+
+        [Test]
+        [Category("Acceptance")]
+        public void Update_ForTheSpeakerYieldingToTheUserAtAListenerSegment_LooksAtTheOtherAgent()
+        {
+            // 7e's current-speaker track never names the listener; 6b's opens on
+            // them, so that prototype is pinned here.
+            var settings = Settings();
+            settings.Pattern = PreTurnPattern.Fig6b;
+            var sut = CreateSystemUnderTest(settings: settings);
+            var patternStart = 1f - GazePatterns.Of(PreTurnPattern.Fig6b).WindowOffsetSeconds;
+
+            var state = StateFor(AgentA, ParticipantRole.Speaker, patternStart, addressee: User);
+            var actual = sut.Update(TickSeconds, state);
+
+            Assert.That(actual, Is.EqualTo(GazeTarget.AtPerson(AgentB)));
         }
 
         [Test]
