@@ -15,9 +15,10 @@ namespace GazeControl.Gaze.Policy
         // is what makes the occupancy shares converge tightly enough to assert on.
         const int LongRunTicks = 600000;
 
-        // Same bar as ShintaniGazePolicyTest. The bank is a 250-per-role sample
-        // of the corpus stretches, so the replayed occupancy carries sampling
-        // error on top of the run's own noise.
+        // Same bar as ShintaniGazePolicyTest. The bank is a per-role sample of
+        // the corpus stretches (500 each; the size is the build script's), so
+        // the replayed occupancy carries sampling error on top of the run's
+        // own noise.
         const float OccupancyTolerance = 0.06f;
 
         static readonly ParticipantId AgentA = new(0);

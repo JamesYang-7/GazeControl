@@ -59,15 +59,6 @@ namespace GazeControl.Gaze.Policy
             return sut;
         }
 
-        static GazeTarget[] RunHoldingSubstrate(HoldingReplayGazePolicy sut, float secondsToTurnEnd, int ticks)
-        {
-            var targets = new GazeTarget[ticks];
-            for (var i = 0; i < ticks; i++)
-                targets[i] = sut.Update(TickSeconds, StateFor(AgentA, ParticipantRole.Speaker, secondsToTurnEnd));
-
-            return targets;
-        }
-
         /// A speaks and addresses B, so A plays the prototype's current-speaker
         /// track, B its next-speaker track, and the user has no track at all.
         static ConversationState StateFor(
@@ -98,7 +89,7 @@ namespace GazeControl.Gaze.Policy
             return targets;
         }
 
-        static GazeTarget[] RunSubstrate(SpeakerFollowingGazePolicy sut, float secondsToTurnEnd, int ticks)
+        static GazeTarget[] RunSubstrate(IGazePolicy sut, float secondsToTurnEnd, int ticks)
         {
             var targets = new GazeTarget[ticks];
             for (var i = 0; i < ticks; i++)
@@ -227,7 +218,7 @@ namespace GazeControl.Gaze.Policy
         {
             var reference = CreateHoldingSubstrate();
             reference.Reset(3);
-            var expected = RunHoldingSubstrate(reference, secondsToTurnEnd: -1f, ticks: 2000);
+            var expected = RunSubstrate(reference, secondsToTurnEnd: -1f, ticks: 2000);
 
             var actual = RunProposed(CreateSystemUnderTestOnHoldingReplay(seed: 3), secondsToTurnEnd: -1f, ticks: 2000);
 

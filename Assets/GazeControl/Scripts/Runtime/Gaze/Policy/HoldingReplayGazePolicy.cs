@@ -44,9 +44,6 @@ namespace GazeControl.Gaze.Policy
         float _remaining;
         bool _playing;
 
-        ParticipantId _target;
-        bool _averting;
-
         /// <param name="bank">Replay material, normally <see cref="HoldingSequenceBank.LoadDefault"/>.</param>
         /// <param name="fallbackTarget">
         /// Gazed at before the first valid role assignment — the human user,
@@ -64,8 +61,15 @@ namespace GazeControl.Gaze.Policy
             Reset(0);
         }
 
-        /// <summary>What the agent is looking at now, in the corpus's role coding.</summary>
-        public GazeTargetRole State => _averting ? GazeTargetRole.Aversion : RoleOfTarget();
+        /// <summary>
+        /// What the agent is looking at now, in the corpus's role coding. The
+        /// current fixation stores its target as a role and is resolved to a
+        /// person from the same assignment every tick, so the fixation's own
+        /// target *is* the gazed-at person's current role — nothing to re-derive.
+        /// Before the first stretch the agent holds the fallback human, who by
+        /// definition is in neither known role.
+        /// </summary>
+        public GazeTargetRole State => _playing ? Current().Target : GazeTargetRole.SideParticipant;
 
         /// <inheritdoc/>
         public void Reset(int seed)
@@ -78,8 +82,6 @@ namespace GazeControl.Gaze.Policy
             _hasRoleAssignment = false;
 
             _playing = false;
-            _target = _fallbackTarget;
-            _averting = false;
         }
 
         /// <inheritdoc/>
@@ -88,7 +90,7 @@ namespace GazeControl.Gaze.Policy
             UpdateRoleAssignment(in state);
 
             if (!_hasRoleAssignment)
-                return GazeTarget.AtPerson(_target);
+                return GazeTarget.AtPerson(_fallbackTarget);
 
             var selfRole = RoleOfSelf(state.SelfId);
 
@@ -110,7 +112,14 @@ namespace GazeControl.Gaze.Policy
                     Advance(selfRole);
             }
 
-            return Emit(selfRole, state.SelfId);
+            // A role change can move the agent itself into the current fixation's
+            // target role; finishing it would mean gazing at itself, so it ends
+            // now. Once is enough: the fresh stretch is drawn for the agent's own
+            // role and the bank rejects own-role targets.
+            if (WouldGazeAtSelf(state.SelfId))
+                BeginStretch(selfRole);
+
+            return Emit();
         }
 
         /// <summary>
@@ -167,7 +176,7 @@ namespace GazeControl.Gaze.Policy
             _stretchRole = role;
             _stretchIndex = (int)(_random.NextFloat() * _bank.StretchCount(role));
             _fixationIndex = 0;
-            _remaining = _bank.Fixations(role, _stretchIndex)[0].DurationSeconds;
+            _remaining = Current().DurationSeconds;
         }
 
         /// <summary>
@@ -177,53 +186,30 @@ namespace GazeControl.Gaze.Policy
         /// </summary>
         void Advance(ParticipantRole selfRole)
         {
-            var track = _bank.Fixations(_stretchRole, _stretchIndex);
-            if (selfRole != _stretchRole || _fixationIndex + 1 >= track.Length)
+            if (selfRole != _stretchRole || _fixationIndex + 1 >= _bank.Fixations(_stretchRole, _stretchIndex).Length)
             {
                 BeginStretch(selfRole);
                 return;
             }
 
             _fixationIndex++;
-            _remaining = track[_fixationIndex].DurationSeconds;
+            _remaining = Current().DurationSeconds;
         }
 
-        GazeTarget Emit(ParticipantRole selfRole, ParticipantId self)
+        HoldingFixation Current() => _bank.Fixations(_stretchRole, _stretchIndex)[_fixationIndex];
+
+        bool WouldGazeAtSelf(ParticipantId self)
         {
-            var fixation = _bank.Fixations(_stretchRole, _stretchIndex)[_fixationIndex];
-            if (fixation.Target == GazeTargetRole.Aversion)
-            {
-                _averting = true;
-                return GazeTarget.Away(Vector2.zero);
-            }
-
-            var person = PersonInRole(fixation.Target);
-            if (person == self)
-            {
-                // A role change moved the agent into the fixation's target role;
-                // finishing it would mean gazing at itself, so it ends here. The
-                // fresh stretch is drawn for the agent's own role and the bank
-                // rejects own-role targets, so this recurses at most once.
-                BeginStretch(selfRole);
-                return Emit(selfRole, self);
-            }
-
-            _averting = false;
-            _target = person;
-            return GazeTarget.AtPerson(person);
+            var fixation = Current();
+            return fixation.Target != GazeTargetRole.Aversion && PersonInRole(fixation.Target) == self;
         }
 
-        /// <summary>
-        /// Which corpus role the person being gazed at plays *now* — re-derived
-        /// per query rather than stored, so a fixation that outlives a hand-over
-        /// keeps its person and changes its label, matching the corpus coding.
-        /// </summary>
-        GazeTargetRole RoleOfTarget()
+        GazeTarget Emit()
         {
-            if (_target == _speaker)
-                return GazeTargetRole.Speaker;
-
-            return _target == _addressee ? GazeTargetRole.Addressee : GazeTargetRole.SideParticipant;
+            var fixation = Current();
+            return fixation.Target == GazeTargetRole.Aversion
+                ? GazeTarget.Away(Vector2.zero)
+                : GazeTarget.AtPerson(PersonInRole(fixation.Target));
         }
 
         ParticipantId PersonInRole(GazeTargetRole role) => role switch

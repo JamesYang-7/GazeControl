@@ -38,7 +38,11 @@ namespace GazeControl.Gaze.Policy
                     "Regenerate them with Tools/build_holding_sequences.py.");
             }
 
-            return Parse(asset.text);
+            var json = asset.text;
+            // Half a megabyte of JSON that decodes to ~60 KB of structs; without
+            // this, Resources keeps the raw text cached for the whole session.
+            Resources.UnloadAsset(asset);
+            return Parse(json);
         }
 
         public static HoldingSequenceBank Parse(string json)
@@ -77,7 +81,7 @@ namespace GazeControl.Gaze.Policy
             for (var role = 0; role < RoleCount; role++)
             {
                 if (pools[role].Count == 0)
-                    throw new ArgumentException($"Holding sequences: no stretches for role '{RoleKey((ParticipantRole)role)}'.");
+                    throw new ArgumentException($"Holding sequences: no stretches for role {(ParticipantRole)role}.");
 
                 _stretches[role] = pools[role].ToArray();
             }
@@ -127,13 +131,6 @@ namespace GazeControl.Gaze.Policy
             "sd" => GazeTargetRole.SideParticipant,
             "aversion" => GazeTargetRole.Aversion,
             _ => throw new ArgumentException($"Holding sequences: unknown gaze target '{value}'."),
-        };
-
-        static string RoleKey(ParticipantRole role) => role switch
-        {
-            ParticipantRole.Speaker => "sp",
-            ParticipantRole.Addressee => "ad",
-            _ => "sd",
         };
 
         // JsonUtility only sees public fields, so the file's shape is mirrored in

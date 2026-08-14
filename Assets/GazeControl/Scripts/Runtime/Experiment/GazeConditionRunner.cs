@@ -30,7 +30,7 @@ namespace GazeControl.Experiment
             /// <summary>Baseline A (§2): the role-conditioned Shintani et al. sampler, fitted to our corpus.</summary>
             RoleConditioned,
 
-            /// <summary>The paper's pre-turn patterns, played over a Baseline B substrate.</summary>
+            /// <summary>The proposed method — see <see cref="ProposedGazePolicy"/> for its substrate.</summary>
             Proposed,
         }
 
@@ -771,11 +771,12 @@ namespace GazeControl.Experiment
 
                 if (_holdingBank != null)
                 {
-                    json.Append("    \"holding_bank\": { \"resource\": \"Resources/HoldingSequences.json\", \"stretches\": { " +
-                        $"\"sp\": {_holdingBank.StretchCount(ParticipantRole.Speaker).ToString(c)}, " +
-                        $"\"ad\": {_holdingBank.StretchCount(ParticipantRole.Addressee).ToString(c)}, " +
-                        $"\"sd\": {_holdingBank.StretchCount(ParticipantRole.SideParticipant).ToString(c)}" +
-                        " } },\n");
+                    json.Append("    \"holding_bank\": {\n");
+                    json.Append("      \"resource\": \"Resources/HoldingSequences.json\",\n");
+                    json.Append($"      \"stretches_sp\": {_holdingBank.StretchCount(ParticipantRole.Speaker).ToString(c)},\n");
+                    json.Append($"      \"stretches_ad\": {_holdingBank.StretchCount(ParticipantRole.Addressee).ToString(c)},\n");
+                    json.Append($"      \"stretches_sd\": {_holdingBank.StretchCount(ParticipantRole.SideParticipant).ToString(c)}\n");
+                    json.Append("    },\n");
                 }
 
                 json.Append($"    \"selection\": \"{Proposed.Selection}\",\n");
