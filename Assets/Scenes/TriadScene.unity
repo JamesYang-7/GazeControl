@@ -651,7 +651,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a112d084700ec7242a0b5a119cc156cb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GazeControl.Conversation.RecordedConversation
-  <SegmentPath>k__BackingField: Assets/DemoSegments/case2_seg01/segment.json
+  <SegmentPath>k__BackingField: Assets/DemoSegments/case2_seg02/segment.json
   <Speakers>k__BackingField:
   - <SpeakerCode>k__BackingField: 1
     <Participant>k__BackingField: {fileID: 672148330}
@@ -811,7 +811,7 @@ MonoBehaviour:
   <LoggingEnabled>k__BackingField: 1
   <LogVoiceActivity>k__BackingField: 0
   <OutputDirectory>k__BackingField: Recordings
-  <CaseName>k__BackingField: case2_seg01_03
+  <CaseName>k__BackingField: case2_seg02_02
 --- !u!4 &696636975
 Transform:
   m_ObjectHideFlags: 0
