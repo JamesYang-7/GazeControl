@@ -100,6 +100,7 @@ namespace GazeControl.Conversation
 
         float _startTime;
         bool _started;
+        bool _motionFrozen;
 
         // Loaded in Awake, not Start: the condition runner writes the segment's
         // boundaries into its log metadata during its own Start, and Unity gives
@@ -127,13 +128,20 @@ namespace GazeControl.Conversation
 
         void Update()
         {
-            if (!_started || HasFinished)
+            if (!_started || _motionFrozen)
                 return;
 
             var elapsed = Elapsed;
-            if (elapsed >= Segment.durationSeconds)
-            {
+            if (!HasFinished && elapsed >= Segment.durationSeconds)
                 Finish();
+
+            // The voices and the turn schedule end at the segment boundary, but
+            // the bodies keep playing mocap through a scene-2 hold — the export
+            // trims the motion to cover it, and a skeleton frozen for four
+            // seconds reads as the video being stuck, not as a turn on offer.
+            if (elapsed >= Segment.durationSeconds + HoldSeconds)
+            {
+                FreezeMotion();
                 return;
             }
 
@@ -318,13 +326,18 @@ namespace GazeControl.Conversation
         void Finish()
         {
             foreach (var speaker in Speakers)
-            {
                 speaker.Participant.Voice.Stop();
-                speaker.Motion.enabled = false; // freezes the skeleton at the last pose
-            }
 
             HasFinished = true;
             Debug.Log($"{name}: segment finished at {Elapsed:F2} s.", this);
+        }
+
+        void FreezeMotion()
+        {
+            foreach (var speaker in Speakers)
+                speaker.Motion.enabled = false; // freezes the skeleton at the last pose
+
+            _motionFrozen = true;
         }
     }
 }

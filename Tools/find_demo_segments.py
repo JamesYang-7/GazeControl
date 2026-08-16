@@ -402,6 +402,9 @@ def scene2_candidates(stem: str, args: argparse.Namespace) -> list[Segment]:
 
     motion_seconds = min(motion_frame_count(stem, side) for side in SIDE_OF_CODE.values()) / MOTION_FPS
     starts = sorted({snap(u.start) for u in utterances})
+    # The bodies keep playing mocap through the hold after the voices stop, so
+    # the recording needs motion past the yield instant, not just up to it.
+    tail = args.hold_tail if args.hold_tail is not None else SCENE2_TAIL_SECONDS
 
     found: list[Segment] = []
     for event in events:
@@ -414,7 +417,7 @@ def scene2_candidates(stem: str, args: argparse.Namespace) -> list[Segment]:
             continue
 
         t1 = snap(final.end)
-        if t1 > motion_seconds:
+        if t1 + tail > motion_seconds:
             continue
         if any(u.start < t1 < u.end for u in utterances):
             continue
@@ -828,7 +831,9 @@ def export(segment: Segment, name: str, *, yields_to_user: bool = False,
     directory.mkdir(parents=True, exist_ok=True)
 
     start_frame = int(round(segment.start * MOTION_FPS))
-    frame_count = int(round(segment.duration * MOTION_FPS))
+    # The motion covers the hold after the voices stop (tail_seconds is 0 for a
+    # scene-1 export), so the bodies keep moving while the yield gaze is held.
+    frame_count = int(round((segment.duration + tail_seconds) * MOTION_FPS))
 
     # The corpus is recorded very quietly — this segment peaks at -42 dBFS — and
     # the demo's voice-activity detector works on absolute RMS, so without a gain
@@ -955,6 +960,10 @@ def check_scene2_document(document: dict) -> list[str]:
         problems.append(f"the yield event's taker is {last_event['secondSpeaker']}, not the user ({USER_CODE})")
     if abs(last_turn["endTime"] - document["durationSeconds"]) > 1e-3:
         problems.append("the final turn does not end at the segment end")
+    covered = document["motionFrameCount"] / MOTION_FPS
+    if covered + 1.0 / MOTION_FPS < document["durationSeconds"] + document["tailSeconds"]:
+        problems.append(f"motion covers {covered:.2f} s but the segment plus hold needs "
+                        f"{document['durationSeconds'] + document['tailSeconds']:.2f} s")
     if not MIN_DURATION <= document["durationSeconds"] <= MAX_DURATION:
         problems.append(f"duration {document['durationSeconds']} s is outside {MIN_DURATION}-{MAX_DURATION} s")
 
