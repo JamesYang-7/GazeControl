@@ -11,11 +11,17 @@ A case-1 segment is usable only if all of the following hold:
 * **At least two end-of-turn events**, each entirely inside the segment with
   room to spare: an event's pre-turn window has to open after the segment has
   started, or the pattern is cut off at the top of the video.
-* **Sentences stay whole.** Both boundaries land on an utterance boundary and
-  no utterance of *either* speaker straddles them, so the clip never opens or
-  closes mid-word. Utterances are rebuilt exactly as ``EoT_TWH`` built them --
-  split the word-level TSV wherever the gap between consecutive words exceeds
-  0.3 s -- so the segment boundaries agree with the events by construction.
+* **Words stay whole.** Both boundaries land on an utterance boundary and no
+  utterance of *either* speaker straddles them. Utterances are rebuilt exactly
+  as ``EoT_TWH`` built them -- split the word-level TSV wherever the gap between
+  consecutive words exceeds 0.3 s -- so the segment boundaries agree with the
+  events by construction.
+* **Sentences stay whole.** A pause split is not a sentence split: any 0.3 s
+  breath ends an utterance, so the rule above permits a window that opens or
+  closes mid-sentence, and until 2026-08-21 the exported segments did exactly
+  that. Every speaker must now enter the window at a sentence start and leave
+  it on ``.``/``?``/``!``, tested per speaker rather than only on the two edge
+  utterances. ``--allow-fragment-edges`` restores the old behaviour.
 * **Events are separated.** Consecutive turn instants must be at least 2 s
   apart. The corpus is dense (a 25 s window routinely holds 5-8 events) and a
   gaze prototype occupies the second before its event, so events any closer
@@ -95,6 +101,34 @@ TURN_TAKING = 3
 # Reproduced rather than re-tuned: segment boundaries have to agree with the
 # event times, and both are derived from this split.
 PAUSE_THRESHOLD = 0.3
+
+# Sentence-final punctuation, as the transcripts carry it. A pause split alone
+# is *not* a sentence split -- any 0.3 s breath ends an utterance -- so windows
+# chosen on pause boundaries alone open and close mid-sentence. These are the
+# characters that say a sentence actually finished.
+SENTENCE_FINAL = (".", "?", "!")
+# Trailing quotes/brackets sit outside the stop when the transcriber used them.
+SENTENCE_TRAILING = "\"')]}"
+
+# Punctuation alone is not enough: the transcripts put full stops on words that
+# cannot end a sentence. The window that opened case1_seg02 mid-phrase did so
+# because the preceding utterance was the literal token ``my.`` -- a possessive
+# determiner with a period on it. So a boundary word must also be a word that
+# can plausibly end an utterance.
+#
+# Closed classes only, and deliberately conservative: ambiguous words that do
+# end real utterances are left out (``so`` in "I think so.", ``you`` in "What
+# about you?", ``that`` in "things like that.", ``is`` in "what it is."). The
+# fillers are here because in this corpus a final ``um``/``uh``/``like`` is the
+# hesitation, not a word. Over-rejecting is the safe direction: the search
+# returns far more candidates than the study needs.
+NON_FINAL_WORDS = frozenset("""
+    a an the my your his her its our their
+    of to in on at for with from by into onto upon than per
+    and but or because nor
+    um uh uhm erm hmm-
+    like
+""".split())
 
 MOTION_FPS = 60
 
@@ -270,7 +304,8 @@ def snap(seconds: float) -> float:
 
 
 def candidates(stem: str, args: argparse.Namespace) -> list[Segment]:
-    utterances = load_utterances(stem, 1) + load_utterances(stem, 2)
+    by_speaker = {speaker: load_utterances(stem, speaker) for speaker in SIDE_OF_CODE}
+    utterances = by_speaker[1] + by_speaker[2]
     utterances.sort(key=lambda u: u.start)
     events = load_events(stem)
     if len(events) < args.min_events:
@@ -306,15 +341,64 @@ def candidates(stem: str, args: argparse.Namespace) -> list[Segment]:
             if min_separation(inside) < args.min_separation:
                 continue
 
+            if args.require_type and not any(
+                    EOT_TYPE_NAMES[e.eot_type] == args.require_type for e in inside):
+                continue
+
+            spoken = [u for u in utterances if u.start >= t0 and u.end <= t1]
+            if not args.allow_fragment_edges and not sentence_clean(spoken, by_speaker):
+                continue
+
             found.append(Segment(
                 stem=stem,
                 start=t0,
                 end=t1,
                 events=inside,
-                utterances=[u for u in utterances if u.start >= t0 and u.end <= t1],
+                utterances=spoken,
             ))
 
     return found
+
+
+def ends_sentence(utterance: Utterance) -> bool:
+    """Did this utterance finish a sentence, rather than merely pause?
+
+    Two tests, because either alone is fooled by this corpus: the transcript
+    must mark a stop, *and* the word carrying it must be one that can end an
+    utterance. See ``NON_FINAL_WORDS`` for why the second test exists.
+    """
+    text = utterance.text.rstrip().rstrip(SENTENCE_TRAILING)
+    if not text.endswith(SENTENCE_FINAL):
+        return False
+    last = text.split()[-1].rstrip("".join(SENTENCE_FINAL) + SENTENCE_TRAILING).lower()
+    return last not in NON_FINAL_WORDS
+
+
+def sentence_clean(segment_utterances: list[Utterance],
+                   by_speaker: dict[int, list[Utterance]]) -> bool:
+    """Every speaker enters the window at a sentence start and leaves at a stop.
+
+    Applied per speaker rather than only to the two edge utterances: the window
+    opens at one speaker's boundary, but the *other* speaker's first utterance
+    inside it can still be the back half of a sentence that began outside.
+
+    The pause split does part of the work already -- a candidate edge is always
+    followed (or preceded) by a gap over ``PAUSE_THRESHOLD`` -- so this test is
+    punctuation *and* a real pause, which is what separates a finished sentence
+    from a trailing-off fragment that happens to carry a full stop.
+    """
+    speakers = {u.speaker for u in segment_utterances}
+    for speaker in speakers:
+        inside = [u for u in segment_utterances if u.speaker == speaker]
+        stream = by_speaker[speaker]
+
+        first_index = stream.index(inside[0])
+        # Nothing before it in this speaker's stream is an opening by default.
+        if first_index > 0 and not ends_sentence(stream[first_index - 1]):
+            return False
+        if not ends_sentence(inside[-1]):
+            return False
+    return True
 
 
 def min_separation(events: list[Event]) -> float:
@@ -984,6 +1068,13 @@ def main() -> int:
                         help="clear seconds required after the last event")
     parser.add_argument("--min-separation", type=float, default=MIN_EVENT_SEPARATION,
                         help="minimum seconds between consecutive turn instants")
+    parser.add_argument("--require-type", choices=sorted(EOT_TYPE_NAMES.values()),
+                        help="scene 1: keep only windows containing at least one event of this "
+                             "class. The three classes are unevenly represented, so this is how "
+                             "the rarer ones (overlapping) are found at all")
+    parser.add_argument("--allow-fragment-edges", action="store_true",
+                        help="scene 1: drop the sentence-boundary requirement, so windows may "
+                             "open or close mid-sentence (the pre-2026-08-21 behaviour)")
     parser.add_argument("--scene2", action="store_true",
                         help="search for scene-2 yield segments instead of case-1 windows")
     parser.add_argument("--allow-internal-events", action="store_true",
