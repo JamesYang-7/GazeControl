@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -8,6 +9,13 @@ namespace GazeControl.Gaze.Policy
     [TestFixture]
     public class HoldingReplayGazePolicyTest
     {
+        // Aversion direction distributions only; the fitted file is committed
+        // so this needs no corpus checkout.
+        static ShintaniGazeParameters Parameters => ShintaniGazeParameters.LoadDefault();
+
+        static string Describe(GazeTarget target) =>
+            target.Type == GazeTargetType.Aversion ? "aversion" : $"person {target.Person}";
+
         const float TickSeconds = 1f / 30f;
 
         // 20,000 s of simulated conversation, matching ShintaniGazePolicyTest:
@@ -83,7 +91,7 @@ namespace GazeControl.Gaze.Policy
 
         static HoldingReplayGazePolicy CreateSystemUnderTest(HoldingSequenceBank bank, int seed = 1)
         {
-            var sut = new HoldingReplayGazePolicy(bank, fallbackTarget: User);
+            var sut = new HoldingReplayGazePolicy(bank, Parameters, fallbackTarget: User);
             sut.Reset(seed);
             return sut;
         }
@@ -235,14 +243,14 @@ namespace GazeControl.Gaze.Policy
         [Test]
         public void Constructor_WithoutABank_ThrowsArgumentNullException()
         {
-            Assert.That(() => new HoldingReplayGazePolicy(null, fallbackTarget: User),
+            Assert.That(() => new HoldingReplayGazePolicy(null, Parameters, fallbackTarget: User),
                 Throws.TypeOf<ArgumentNullException>());
         }
 
         [Test]
         public void Constructor_WithAnInvalidFallbackTarget_ThrowsArgumentException()
         {
-            Assert.That(() => new HoldingReplayGazePolicy(SingleStretchBank(), ParticipantId.None),
+            Assert.That(() => new HoldingReplayGazePolicy(SingleStretchBank(), Parameters, ParticipantId.None),
                 Throws.TypeOf<ArgumentException>());
         }
 
@@ -278,11 +286,14 @@ namespace GazeControl.Gaze.Policy
 
             var actual = DistinctConsecutive(Run(sut, StateFor(ParticipantRole.Speaker), ticks: 45));
 
-            Assert.That(actual, Is.EqualTo(new[]
+            // Described rather than compared whole: the aversion's direction is
+            // sampled, so only its presence and position in the order are the
+            // recorded behaviour under test.
+            Assert.That(actual.Select(Describe), Is.EqualTo(new[]
             {
-                GazeTarget.AtPerson(AgentB),
-                GazeTarget.Away(Vector2.zero),
-                GazeTarget.AtPerson(User),
+                $"person {AgentB}",
+                "aversion",
+                $"person {User}",
             }));
         }
 
@@ -314,14 +325,20 @@ namespace GazeControl.Gaze.Policy
 
         [Test]
         [Category("Acceptance")]
-        public void Update_AtAnAversionFixation_RecentresTheEyesInTheHead()
+        public void Update_AtAnAversionFixation_LooksAwayInASampledDirection()
         {
             var sut = CreateSystemUnderTest(AversionOpeningBank());
 
             var actual = sut.Update(TickSeconds, StateFor(ParticipantRole.Speaker));
 
             Assert.That(actual.Type, Is.EqualTo(GazeTargetType.Aversion), "aversion target");
-            Assert.That(actual.AversionOffset, Is.EqualTo(Vector2.zero), "eyes recentred in the head");
+
+            // Not recentred: a zero offset aims the eyes down the head's forward
+            // axis, which with the head on pure mocap is indistinguishable from
+            // no gaze control at all. The direction comes from the same fitted
+            // table baseline A samples, so every condition looks away alike.
+            Assert.That(actual.AversionOffset, Is.Not.EqualTo(Vector2.zero), "a real direction, not recentred");
+            Assert.That(actual.AversionOffset.magnitude, Is.GreaterThan(1f), "a visible deflection");
         }
 
         [Test]
@@ -367,7 +384,7 @@ namespace GazeControl.Gaze.Policy
             // Only the addressee pool averts: this is a fresh ad stretch, not
             // the abandoned sp stretch's second fixation (5 s on the side
             // participant).
-            Assert.That(actual, Is.EqualTo(GazeTarget.Away(Vector2.zero)));
+            Assert.That(actual.Type, Is.EqualTo(GazeTargetType.Aversion));
         }
 
         [Test]
@@ -382,7 +399,7 @@ namespace GazeControl.Gaze.Policy
             var actual = sut.Update(TickSeconds, StateFor(ParticipantRole.Addressee));
 
             Assert.That(actual, Is.Not.EqualTo(GazeTarget.AtPerson(AgentA)), "never gazes at itself");
-            Assert.That(actual, Is.EqualTo(GazeTarget.Away(Vector2.zero)),
+            Assert.That(actual.Type, Is.EqualTo(GazeTargetType.Aversion),
                 "a stretch from the addressee pool, which only averts");
         }
 

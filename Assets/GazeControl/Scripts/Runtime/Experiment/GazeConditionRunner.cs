@@ -34,9 +34,32 @@ namespace GazeControl.Experiment
             Proposed,
         }
 
+        /// <summary>How this run relates to a baked <see cref="GazeTrack"/>.</summary>
+        public enum TrackMode
+        {
+            /// <summary>Decide gaze live and write nothing. Development default.</summary>
+            Off,
+
+            /// <summary>Decide gaze live and record it to a track beside the segment.</summary>
+            Bake,
+
+            /// <summary>Replay the baked track. What every study session must use.</summary>
+            Replay,
+        }
+
         [field: SerializeField]
         [field: Tooltip("Which gaze policy drives the agents this run")]
         public GazeCondition Condition { get; set; } = GazeCondition.SpeakerFollowing;
+
+        [field: SerializeField]
+        [field: Tooltip("Off decides live; Bake records a track; Replay plays a baked one. " +
+                        "A study session must run on Replay so every participant sees the same take.")]
+        public TrackMode Tracks { get; set; } = TrackMode.Off;
+
+        [field: SerializeField]
+        [field: Tooltip("Turn on for a real participant. Refuses to start unless every " +
+                        "study-integrity rule holds — see StudySessionProblem().")]
+        public bool StudySession { get; set; }
 
         [field: SerializeField]
         [field: Tooltip("All three triad members; ids must be 0..N-1 and unique")]
@@ -122,11 +145,22 @@ namespace GazeControl.Experiment
         bool[] _rawVoiced;
         ShintaniGazeParameters _roleConditionedParameters;
         HoldingSequenceBank _holdingBank;
+        // [NonSerialized] is load-bearing, not decoration: GazeTrack is
+        // [Serializable], and Unity gives such a field a default-constructed
+        // instance on deserialization rather than leaving it null — which made
+        // the study guard's "is a track loaded" test pass with no track.
+        [NonSerialized]
+        GazeTrack _track;
+        GazeTrackRecorder[] _recorders;
+        bool _trackWritten;
         GazeLogWriter _log;
         float _accumulator;
         float _sessionTime;
         float _nextVoiceReportTime;
         bool _warnedAboutMissingTarget;
+
+        /// <summary>Which agent CreatePolicy is building for; only Replay needs it.</summary>
+        int _policyIndex;
 
         void Awake()
         {
@@ -138,6 +172,18 @@ namespace GazeControl.Experiment
 
             if (!TryCollectParticipants() || !TryPrepareCondition())
             {
+                enabled = false;
+                return;
+            }
+
+            // Checked after the condition is prepared, because whether the track
+            // loaded is one of the things it checks.
+            var problem = StudySessionProblem();
+            if (problem != null)
+            {
+                Debug.LogError(
+                    $"{name}: refusing to start a study session — {problem} " +
+                    "Fix it, or turn StudySession off if this is not a participant run.", this);
                 enabled = false;
                 return;
             }
@@ -162,6 +208,7 @@ namespace GazeControl.Experiment
             for (var i = 0; i < _agents.Length; i++)
             {
                 _seeds[i] = SeedFor(_agents[i]);
+                _policyIndex = i;
                 _policies[i] = CreatePolicy();
                 _policies[i].Reset(_seeds[i]);
                 _targets[i] = GazeTarget.AtPerson(FindHuman().ParticipantId);
@@ -171,7 +218,104 @@ namespace GazeControl.Experiment
                 OpenLog();
         }
 
-        void OnDestroy() => _log?.Dispose();
+
+        /// <summary>
+        /// Why this run must not be shown to a participant, or null when it may.
+        ///
+        /// One switch enforcing every rule at once, because each of these
+        /// silently produces a normal-looking session that is quietly worthless:
+        /// a live take is a different stimulus from every other participant's, a
+        /// missing log means the trial was not recorded, and the developer
+        /// overlay names the very boundaries the questionnaire asks people to
+        /// judge.
+        /// </summary>
+        string StudySessionProblem()
+        {
+            if (!StudySession)
+                return null;
+
+            if (Tracks != TrackMode.Replay)
+                return $"Tracks is {Tracks}, so gaze would be decided live and this participant " +
+                       "would see a different take from everyone else.";
+
+            if (_track == null || _track.agents.Length == 0)
+                return $"no baked track is loaded — expected one at {TrackPath()}.";
+
+            if (!LoggingEnabled)
+                return "logging is off, so the trial would leave no record.";
+
+            foreach (var overlay in FindObjectsByType<DeveloperOverlay>(
+                         FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (overlay.Enabled)
+                    return $"the developer overlay on '{overlay.name}' is on, and it names the " +
+                           "end-of-turn boundaries the questionnaire asks about.";
+            }
+
+            return null;
+        }
+
+        void OnDestroy()
+        {
+            WriteTrackIfBaking();
+            _log?.Dispose();
+        }
+
+        /// <summary>
+        /// Where this take's baked track lives: beside the segment it replays,
+        /// so a clip and its tracks travel together and a track can never be
+        /// matched to the wrong conversation by accident.
+        /// </summary>
+        public string TrackPath()
+        {
+            var segmentPath = Conversation != null ? Conversation.SegmentPath : null;
+            var directory = string.IsNullOrEmpty(segmentPath)
+                ? "Assets/DemoSegments"
+                : System.IO.Path.GetDirectoryName(segmentPath);
+
+            return GazeTrack.PathFor(directory, Condition.ToString(), BaseSeed);
+        }
+
+        /// <summary>
+        /// Write the bake once the conversation has played out. Called from
+        /// OnDestroy as well as on completion, because a take stopped early
+        /// still holds everything decided up to that point and losing it would
+        /// mean re-running the whole clip.
+        /// </summary>
+        void WriteTrackIfBaking()
+        {
+            if (Tracks != TrackMode.Bake || _trackWritten || _recorders == null)
+                return;
+
+            _trackWritten = true;
+
+            var track = new GazeTrack
+            {
+                segment = Conversation != null && Conversation.Segment != null ? Conversation.Segment.name : null,
+                condition = Condition.ToString(),
+                substrate = Condition == GazeCondition.Proposed ? Proposed.Substrate.ToString() : null,
+                baseSeed = BaseSeed,
+                decisionHz = DecisionHz,
+                bakedAtUtc = DateTime.UtcNow.ToString("O"),
+                agents = new GazeTrackAgent[_agents.Length],
+            };
+
+            for (var i = 0; i < _agents.Length; i++)
+            {
+                track.agents[i] = new GazeTrackAgent
+                {
+                    agentId = _agents[i].Id,
+                    name = _agents[i].name,
+                    seed = _seeds[i],
+                    samples = _recorders[i].ToArray(),
+                };
+            }
+
+            var path = TrackPath();
+            track.Save(path);
+            Debug.Log($"{name}: baked {track.agents[0].samples.Length} decisions per agent to {path}.", this);
+        }
+
 
         void Start()
         {
@@ -230,6 +374,11 @@ namespace GazeControl.Experiment
                 var state = BuildState(_agents[i], turn);
                 _targets[i] = _policies[i].Update(deltaTime, in state);
                 Apply(_agents[i], _targets[i]);
+
+                // Stamped with the conversation's clock, not the tick index —
+                // see GazeTrack for why that is the whole point.
+                if (Tracks == TrackMode.Bake && Conversation != null && Conversation.Elapsed >= 0f)
+                    _recorders[i].Add(Conversation.Elapsed, in _targets[i]);
             }
         }
 
@@ -298,6 +447,19 @@ namespace GazeControl.Experiment
         {
             var human = FindHuman();
 
+            // Replay ignores the condition's policy: the take is the file. The
+            // Condition field still matters — it selects which track is loaded
+            // and is what the log reports.
+            if (Tracks == TrackMode.Replay)
+            {
+                var agent = _track.AgentOf(_agents[_policyIndex].Id);
+                if (agent == null)
+                    throw new InvalidOperationException(
+                        $"The baked track has no agent {_agents[_policyIndex].Id}.");
+
+                return new BakedGazePolicy(agent, () => Conversation != null ? Conversation.Elapsed : -1f);
+            }
+
             return Condition switch
             {
                 GazeCondition.SpeakerFollowing =>
@@ -309,7 +471,8 @@ namespace GazeControl.Experiment
                 // draw the same prototype for a boundary or they would play two
                 // different patterns' tracks at each other.
                 GazeCondition.Proposed =>
-                    new ProposedGazePolicy(CreateProposedSubstrate(human), Proposed, BaseSeed),
+                    new ProposedGazePolicy(CreateProposedSubstrate(human), Proposed, BaseSeed,
+                        _roleConditionedParameters),
                 _ => throw new NotImplementedException($"Condition {Condition} is not implemented."),
             };
         }
@@ -326,7 +489,7 @@ namespace GazeControl.Experiment
         IGazePolicy CreateProposedSubstrate(GazeParticipant human) => Proposed.Substrate switch
         {
             ProposedSubstrate.HoldingReplay =>
-                new HoldingReplayGazePolicy(_holdingBank, human.ParticipantId),
+                new HoldingReplayGazePolicy(_holdingBank, _roleConditionedParameters, human.ParticipantId),
             ProposedSubstrate.SpeakerFollowing =>
                 new SpeakerFollowingGazePolicy(SpeakerFollowing, _voiceActivity, human.ParticipantId),
             _ => throw new NotImplementedException($"Substrate {Proposed.Substrate} is not implemented."),
@@ -353,13 +516,42 @@ namespace GazeControl.Experiment
 
             try
             {
-                if (Condition == GazeCondition.RoleConditioned)
+                // Both conditions that ever avert need the fitted parameters:
+                // baseline A samples its aversion from them, and since
+                // 2026-08-24 the proposed condition renders its aversion with
+                // the same sampler so every condition looks away the same way.
+                // Baseline B never averts, so it needs nothing.
+                if (Condition is GazeCondition.RoleConditioned or GazeCondition.Proposed)
                     _roleConditionedParameters = ShintaniGazeParameters.LoadDefault();
 
-                // The prototype-only ablation (SpeakerFollowing substrate) is the
-                // one proposed configuration that needs no corpus data at all.
                 if (Condition == GazeCondition.Proposed && Proposed.Substrate == ProposedSubstrate.HoldingReplay)
                     _holdingBank = HoldingSequenceBank.LoadDefault();
+
+                if (Tracks == TrackMode.Replay)
+                {
+                    _track = GazeTrack.Load(TrackPath());
+
+                    // Refused rather than tolerated: a track replayed over the
+                    // wrong segment would give a plausible-looking take whose
+                    // gaze belongs to a different conversation.
+                    var segmentName = Conversation != null && Conversation.Segment != null
+                        ? Conversation.Segment.name
+                        : null;
+
+                    if (segmentName != null && _track.segment != segmentName)
+                    {
+                        Debug.LogError(
+                            $"{name}: the baked track at {TrackPath()} was baked against " +
+                            $"'{_track.segment}' but the scene is playing '{segmentName}'.", this);
+                        return false;
+                    }
+                }
+                else if (Tracks == TrackMode.Bake)
+                {
+                    _recorders = new GazeTrackRecorder[_agents.Length];
+                    for (var i = 0; i < _recorders.Length; i++)
+                        _recorders[i] = new GazeTrackRecorder();
+                }
             }
             catch (Exception e)
             {
@@ -651,12 +843,20 @@ namespace GazeControl.Experiment
         /// <c>string.GetHashCode</c>, which is randomised per process on modern
         /// .NET and would give a different seed every run.
         /// </summary>
-        int SeedFor(GazeParticipant agent)
+        int SeedFor(GazeParticipant agent) => SeedFor(StudyParticipantId, Condition, agent.Id, BaseSeed);
+
+        /// <inheritdoc cref="SeedFor(GazeParticipant)"/>
+        /// <remarks>
+        /// Static so offline tooling derives the *same* seed as a live run
+        /// rather than approximating it — a scan that reported a different
+        /// draw from the one the take will play would be worse than none.
+        /// </remarks>
+        public static int SeedFor(string studyParticipantId, GazeCondition condition, int agentId, int baseSeed)
         {
             const uint offsetBasis = 2166136261;
             const uint prime = 16777619;
 
-            var key = $"{StudyParticipantId}|{Condition}|{agent.Id}|{BaseSeed}";
+            var key = $"{studyParticipantId}|{condition}|{agentId}|{baseSeed}";
             var hash = offsetBasis;
 
             for (var i = 0; i < key.Length; i++)

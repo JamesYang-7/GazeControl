@@ -280,7 +280,7 @@ namespace GazeControl.Conversation
             _started = true;
 
             if (Director != null)
-                Director.SetSchedule(BuildSchedule(), () => Elapsed);
+                Director.SetSchedule(BuildSchedule(Segment), () => Elapsed);
             else
                 Debug.LogWarning($"{name}: no director wired, so no policy can see a turn boundary coming.", this);
         }
@@ -290,14 +290,14 @@ namespace GazeControl.Conversation
         /// corpus's; participant ids are the scene's, and only this component
         /// knows both.
         /// </summary>
-        List<ScheduledTurn> BuildSchedule()
+        public List<ScheduledTurn> BuildSchedule(DemoSegment segment)
         {
-            var schedule = new List<ScheduledTurn>(Segment.turns.Length);
+            var schedule = new List<ScheduledTurn>(segment.turns.Length);
 
-            foreach (var turn in Segment.turns)
+            foreach (var turn in segment.turns)
             {
-                var eventType = turn.eventIndex >= 0 && turn.eventIndex < Segment.events.Length
-                    ? (EotType)Segment.events[turn.eventIndex].eotType
+                var eventType = turn.eventIndex >= 0 && turn.eventIndex < segment.events.Length
+                    ? (EotType)segment.events[turn.eventIndex].eotType
                     : EotType.TurnTaking;
 
                 schedule.Add(new ScheduledTurn(

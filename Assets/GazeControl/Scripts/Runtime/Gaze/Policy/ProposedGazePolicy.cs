@@ -31,11 +31,13 @@ namespace GazeControl.Gaze.Policy
     /// baseline B outside the window, isolating the pattern exactly. Report the
     /// pairwise comparisons accordingly.
     ///
-    /// Neither substrate averts directionally — holding replay renders its
-    /// aversion fixations as recentred eyes, exactly how the prototypes' "None"
-    /// renders — so this condition has no directional aversion anywhere,
-    /// consistent within itself, unlike the mixed rendering the Baseline A
-    /// substrate once produced.
+    /// The prototypes' "None" averts directionally, through the same
+    /// <see cref="AversionSampler"/> baselines A and the holding substrate use
+    /// (2026-08-24). It used to recentre the eyes; with the head on pure mocap
+    /// that is indistinguishable from an agent with no gaze control, so a
+    /// condition rendering "looking away" that way would lose a naturalness
+    /// comparison on the rendering rather than on the policy. Every condition
+    /// now averts the same way and only the choice of when differs (spec §0.1).
     ///
     /// The substrate is ticked on every call, including while the pattern is
     /// overriding it, so its hysteresis clocks follow the same trajectory whether
@@ -47,6 +49,15 @@ namespace GazeControl.Gaze.Policy
         readonly ProposedSettings _settings;
         readonly int _patternSeed;
         readonly IGazePolicy _substrate;
+        readonly DeterministicRandom _random = new(0);
+        readonly AversionSampler _aversion;
+
+        /// <summary>
+        /// Whether the previous tick was already on the prototype's "None".
+        /// Edge detection: the sampler needs Begin on the tick the aversion
+        /// starts and Tick on every one after.
+        /// </summary>
+        bool _averting;
 
         /// <param name="substrate">Drives gaze outside the pre-turn window; baseline B in the study.</param>
         /// <param name="settings">How prototypes are chosen, and the window they play in.</param>
@@ -54,11 +65,20 @@ namespace GazeControl.Gaze.Policy
         /// Seeds the per-boundary draw. Shared by both agents on purpose — it is
         /// the run's seed, not the agent's.
         /// </param>
-        public ProposedGazePolicy(IGazePolicy substrate, ProposedSettings settings, int patternSeed)
+        /// <param name="parameters">
+        /// Baseline A's fitted parameters, for the aversion direction
+        /// distributions only. Unlike <paramref name="patternSeed"/> the
+        /// aversion stream is the agent's own, seeded through Reset: which way
+        /// an agent happens to look away is not something the prototypes
+        /// coordinate.
+        /// </param>
+        public ProposedGazePolicy(IGazePolicy substrate, ProposedSettings settings, int patternSeed,
+            ShintaniGazeParameters parameters)
         {
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
             _substrate = substrate ?? throw new ArgumentNullException(nameof(substrate));
             _patternSeed = patternSeed;
+            _aversion = new AversionSampler(parameters, _random);
             Reset(0);
         }
 
@@ -72,6 +92,9 @@ namespace GazeControl.Gaze.Policy
         public void Reset(int seed)
         {
             _substrate.Reset(seed);
+            _random.Reset(seed);
+            _aversion.Reset();
+            _averting = false;
             IsPatternActive = false;
             ActivePattern = null;
         }
@@ -85,18 +108,31 @@ namespace GazeControl.Gaze.Policy
             {
                 IsPatternActive = false;
                 ActivePattern = null;
+                _averting = false;
                 return substrateTarget;
             }
 
             IsPatternActive = true;
 
             if (role != GazeRole.None)
+            {
+                _averting = false;
                 return GazeTarget.AtPerson(PersonInRole(role, in state));
+            }
 
-            // The prototype's "None" recentres the eyes in the head rather than
-            // choosing a direction. A zero offset is how that is expressed: the
-            // animation layer aims the eyes along the head's forward direction.
-            return GazeTarget.Away(Vector2.zero);
+            // The prototype's "None" is an aversion, rendered with the shared
+            // sampler so it looks like every other aversion in the study.
+            if (_averting)
+            {
+                _aversion.Tick(deltaTime);
+            }
+            else
+            {
+                _averting = true;
+                _aversion.Begin(state.SelfRole);
+            }
+
+            return GazeTarget.Away(_aversion.Offset);
         }
 
         /// <summary>

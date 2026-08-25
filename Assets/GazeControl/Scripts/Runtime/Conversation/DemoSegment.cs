@@ -117,6 +117,16 @@ namespace GazeControl.Conversation
         public string motion;
 
         public int audioSamples;
+
+        /// <summary>
+        /// Median F0 over this speaker's own voiced frames, measured by the
+        /// exporter because the corpus annotates nothing about who is speaking.
+        /// 0 in schema/1 files, which predate the measurement.
+        /// </summary>
+        public float voicePitchHz;
+
+        /// <summary>"male", "female" or "unclear", derived from <see cref="voicePitchHz"/>.</summary>
+        public string voice;
     }
 
     /// <summary>

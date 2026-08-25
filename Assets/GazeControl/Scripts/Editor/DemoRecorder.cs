@@ -41,8 +41,30 @@ namespace GazeControl.Editor
         [MenuItem("GazeControl/Record Demo")]
         public static void RecordDemo()
         {
+            SilenceDeveloperOverlay();
             SessionState.SetBool(k_PendingKey, true);
             EditorApplication.isPlaying = true;
+        }
+
+        /// <summary>
+        /// A recorded take must never carry the developer overlay: it names the
+        /// end-of-turn boundaries the study asks participants to judge, and a
+        /// video is the one place the mistake would be permanent. Turned off
+        /// here rather than trusted to be off, because the overlay is toggled
+        /// for preview all the time and nothing else would catch it.
+        /// </summary>
+        static void SilenceDeveloperOverlay()
+        {
+            foreach (var overlay in Object.FindObjectsByType<DeveloperOverlay>(
+                         FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (!overlay.Enabled)
+                    continue;
+
+                overlay.Enabled = false;
+                EditorUtility.SetDirty(overlay);
+                Debug.LogWarning($"{overlay.name}: developer overlay switched off for the recording.", overlay);
+            }
         }
 
         static void Update()

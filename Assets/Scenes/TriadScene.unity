@@ -617,6 +617,7 @@ GameObject:
   m_Component:
   - component: {fileID: 644306068}
   - component: {fileID: 644306069}
+  - component: {fileID: 644306070}
   m_Layer: 0
   m_Name: Conversation
   m_TagString: Untagged
@@ -651,7 +652,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a112d084700ec7242a0b5a119cc156cb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GazeControl.Conversation.RecordedConversation
-  <SegmentPath>k__BackingField: Assets/DemoSegments/case2_seg02/segment.json
+  <SegmentPath>k__BackingField: Assets/DemoSegments/cand_v008/segment.json
   <Speakers>k__BackingField:
   - <SpeakerCode>k__BackingField: 1
     <Participant>k__BackingField: {fileID: 672148330}
@@ -664,6 +665,21 @@ MonoBehaviour:
   <User>k__BackingField: {fileID: 184681076}
   <Director>k__BackingField: {fileID: 696636976}
   <ScheduleLeadSeconds>k__BackingField: 0.2
+--- !u!114 &644306070
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 644306066}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 13e1f7cfc08b7594db6b89625ace198e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GazeControl.Experiment.DeveloperOverlay
+  <Enabled>k__BackingField: 1
+  <Conversation>k__BackingField: {fileID: 644306069}
+  <Runner>k__BackingField: {fileID: 0}
 --- !u!1 &672148326
 GameObject:
   m_ObjectHideFlags: 0
@@ -785,6 +801,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GazeControl.Experiment.GazeConditionRunner
   <Condition>k__BackingField: 2
+  <Tracks>k__BackingField: 0
   <Participants>k__BackingField:
   - {fileID: 672148330}
   - {fileID: 1579353673}
@@ -811,7 +828,7 @@ MonoBehaviour:
   <LoggingEnabled>k__BackingField: 1
   <LogVoiceActivity>k__BackingField: 0
   <OutputDirectory>k__BackingField: Recordings
-  <CaseName>k__BackingField: case2_seg02_02
+  <CaseName>k__BackingField: cand_v008
 --- !u!4 &696636975
 Transform:
   m_ObjectHideFlags: 0

@@ -121,7 +121,15 @@ namespace GazeControl.Conversation
         System.Func<float> _clock;
         int _index;
 
-        void Update()
+        void Update() => SyncToClock();
+
+        /// <summary>
+        /// Advance to the turn the clock is now in. Called from Update during
+        /// play, and directly by offline tooling that drives a simulated clock
+        /// with no player loop running (the seed scan, and eventually the replay
+        /// harness) — those need the same advance rule, not a copy of it.
+        /// </summary>
+        public void SyncToClock()
         {
             if (!HasTurn)
                 return;
