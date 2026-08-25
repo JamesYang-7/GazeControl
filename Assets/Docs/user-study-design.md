@@ -98,7 +98,9 @@ scanned spread rather than accepting whichever one the scene was left on.
 
 ## 3. Stimulus requirements
 
-Five scene-1 segments, re-selected (the existing `case1_seg02/03/04` are superseded).
+Five scene-1 segments, re-selected (the existing `case1_seg02/03/04` are superseded). The
+thirteen candidates they are chosen from, with their stable `--stem` addresses, event mixes and
+voices, are in `scene1-clip-candidates.md`.
 
 1. **Sentence-clean boundaries are mandatory.** Every window must open just after a sentence-final
    token and close on one — the `[.?!]` test scene 2 already uses. The current clips cut
