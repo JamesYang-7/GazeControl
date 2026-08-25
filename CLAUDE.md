@@ -73,16 +73,20 @@ The **full gaze corpus** behind those prototypes — the complete per-frame sequ
 
 ## Agent appearance
 
-**Match the textures to the segment's voices.** The corpus records nothing about who is speaking, so `Tools/find_demo_segments.py` measures it: median F0 over each speaker's own voiced frames, written into `segment.json` as `voicePitchHz`/`voice`, and filterable with `--voice male|female|mixed`. The current segment is two male speakers, so both agents wear the male textures (`SMPLX-Male-URP`, `SMPLX-Male-URP-AgentB`). The female pair — `smplitex_f00016_alb.png` / `smplitex_f00021_alb.png` on `SMPLX-Female-URP-AgentA/B.mat`, with the stock female normal map — is kept for when a female segment is used.
+**Match the textures to the segment's voices.** The corpus records nothing about who is speaking, so `Tools/find_demo_segments.py` measures it: median F0 over each speaker's own voiced frames, written into `segment.json` as `voicePitchHz`/`voice`, and filterable with `--voice male|female|mixed`. The scene wires agent A to the **stock** female albedo `smplx_texture_f_alb.png` and agent B to `smplitex_f00021_alb.png`, both on `SMPLX-Female-URP-AgentA/B.mat` with the stock female normal map. The male pair (`SMPLX-Male-URP`, `SMPLX-Male-URP-AgentB`) is kept for when a male segment is used.
 
 A SMPLitex output needs two passes before it is usable, both editor menu items under **GazeControl → Textures**:
 
 1. **Composite SMPLitex Eye Disc** — SMPLitex never generates the eyeball UV island and leaves it black, and both eyes share that one island, so an untreated texture gives an agent black eyes. The disc is copied from a stock SMPL-X albedo; it sits at (296, 221) r≈19 in 512²-scale, **top-left origin**.
-2. **Pad SMPLitex UV Islands** — fills the gaps between islands from the island edges, using the mesh's own UVs as the coverage mask so nothing a triangle covers is ever written. It also repairs the generator spilling a flat background colour *into* an island, but only when the background is measurably flat (the mode holds ≥50% of outside texels); both female textures fail that test and are padded only.
+2. **Pad SMPLitex UV Islands** — fills the gaps between islands from the island edges, using the mesh's own UVs as the coverage mask so nothing a triangle covers is ever written. It also repairs the generator spilling a flat background colour *into* an island, but only when the background is measurably flat (the mode holds ≥50% of outside texels); every female SMPLitex texture tried fails that test and is padded only.
 
 Only the *body* is female. `SMPLX.modelType` stays `Male` on purpose: it selects the betas-to-joints regressor and so moves the **skeleton**, not the mesh surface, and the FBX carries one template mesh. A genuinely female body would need a female template export or non-zero betas.
 
-**Known artifact:** `smplitex_f00016_alb.png` (agent A) has yellow-green painted onto the fingers and toes inside the UV islands — it is in the SMPLitex sample itself, not introduced here, and no colour statistic separates it from legitimate content (the dominant non-island colours are greys and pinks that occur in tens of thousands of island texels). Swap the sample if it becomes distracting.
+**Known artifact: SMPLitex textures do not register with the mesh's UVs on the face.** The nostril shading lands below the actual nostrils, on the upper lip and nasolabial fold, and the same offset is visible on every SMPLitex sample tried (`f00016`, `f00017`, `f00021`). The **mesh is not at fault** — this was tested on 2026-08-16 by putting the stock Meshcapade albedo on agent A: its nostrils land exactly right on the same mesh, same material, same normal map, while agent B's SMPLitex texture beside it stays displaced. So the misregistration is in what SMPLitex generates, not in the FBX's UVs or the Blender mouth-bag re-export. Nothing here corrects it: a fix would have to warp the generated face island onto the SMPL-X template, which is a real piece of work and has not been attempted.
+
+Because of that, **agent A wears the stock female albedo** (`smplx_texture_f_alb.png`) as of 2026-08-16 — it needs neither of the two passes below (it is the eye-disc donor and its islands are properly laid out). Agent B is still on SMPLitex and still shows the offset. There is only one stock female albedo, so B cannot take the same fix without the two agents becoming the same person.
+
+Agent A's earlier sample `smplitex_f00016_alb.png` was deleted on the same day (it fit the body badly and carried yellow-green painted onto the fingers and toes *inside* the UV islands, an artifact of the sample that no colour statistic could separate from legitimate content). It lives only in git history.
 
 ## Motion data conventions
 
