@@ -114,7 +114,7 @@ namespace GazeControl.Gaze.Policy
             else
             {
                 // Advance when less than half a tick remains, not at zero: the
-                // recorded durations are exact (0.5 s is 15 ticks at 30 Hz), and
+                // recorded durations are exact (0.5 s is 30 ticks at 60 Hz), and
                 // accumulated float error in the subtraction leaves a remainder
                 // of ~1e-7 either side of zero at the boundary — a <= 0 test
                 // (baseline A's, fine for *sampled* dwells) turns that into a

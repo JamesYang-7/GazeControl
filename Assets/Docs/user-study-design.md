@@ -91,8 +91,11 @@ replay draws *whole recorded fixation stretches* and a stretch can be long relat
 **Use `GazeControl → Study → Clip Browser → Scan seeds`** before committing to a clip. It simulates
 the condition offline over a range of base seeds and reports each agent's aversion fraction, driving
 the real policies and the real `ConversationDirector` and deriving seeds with the runner's own
-`SeedFor`, so a scanned seed is the same draw a take will play. Pick a seed near the middle of the
-scanned spread rather than accepting whichever one the scene was left on.
+`SeedFor`, so a scanned seed is the draw a take will play — verified against the five baked clips on
+both agents. Use it to *see the spread* — whether what you are watching is a property of the clip or
+of one draw — rather than to pick the seed: the study's own seeds are deliberately unselected (§3).
+It scans the **Proposed** condition only: baseline A is stochastic too and an unlucky A draw would
+not show up here.
 
 ---
 
@@ -101,13 +104,28 @@ scanned spread rather than accepting whichever one the scene was left on.
 **The five clips, decided 2026-08-26** (superseding `case1_seg02/03/04`). Full reasoning, the
 shortlist they came from and the speaker map are in `scene1-clip-candidates.md`.
 
-| # | stem | len | voices | EoT events |
-|---|---|---|---|---|
-| 1 | `trn_2023_v0_036` | 21.9 s | 2×M | t, t |
-| 2 | `trn_2023_v0_040` | 23.4 s | mixed | i, t |
-| 3 | `trn_2023_v0_081` | 29.6 s | mixed | **o**, t |
-| 4 | `trn_2023_v0_119` | 29.3 s | 2×F | i, t |
-| 5 | `trn_2023_v0_120` | 23.6 s | mixed | t, i, i, t |
+| # | export | stem | len | voices | EoT events | baked seed |
+|---|---|---|---|---|---|---|
+| 1 | `study_c1` | `trn_2023_v0_036` | 21.9 s | 2×M | t, t | 8 |
+| 2 | `study_c2` | `trn_2023_v0_040` | 23.4 s | mixed | i, t | 4 |
+| 3 | `study_c3` | `trn_2023_v0_081` | 29.6 s | mixed | **o**, t | 7 |
+| 4 | `study_c4` | `trn_2023_v0_119` | 29.3 s | 2×F | i, t | 7 |
+| 5 | `study_c5` | `trn_2023_v0_120` | 23.6 s | mixed | t, i, i, t | 4 |
+
+All fifteen tracks are baked at **60 Hz** beside their clip.
+
+**The base seeds were fixed arbitrarily and recorded — they were not selected** (user's call,
+2026-08-26). This is the honest description and the stronger one: nothing about the resulting take
+influenced which seed was used, so no clip was chosen for looking good. The alternative was
+considered and rejected — seeds at the middle of a twelve-seed scan would make each conversation
+*typical* of its condition, but with only five conversations that removes exactly the variability
+the 2026-08-21 decision wanted sampled, and it shows the method without its tail.
+
+The consequence is visible and accepted: over the ten agent-clips the Proposed condition's aversion
+fraction spans **26.8% to 66.6%**, the top end being `study_c5`'s agent B, which looks away for two
+thirds of a 24 s clip. Baseline A spans 34.5–58.3%; baseline B never averts. **Report the twelve-seed
+scan spread alongside the results** so a reader sees the condition's variability rather than
+inferring consistency from five draws.
 
 Twelve events, all three EoT classes, seven distinct speakers — the most this shortlist allows,
 because only five distinct speaker pairings exist in it and one woman appears in four of the five.
@@ -306,11 +324,26 @@ Nothing below exists yet; all of it gates data collection.
   - Verified end to end, not just in unit tests: two independent bakes of `cand_v008` / Proposed /
     seed 8 (per-agent 902093031 and 1194167276 — the seeds that diverged) are **byte-identical
     apart from the `bakedAtUtc` stamp**: 706 samples per agent, 41/41 and 56/56 episodes equal.
-  - **The offline seed scan and the live runner now agree exactly**, which they could not before:
-    `SeedScan` has always ticked at `t = k · step` from conversation zero, so anchoring the live
-    grid the same way made them the same grid. Scanned seed 8 on `cand_v008` predicts aversion
-    0.596 / 0.516 and the bake of that configuration measures 421/706 = 0.596 and 364/706 = 0.516.
-    A scan is therefore a sound way to choose a clip's seed without recording it first.
+  - **The offline seed scan and the live runner tick the same grid now**, which they could not
+    before: `SeedScan` has always ticked at `t = k · step` from conversation zero, so anchoring the
+    live grid the same way made them one grid. Scanned seed 8 on `cand_v008` predicted aversion
+    0.596 / 0.516 and the bake of that configuration measured exactly that.
+    - **It briefly stopped agreeing, and the cause was the scan's, not the runner's.**
+      `SeedScan` swept twelve seeds through **one** `ConversationDirector`, resetting only the
+      clock — but the director advances monotonically by design (`SyncToClock` only ever walks
+      `_index` forward, because a live conversation never goes back). So the first seed scanned was
+      right and every later one ran the whole simulation against a schedule frozen on the final
+      turn. That is why a single-seed scan of `cand_v008` matched a bake exactly while the
+      twelve-seed scans used to pick the study clips were off by up to 25 points. The scan now
+      re-publishes the schedule per seed, which calls `Enter(0)`. **Verified against ground truth:
+      it reproduces all five baked clips on both agents to a tenth of a point.**
+  - **Baseline B is not bit-reproducible across bakes, though the other two are.** Its input is the
+    audio playback position, scheduled against the DSP clock, so *when the first voice onset is
+    confirmed* can land a few ticks either side of the decision grid. Measured over a re-bake of all
+    five clips at identical seeds: four were identical and `study_c4` moved by 19 ticks (0.32 s),
+    changing only how long the agents watch the participant before anyone has spoken. It does not
+    affect a study session — participants replay the file — but a re-bake of baseline B is not
+    guaranteed byte-identical the way `Proposed` is.
   - **Residual, and the reason a study still replays a baked track rather than re-deriving one:**
     a tick reads the live scene at the frame it fires on, so voice activity and a turn boundary can
     still land one frame either side of the grid. Baking removes that; nothing in a live take can.

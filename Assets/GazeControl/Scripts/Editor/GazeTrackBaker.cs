@@ -39,8 +39,21 @@ namespace GazeControl.Editor
         /// <summary>Recorded past the last decision so the track covers any hold at the end.</summary>
         const float k_TailSeconds = 0.5f;
 
+        /// <summary>
+        /// How long a bake waits for the conversation's clock to start before
+        /// giving up on the whole queue.
+        ///
+        /// Without it a segment that fails to load — a wav Unity has not
+        /// imported is enough, and the console says so quietly — leaves the
+        /// baker in Play Mode forever: it stops on <c>HasFinished</c>, which a
+        /// conversation that never started never reaches. Measured once at ten
+        /// minutes of silence before anyone looked.
+        /// </summary>
+        const float k_StartTimeoutSeconds = 30f;
+
         static RecordedConversation s_Conversation;
         static float s_StopAt = -1f;
+        static float s_PlayStarted = -1f;
 
         static GazeTrackBaker()
         {
@@ -136,6 +149,7 @@ namespace GazeControl.Editor
 
             Debug.Log($"Gaze track baker: baking {condition} — {remaining.Length - 1} condition(s) to follow.");
             s_StopAt = -1f;
+            s_PlayStarted = -1f;
             s_Conversation = null;
             EditorApplication.isPlaying = true;
         }
@@ -170,6 +184,21 @@ namespace GazeControl.Editor
                 return;
 
             s_Conversation ??= UnityEngine.Object.FindFirstObjectByType<RecordedConversation>();
+
+            if (s_PlayStarted < 0f)
+                s_PlayStarted = Time.time;
+
+            var started = s_Conversation != null && s_Conversation.Elapsed >= 0f;
+            if (!started && Time.time - s_PlayStarted > k_StartTimeoutSeconds)
+            {
+                Debug.LogError(
+                    $"Gaze track baker: the conversation has not started after {k_StartTimeoutSeconds:0} s, " +
+                    "so nothing would ever be baked. The usual cause is a segment Unity has not imported " +
+                    "yet — check the console for a load error and run Assets → Refresh. Queue abandoned.");
+                SessionState.EraseString(k_QueueKey);
+                EditorApplication.isPlaying = false;
+                return;
+            }
 
             // The runner writes the track in OnDestroy, so leaving play mode is
             // what commits it; the tail lets the last decisions land first.

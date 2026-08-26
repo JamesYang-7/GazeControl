@@ -75,8 +75,8 @@ namespace GazeControl.Experiment
 
         [field: SerializeField]
         [field: Range(10f, 60f)]
-        [field: Tooltip("Policy decision rate, Hz (spec says 20-50 is plenty)")]
-        public float DecisionHz { get; set; } = 30f;
+        [field: Tooltip("Policy decision rate, Hz. 60 matches the 60 fps gaze data one tick per frame.")]
+        public float DecisionHz { get; set; } = 60f;
 
         [field: SerializeField]
         [field: Tooltip("Baseline B hysteresis thresholds")]
@@ -565,10 +565,15 @@ namespace GazeControl.Experiment
         /// </summary>
         bool TryPrepareCondition()
         {
-            if (Condition == GazeCondition.SpeakerFollowing)
-                return true;
-
-            if (Director == null)
+            // Baseline B needs no schedule — it decides from voice activity
+            // alone. It still needs everything below that belongs to the *track
+            // mode* rather than to the condition: this used to return early
+            // here, which left baseline B with no recorders when baking (a
+            // NullReferenceException on the first tick, no track written, and
+            // — because the throw aborted the tick before the second agent was
+            // reached — agent B frozen on its initial target for the whole
+            // take) and no track loaded when replaying.
+            if (Condition != GazeCondition.SpeakerFollowing && Director == null)
             {
                 Debug.LogError($"{name}: the {Condition} condition needs a ConversationDirector to know when turns end.", this);
                 return false;

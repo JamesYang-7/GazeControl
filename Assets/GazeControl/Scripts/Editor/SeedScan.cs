@@ -98,7 +98,7 @@ namespace GazeControl.Editor
                 director.TurnWindowSeconds = runner.Director != null ? runner.Director.TurnWindowSeconds : 1f;
 
                 var clock = 0f;
-                director.SetSchedule(conversation.BuildSchedule(segment), () => clock);
+                var schedule = conversation.BuildSchedule(segment);
 
                 var step = 1f / runner.DecisionHz;
                 var ticks = Mathf.CeilToInt((segment.durationSeconds + segment.tailSeconds) / step);
@@ -123,7 +123,18 @@ namespace GazeControl.Editor
 
                     var averted = new int[agents.Length];
                     clock = 0f;
-                    director.SyncToClock();
+
+                    // Re-published rather than rewound, once per seed: the
+                    // director advances monotonically by design — SyncToClock
+                    // only ever walks _index forward, because a live conversation
+                    // never goes back — so a second sweep from clock 0 would run
+                    // the whole simulation with the schedule stuck on the final
+                    // turn. Reusing one director across seeds did exactly that:
+                    // the first seed scanned was right and every later one was
+                    // measured against frozen roles, which is why a single-seed
+                    // scan matched a bake exactly while a twelve-seed scan did
+                    // not. SetSchedule calls Enter(0), so this resets it.
+                    director.SetSchedule(schedule, () => clock);
 
                     for (var t = 0; t < ticks; t++)
                     {

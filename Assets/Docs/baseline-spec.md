@@ -14,8 +14,12 @@ Read this section before writing code. These are the things that most often get 
    micro-motion are implemented **once** and used identically by every condition, including the
    proposed method. Baselines differ *only* in which target they select and when. If the animation
    quality differs between conditions, the study measures animation, not gaze policy.
-2. **Two-layer timing.** The *policy* runs on a decision tick (20–50 Hz is plenty). The *animation*
-   runs per frame. Do not couple them; do not re-decide the gaze target every frame. The decision
+2. **Two-layer timing.** The *policy* runs on a decision tick, the *animation*
+   runs per frame. **The tick is 60 Hz** (2026-08-26), not the 20–50 Hz this line used to call
+   plenty: both data sources are 60 fps, so 60 Hz is one tick per recorded frame. The prototypes
+   are 1 s windows of 60 frames and map onto the grid 1:1, and the holding corpus's fixation
+   durations are exact multiples of 1/60 s — at 30 Hz every other one was rounded, a mean error of
+   8.17 ms against 0.02 ms at 60. Do not couple them; do not re-decide the gaze target every frame. The decision
    tick is anchored on the **conversation's** clock, not on the moment Play starts: a free-running
    tick spends the variable pre-roll before a segment loads on decisions nobody sees, and a
    stochastic policy then consumes a different number of draws in every run.

@@ -652,7 +652,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a112d084700ec7242a0b5a119cc156cb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GazeControl.Conversation.RecordedConversation
-  <SegmentPath>k__BackingField: Assets/DemoSegments/case1_seg02/segment.json
+  <SegmentPath>k__BackingField: Assets/DemoSegments/study_c5/segment.json
   <Speakers>k__BackingField:
   - <SpeakerCode>k__BackingField: 1
     <Participant>k__BackingField: {fileID: 672148330}
@@ -809,7 +809,7 @@ MonoBehaviour:
   - {fileID: 184681076}
   <Conversation>k__BackingField: {fileID: 644306069}
   <Director>k__BackingField: {fileID: 696636976}
-  <DecisionHz>k__BackingField: 30
+  <DecisionHz>k__BackingField: 60
   <SpeakerFollowing>k__BackingField:
     <OnsetSeconds>k__BackingField: 0.25
     <OffsetSeconds>k__BackingField: 0.5
@@ -825,11 +825,11 @@ MonoBehaviour:
   <MutualGazeAngleDegrees>k__BackingField: 15
   <ShiftAngularSpeed>k__BackingField: 20
   <StudyParticipantId>k__BackingField: P00
-  <BaseSeed>k__BackingField: 1
+  <BaseSeed>k__BackingField: 4
   <LoggingEnabled>k__BackingField: 1
   <LogVoiceActivity>k__BackingField: 0
   <OutputDirectory>k__BackingField: Recordings
-  <CaseName>k__BackingField: case1_seg02
+  <CaseName>k__BackingField: study_c5
 --- !u!4 &696636975
 Transform:
   m_ObjectHideFlags: 0
