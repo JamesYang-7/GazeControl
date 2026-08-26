@@ -98,15 +98,26 @@ scanned spread rather than accepting whichever one the scene was left on.
 
 ## 3. Stimulus requirements
 
-Five scene-1 segments, re-selected (the existing `case1_seg02/03/04` are superseded). The
-thirteen candidates they are chosen from, with their stable `--stem` addresses, event mixes and
-voices, are in `scene1-clip-candidates.md`.
+**The five clips, decided 2026-08-26** (superseding `case1_seg02/03/04`). Full reasoning, the
+shortlist they came from and the speaker map are in `scene1-clip-candidates.md`.
 
-1. **Sentence-clean boundaries are mandatory.** Every window must open just after a sentence-final
-   token and close on one — the `[.?!]` test scene 2 already uses. The current clips cut
-   mid-sentence, which adds rating variance in every condition and costs power on the effect of
-   interest. Measured over the corpus, 737 of 1,807 windows (40.8%) qualify, so the ranking keeps
-   plenty to choose from.
+| # | stem | len | voices | EoT events |
+|---|---|---|---|---|
+| 1 | `trn_2023_v0_036` | 21.9 s | 2×M | t, t |
+| 2 | `trn_2023_v0_040` | 23.4 s | mixed | i, t |
+| 3 | `trn_2023_v0_081` | 29.6 s | mixed | **o**, t |
+| 4 | `trn_2023_v0_119` | 29.3 s | 2×F | i, t |
+| 5 | `trn_2023_v0_120` | 23.6 s | mixed | t, i, i, t |
+
+Twelve events, all three EoT classes, seven distinct speakers — the most this shortlist allows,
+because only five distinct speaker pairings exist in it and one woman appears in four of the five.
+`081` is the only clip carrying an overlapping event, so it is mandatory rather than preferred.
+
+1. **Sentence-clean boundaries are mandatory**, and the five above satisfy it by construction.
+   Every window opens just after a sentence-final token and closes on one — the `[.?!]` test scene
+   2 already uses. The superseded clips cut mid-sentence, which added rating variance in every
+   condition and cost power on the effect of interest. Measured over the corpus, 737 of 1,807
+   windows (40.8%) qualify, so the ranking still had plenty to choose from.
 2. **Voice type is free** — a clip may be two-male, two-female or mixed.
 3. **Texture assignment follows the measured voices**, and mixed-gender pairs are preferred:
 
@@ -115,6 +126,10 @@ voices, are in `scene1-clip-candidates.md`.
    | **Mixed (1M/1F)** | stock `smplx_texture_f_alb.png` | stock `smplx_texture_m_alb.png` | **none — both stock** |
    | Two male | stock `smplx_texture_m_alb.png` | SMPLitex `smplitex_agentB_alb.png` | agent B |
    | Two female | stock `smplx_texture_f_alb.png` | SMPLitex `smplitex_f00021_alb.png` | agent B |
+
+   The rule is **per agent**, not per row: each agent takes the albedo matching its own measured
+   voice, so a mixed clip whose agent A is the male reverses the table above (clip 3, `081`, is
+   exactly that). The Clip Browser already applies it that way.
 
    There is exactly one stock albedo per sex, so a same-sex pair forces one agent onto a SMPLitex
    texture and its known nostril misregistration. **Mixed-gender clips are the only configuration
@@ -263,8 +278,8 @@ Aggregate first.
 
 Nothing below exists yet; all of it gates data collection.
 
-1. **Sentence-final boundary rule** in `Tools/find_demo_segments.py`, then five re-selected
-   segments exported (§3).
+1. ~~**Sentence-final boundary rule**~~ done (2026-08-21) and the five clips chosen (2026-08-26,
+   §3); **exporting them and baking a track per condition is still to do**.
 2. **XR port of `TriadScene`** — stereo rendering, standing play area, eye-height calibration.
 3. **In-VR questionnaire UI** — 15 rating screens and 5 ranking screens, controller pointer.
    Likely more work than the XR port itself.

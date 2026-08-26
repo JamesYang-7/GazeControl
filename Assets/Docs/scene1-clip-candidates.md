@@ -1,7 +1,83 @@
-# Scene-1 study clips — shortlist
+# Scene-1 study clips — shortlist and final pick
 
-Thirteen candidates kept from the top 25 of the sentence-clean search, for a visual pick later.
-Five will become the study's clips (5 conversations × 3 methods = 15 videos per participant).
+Thirteen candidates kept from the top 25 of the sentence-clean search, narrowed to the five the
+study uses (5 conversations × 3 methods = 15 videos per participant).
+
+---
+
+## The five, decided 2026-08-26
+
+| clip | stem | window | len | cast | voices | EoT events | texture artifact |
+|---|---|---|---|---|---|---|---|
+| 1 | `trn_2023_v0_036` | 324.33–346.25 | 21.9 s | S2 + S3 | 2×M 134/113 | t, t | agent B (SMPLitex) |
+| 2 | `trn_2023_v0_040` | 280.73–304.17 | 23.4 s | **S1** + S4 | mixed F220/M110 | i, t | none |
+| 3 | `trn_2023_v0_081` | 13.13–42.73 | 29.6 s | S5 + **S1** | mixed M130/F259 | **o**, t | none |
+| 4 | `trn_2023_v0_119` | 256.43–285.75 | 29.3 s | **S1** + S6 | 2×F 220/210 | i, t | agent B (SMPLitex) |
+| 5 | `trn_2023_v0_120` | 66.33–89.97 | 23.6 s | **S1** + S7 | mixed F210/M116 | t, i, i, t | none |
+
+Twelve EoT events over the five. **All three classes are covered, and `081` is the only clip that
+covers overlapping** — it is mandatory, not preferred. The events also sit in different places:
+an interruption opens `040` and `119`, two of them fall mid-clip in `120`, `081` opens on its
+overlap, and `036` is pure turn-taking — so the prototype pool is exercised at several positions
+rather than one, and one clip serves as a plain turn-taking control. Three of five are mixed-voice,
+the only configuration where neither agent carries the SMPLitex face misregistration.
+
+**Why this set and not another: only five distinct casts exist in the shortlist.** `008`, `050` and
+`119` are the same two women; `026` and `036` are the same two men (see the speaker map below). So
+one clip from each cast is the entire degree of freedom, and four of the five were forced once
+`081` was required for its overlapping event. Speaker **S1 appears in four of the five** and cannot
+be avoided — she is in six of the eight clips that survived the audio check.
+
+Rejected at the last step:
+
+- **`038`, `055`, `060`, `065` — broken audio** (found by listening, 2026-08-25). `055` was the best
+  overlapping candidate, which is what makes `081` mandatory rather than merely preferred.
+- **`026` over `036`** — same cast, so at most one could be used. `026` reads more fluently, but its
+  audio is slightly broken too, and `036`'s 5.7 s near-silent stretch was taken as a *positive*:
+  it varies what the holding substrate has to fill, which is a quarter of that clip.
+- **`008`, `050`** — same cast as `119`, and `119` was preferred on its own reading.
+- **`014`** — overlapping, but never shortlisted for the visual pick.
+
+`081`'s exchange is a monologue with backchannels (balance 0.57) and its content is a tsunami
+story. It is in the set on structural grounds: nothing else in the shortlist carries an
+overlapping event. Worth a second look during the pilot.
+
+**Note on `081`'s textures**: its agent A is the *male* speaker and agent B the female, the reverse
+of `user-study-design.md` §3's mixed-voice row. The rule is per-agent — each agent takes the stock
+albedo matching its own measured voice — and the Clip Browser applies it that way already.
+
+## Speaker map
+
+The corpus identifies nobody, so it was measured: `Tools/identify_speakers.py` embeds each side
+with ECAPA-TDNN and calibrates the threshold against a same-speaker control (two halves of one
+recording). Over the eight clips that survived the audio check: same-speaker control 0.837–0.973,
+cross-clip median 0.130 — two populations with a wide gap between them.
+
+| speaker | appears as | in the final five |
+|---|---|---|
+| **S1** F ~215 Hz | 008A, 040A, 050B, **081B**, 119A, 120A | four clips |
+| S2 M ~132 Hz | 026A, **036A** | one |
+| S3 M ~100 Hz | 026B, **036B** | one |
+| S4 M 110 Hz | **040B** | one |
+| S5 M 130 Hz | **081A** | one |
+| S6 F ~205 Hz | 008B, 050A, **119B** | one |
+| S7 M 116 Hz | **120B** | one |
+
+Seven speakers over five conversations, which is the most this shortlist allows.
+
+## Export
+
+```sh
+python Tools/find_demo_segments.py --stem trn_2023_v0_036 --per-stem 1 --export 1 --name study_c1
+python Tools/find_demo_segments.py --stem trn_2023_v0_040 --per-stem 1 --export 1 --name study_c2
+python Tools/find_demo_segments.py --stem trn_2023_v0_081 --per-stem 1 --require-type overlapping --export 1 --name study_c3
+python Tools/find_demo_segments.py --stem trn_2023_v0_119 --per-stem 1 --export 1 --name study_c4
+python Tools/find_demo_segments.py --stem trn_2023_v0_120 --per-stem 1 --export 1 --name study_c5
+```
+
+---
+
+## The shortlist it was chosen from
 
 Tracked because it is a decision record: `user-study-design.md` picks five clips from this set,
 and the search that produced it is re-runnable but the reading behind the shortlist is not.
