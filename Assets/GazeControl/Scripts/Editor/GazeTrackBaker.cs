@@ -28,6 +28,14 @@ namespace GazeControl.Editor
         const string k_QueueKey = "GazeControl.GazeTrackBaker.Queue";
         const string k_RestoreKey = "GazeControl.GazeTrackBaker.Restore";
 
+        // "A bake is running" is its own flag rather than "the queue is not
+        // empty": the queue is emptied when the *last* condition starts, so the
+        // emptiness test made the final play session look like no bake at all.
+        // It then ran forever — nothing stopped play, so the track was only
+        // written if someone stopped it by hand, and the scene was left in Bake
+        // mode where the next Play would overwrite what it had just made.
+        const string k_ActiveKey = "GazeControl.GazeTrackBaker.Active";
+
         /// <summary>Recorded past the last decision so the track covers any hold at the end.</summary>
         const float k_TailSeconds = 0.5f;
 
@@ -87,15 +95,17 @@ namespace GazeControl.Editor
             // mode, where the next Play would overwrite the track just made.
             SessionState.SetString(k_RestoreKey, $"{runner.Tracks}|{runner.Condition}");
             SessionState.SetString(k_QueueKey, queue);
+            SessionState.SetBool(k_ActiveKey, true);
             Advance();
         }
 
         /// <summary>Start the next queued condition, or finish and restore the scene.</summary>
         static void Advance()
         {
-            var queue = SessionState.GetString(k_QueueKey, string.Empty);
-            if (string.IsNullOrEmpty(queue))
+            if (!SessionState.GetBool(k_ActiveKey, false))
                 return;
+
+            var queue = SessionState.GetString(k_QueueKey, string.Empty);
 
             var runner = UnityEngine.Object.FindFirstObjectByType<GazeConditionRunner>();
             if (runner == null)
@@ -132,6 +142,7 @@ namespace GazeControl.Editor
 
         static void Finish(GazeConditionRunner runner)
         {
+            SessionState.EraseBool(k_ActiveKey);
             SessionState.EraseString(k_QueueKey);
 
             var restore = SessionState.GetString(k_RestoreKey, string.Empty);
@@ -155,7 +166,7 @@ namespace GazeControl.Editor
 
         static void Update()
         {
-            if (!EditorApplication.isPlaying || string.IsNullOrEmpty(SessionState.GetString(k_QueueKey, string.Empty)))
+            if (!EditorApplication.isPlaying || !SessionState.GetBool(k_ActiveKey, false))
                 return;
 
             s_Conversation ??= UnityEngine.Object.FindFirstObjectByType<RecordedConversation>();

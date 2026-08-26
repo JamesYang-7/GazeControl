@@ -65,15 +65,13 @@ namespace GazeControl.Editor
             }
 
             HoldingSequenceBank bank;
-            ShintaniGazeParameters parameters;
             try
             {
                 bank = HoldingSequenceBank.LoadDefault();
-                parameters = ShintaniGazeParameters.LoadDefault();
             }
             catch (Exception e)
             {
-                Debug.LogError($"Seed scan: could not load the gaze model data — {e.Message}");
+                Debug.LogError($"Seed scan: could not load the holding sequence bank — {e.Message}");
                 return null;
             }
 
@@ -116,8 +114,8 @@ namespace GazeControl.Editor
                     for (var i = 0; i < agents.Length; i++)
                     {
                         policies[i] = new ProposedGazePolicy(
-                            new HoldingReplayGazePolicy(bank, parameters, human),
-                            runner.Proposed, baseSeed, parameters);
+                            new HoldingReplayGazePolicy(bank, human),
+                            runner.Proposed, baseSeed);
                         policies[i].Reset(GazeConditionRunner.SeedFor(
                             runner.StudyParticipantId, GazeConditionRunner.GazeCondition.Proposed,
                             agents[i].Id, baseSeed));

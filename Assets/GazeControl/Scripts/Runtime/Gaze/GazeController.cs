@@ -91,6 +91,8 @@ namespace GazeControl.Gaze
 
         Transform _leftEye;
         Transform _rightEye;
+        Quaternion _leftEyeLocal = Quaternion.identity;
+        Quaternion _rightEyeLocal = Quaternion.identity;
         float _headWeight;
         Quaternion _lastHeadLook = Quaternion.identity;
         Quaternion _baseHeadLocal = Quaternion.identity;
@@ -156,25 +158,49 @@ namespace GazeControl.Gaze
             // The head may have just moved, so the eyes re-solve against the pose
             // that will actually be rendered. That is the whole VOR story here:
             // the fixation point stays put while the head is still settling.
-            RotateEye(_leftEye);
-            RotateEye(_rightEye);
+            RotateEye(_leftEye, ref _leftEyeLocal);
+            RotateEye(_rightEye, ref _rightEyeLocal);
         }
 
-        void RotateEye(Transform eye)
+        /// <param name="written">
+        /// What this layer last wrote to <paramref name="eye"/>, carried across
+        /// frames because the bone itself does not survive one.
+        /// </param>
+        void RotateEye(Transform eye, ref Quaternion written)
         {
+            // The mocap re-poses every joint each frame, the eyes included — and
+            // the TalkingWithHands clips carry *no* eye animation, so what it
+            // writes is identity, over whatever this layer produced last frame.
+            // Integrating from that reset pose capped the rendered gaze at one
+            // frame's worth of rotation, EyeDegreesPerSecond/fps: 20 deg at the
+            // recorder's locked 30 fps, which hid the bug for every recorded
+            // take, but 2 deg live at 280 fps and 6.7 deg in 90 Hz VR, where the
+            // eyes barely leave the head's forward whatever the policy asked
+            // for. Measured 2026-08-25: one clip, one seed, identical decisions,
+            // aversion rendering 12.7 deg at 30 fps and 1.4 deg at 280.
+            //
+            // This layer owns the eye bones (the head is the opposite case: pure
+            // mocap, HeadContribution 0), so it resumes from its own last output.
+            eye.localRotation = written;
+
             var maxStep = EyeDegreesPerSecond * Time.deltaTime;
             if (Mode == GazeMode.None)
             {
                 eye.localRotation = Quaternion.RotateTowards(eye.localRotation, Quaternion.identity, maxStep);
+                written = eye.localRotation;
                 return;
             }
 
+            // The world target is recomputed every frame, so resuming from the
+            // last *local* rotation keeps the VOR behaviour intact: the fixation
+            // point stays put while the head moves under it.
             var direction = Mode == GazeMode.Aversion
                 ? DirectionInHead(AversionOffset.x, AversionOffset.y)
                 : ClampToEyeRange((Target.position - eye.position).normalized);
 
             var look = Quaternion.LookRotation(direction, Head.up);
             eye.rotation = Quaternion.RotateTowards(eye.rotation, look, maxStep);
+            written = eye.localRotation;
         }
 
         /// <summary>

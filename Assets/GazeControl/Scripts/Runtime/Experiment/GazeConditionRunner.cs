@@ -152,9 +152,24 @@ namespace GazeControl.Experiment
         [NonSerialized]
         GazeTrack _track;
         GazeTrackRecorder[] _recorders;
+
+        // The bake's header is captured while the scene is alive rather than
+        // read when it is written: the write can happen in OnDestroy, where
+        // Unity gives no destruction order. Reading a destroyed
+        // GazeParticipant's name throws out of the writer — a bake that
+        // silently produced no file at all — and a destroyed conversation reads
+        // as null, which would write a track naming no segment, to the fallback
+        // path rather than beside its clip.
+        //
+        // [NonSerialized] for the same reason as _track above: the "was a bake
+        // prepared" test is a null check, and Unity does not leave a
+        // [Serializable] field null.
+        [NonSerialized]
+        GazeTrack _bake;
+        string _bakePath;
         bool _trackWritten;
         GazeLogWriter _log;
-        float _accumulator;
+        DecisionClock _decisions;
         float _sessionTime;
         float _nextVoiceReportTime;
         bool _warnedAboutMissingTarget;
@@ -187,6 +202,10 @@ namespace GazeControl.Experiment
                 enabled = false;
                 return;
             }
+
+            // Fixed at Awake: changing the decision rate part-way through a take
+            // would change how long every fixation in flight lasts.
+            _decisions = new DecisionClock(DecisionHz);
 
             _voiceActivity = new VoiceActivityTracker(
                 Participants.Length, SpeakerFollowing.OnsetSeconds, SpeakerFollowing.OffsetSeconds);
@@ -277,43 +296,55 @@ namespace GazeControl.Experiment
         }
 
         /// <summary>
-        /// Write the bake once the conversation has played out. Called from
-        /// OnDestroy as well as on completion, because a take stopped early
-        /// still holds everything decided up to that point and losing it would
-        /// mean re-running the whole clip.
+        /// Capture everything a bake reads from the scene, while the scene
+        /// still exists. Only the samples are added at write time.
         /// </summary>
-        void WriteTrackIfBaking()
+        void PrepareBake()
         {
-            if (Tracks != TrackMode.Bake || _trackWritten || _recorders == null)
+            if (Tracks != TrackMode.Bake)
                 return;
 
-            _trackWritten = true;
-
-            var track = new GazeTrack
+            _bakePath = TrackPath();
+            _bake = new GazeTrack
             {
                 segment = Conversation != null && Conversation.Segment != null ? Conversation.Segment.name : null,
                 condition = Condition.ToString(),
                 substrate = Condition == GazeCondition.Proposed ? Proposed.Substrate.ToString() : null,
                 baseSeed = BaseSeed,
                 decisionHz = DecisionHz,
-                bakedAtUtc = DateTime.UtcNow.ToString("O"),
                 agents = new GazeTrackAgent[_agents.Length],
             };
 
             for (var i = 0; i < _agents.Length; i++)
             {
-                track.agents[i] = new GazeTrackAgent
+                _bake.agents[i] = new GazeTrackAgent
                 {
                     agentId = _agents[i].Id,
                     name = _agents[i].name,
                     seed = _seeds[i],
-                    samples = _recorders[i].ToArray(),
                 };
             }
+        }
 
-            var path = TrackPath();
-            track.Save(path);
-            Debug.Log($"{name}: baked {track.agents[0].samples.Length} decisions per agent to {path}.", this);
+        /// <summary>
+        /// Write the bake. Called when the conversation finishes and again from
+        /// OnDestroy, because a take stopped early still holds everything
+        /// decided up to that point and losing it would mean re-running the
+        /// whole clip.
+        /// </summary>
+        void WriteTrackIfBaking()
+        {
+            if (Tracks != TrackMode.Bake || _trackWritten || _recorders == null || _bake == null)
+                return;
+
+            _trackWritten = true;
+            _bake.bakedAtUtc = DateTime.UtcNow.ToString("O");
+
+            for (var i = 0; i < _bake.agents.Length; i++)
+                _bake.agents[i].samples = _recorders[i].ToArray();
+
+            _bake.Save(_bakePath);
+            Debug.Log($"{name}: baked {_bake.agents[0].samples.Length} decisions per agent to {_bakePath}.", this);
         }
 
 
@@ -323,23 +354,47 @@ namespace GazeControl.Experiment
             // the replayed segment's turn boundaries, and the conversation only
             // has them once every component's Awake has run.
             _log?.WriteMetadata(BuildMetadataJson());
+
+            // Same reason the sidecar is written here: the segment a bake
+            // records is only known once every component's Awake has run.
+            PrepareBake();
+
+            // No policy runs until the conversation's clock starts, so the gaze
+            // of the pre-roll is applied once here. Leaving it to the gaze
+            // layer's default would put the eyes somewhere the log does not say.
+            for (var i = 0; i < _agents.Length; i++)
+                Apply(_agents[i], _targets[i]);
+
             _ = LogEveryFrameAsync(destroyCancellationToken);
         }
 
         void Update()
         {
-            var step = 1f / DecisionHz;
-            _accumulator += Time.deltaTime;
             _sessionTime += Time.deltaTime;
 
-            while (_accumulator >= step)
-            {
-                Tick(step);
-                _accumulator -= step;
-            }
+            // Ticked on the conversation's clock rather than on Play's, so the
+            // variable-length pre-roll before the segment loads costs no
+            // decisions — see DecisionClock for what that pre-roll cost before.
+            var due = _decisions.Advance(DecisionTime());
+            var firstTick = _decisions.Ticks - due;
+            for (var i = 0; i < due; i++)
+                Tick(_decisions.Step, _decisions.TimeOfTick(firstTick + i));
         }
 
-        void Tick(float deltaTime)
+        /// <summary>
+        /// The clock the decision grid is anchored on. It is the conversation's,
+        /// which is the clock the turn schedule, the motion and the baked tracks
+        /// are all measured in. The session clock stands in only when there is no
+        /// conversation to follow, which is a development scene rather than a take.
+        /// </summary>
+        float DecisionTime() => Conversation != null ? Conversation.Elapsed : _sessionTime;
+
+        /// <param name="deltaTime">One decision step.</param>
+        /// <param name="conversationTime">
+        /// The instant on the decision grid this tick belongs to — see
+        /// <see cref="DecisionClock.TimeOfTick"/>.
+        /// </param>
+        void Tick(float deltaTime, float conversationTime)
         {
             for (var i = 0; i < Participants.Length; i++)
             {
@@ -365,7 +420,13 @@ namespace GazeControl.Experiment
             // on a still skeleton, which reads as the agent twitching rather than
             // as the demo having ended. Hold the last target instead.
             if (Conversation != null && Conversation.HasFinished)
+            {
+                // Committed here rather than only on the way out: play mode can
+                // be left at any moment, and OnDestroy is the least safe place
+                // to be touching the scene.
+                WriteTrackIfBaking();
                 return;
+            }
 
             var turn = CurrentTurn();
 
@@ -375,10 +436,10 @@ namespace GazeControl.Experiment
                 _targets[i] = _policies[i].Update(deltaTime, in state);
                 Apply(_agents[i], _targets[i]);
 
-                // Stamped with the conversation's clock, not the tick index —
-                // see GazeTrack for why that is the whole point.
-                if (Tracks == TrackMode.Bake && Conversation != null && Conversation.Elapsed >= 0f)
-                    _recorders[i].Add(Conversation.Elapsed, in _targets[i]);
+                // Stamped with conversation time, not the tick index — see
+                // GazeTrack for why that is the whole point.
+                if (Tracks == TrackMode.Bake && Conversation != null)
+                    _recorders[i].Add(conversationTime, in _targets[i]);
             }
         }
 
@@ -471,8 +532,7 @@ namespace GazeControl.Experiment
                 // draw the same prototype for a boundary or they would play two
                 // different patterns' tracks at each other.
                 GazeCondition.Proposed =>
-                    new ProposedGazePolicy(CreateProposedSubstrate(human), Proposed, BaseSeed,
-                        _roleConditionedParameters),
+                    new ProposedGazePolicy(CreateProposedSubstrate(human), Proposed, BaseSeed),
                 _ => throw new NotImplementedException($"Condition {Condition} is not implemented."),
             };
         }
@@ -489,7 +549,7 @@ namespace GazeControl.Experiment
         IGazePolicy CreateProposedSubstrate(GazeParticipant human) => Proposed.Substrate switch
         {
             ProposedSubstrate.HoldingReplay =>
-                new HoldingReplayGazePolicy(_holdingBank, _roleConditionedParameters, human.ParticipantId),
+                new HoldingReplayGazePolicy(_holdingBank, human.ParticipantId),
             ProposedSubstrate.SpeakerFollowing =>
                 new SpeakerFollowingGazePolicy(SpeakerFollowing, _voiceActivity, human.ParticipantId),
             _ => throw new NotImplementedException($"Substrate {Proposed.Substrate} is not implemented."),
@@ -516,12 +576,11 @@ namespace GazeControl.Experiment
 
             try
             {
-                // Both conditions that ever avert need the fitted parameters:
-                // baseline A samples its aversion from them, and since
-                // 2026-08-24 the proposed condition renders its aversion with
-                // the same sampler so every condition looks away the same way.
-                // Baseline B never averts, so it needs nothing.
-                if (Condition is GazeCondition.RoleConditioned or GazeCondition.Proposed)
+                // Baseline A alone: it is the only condition that samples an
+                // aversion direction. The proposed condition briefly shared the
+                // sampler (2026-08-25) and was reverted the same day — see
+                // ProposedGazePolicy. Baseline B never averts at all.
+                if (Condition == GazeCondition.RoleConditioned)
                     _roleConditionedParameters = ShintaniGazeParameters.LoadDefault();
 
                 if (Condition == GazeCondition.Proposed && Proposed.Substrate == ProposedSubstrate.HoldingReplay)

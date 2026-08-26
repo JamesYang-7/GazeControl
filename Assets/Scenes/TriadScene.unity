@@ -652,7 +652,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a112d084700ec7242a0b5a119cc156cb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GazeControl.Conversation.RecordedConversation
-  <SegmentPath>k__BackingField: Assets/DemoSegments/cand_v008/segment.json
+  <SegmentPath>k__BackingField: Assets/DemoSegments/case1_seg02/segment.json
   <Speakers>k__BackingField:
   - <SpeakerCode>k__BackingField: 1
     <Participant>k__BackingField: {fileID: 672148330}
@@ -802,6 +802,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GazeControl.Experiment.GazeConditionRunner
   <Condition>k__BackingField: 2
   <Tracks>k__BackingField: 0
+  <StudySession>k__BackingField: 0
   <Participants>k__BackingField:
   - {fileID: 672148330}
   - {fileID: 1579353673}
@@ -824,11 +825,11 @@ MonoBehaviour:
   <MutualGazeAngleDegrees>k__BackingField: 15
   <ShiftAngularSpeed>k__BackingField: 20
   <StudyParticipantId>k__BackingField: P00
-  <BaseSeed>k__BackingField: 8
+  <BaseSeed>k__BackingField: 1
   <LoggingEnabled>k__BackingField: 1
   <LogVoiceActivity>k__BackingField: 0
   <OutputDirectory>k__BackingField: Recordings
-  <CaseName>k__BackingField: cand_v008
+  <CaseName>k__BackingField: case1_seg02
 --- !u!4 &696636975
 Transform:
   m_ObjectHideFlags: 0

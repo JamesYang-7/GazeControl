@@ -272,28 +272,35 @@ Nothing below exists yet; all of it gates data collection.
 5. **Study harness** — sequences the 15 runs, applies the counterbalancing, derives Baseline A's
    *and* Proposed's seed from participant × conversation, and writes one folder per participant.
 6. **Ethics approval** and a participant information sheet.
-7. **Fix run-to-run reproducibility of the Proposed condition** — see §10; this is a prerequisite
-   for the study, not a tidy-up.
+7. ~~**Fix run-to-run reproducibility of the Proposed condition**~~ — done 2026-08-25, see §10.
 
 ---
 
 ## 10. Open items
 
-- **BLOCKER — the Proposed condition does not reproduce run to run.** Measured 2026-08-25: two runs
-  of `cand_v014` with identical segment, condition and per-agent seeds (902093031 / 1194167276)
-  gave AgentB an identical decision sequence (27 of 27 episodes) while **AgentA diverged at episode
-  6**. So the recorded seed does not fully determine the take.
-  - Likely mechanism, not yet confirmed: the runner ticks policies from the moment Play starts,
-    while the conversation's clock only starts once the segment has loaded and the voices are
-    scheduled. Those pre-roll ticks advance the replay's fixation clock and consume draws, and the
-    pre-roll length depends on load time, which varies. Candidate fix: do not tick a policy until
-    the conversation has started, or re-`Reset` policies at the conversation's first frame.
-  - Why it matters for the study: a take cannot be re-recorded identically, two participants
-    nominally on the same seed may not see the same thing, and the sidecar's seed record is not
-    sufficient provenance. Per-participant seeding samples the variance but does not make a given
-    trial replayable.
-  - Baselines A and B are not implicated by this measurement; B carries no random stream, and A has
-    not been tested the same way.
+- ~~**BLOCKER — the Proposed condition does not reproduce run to run.**~~ **Fixed 2026-08-25.**
+  Measured before the fix: two runs of `cand_v014` with identical segment, condition and per-agent
+  seeds (902093031 / 1194167276) gave AgentB an identical decision sequence (27 of 27 episodes)
+  while **AgentA diverged at episode 6**, so the recorded seed did not fully determine the take.
+  - The suspected mechanism was the mechanism. The runner ticked its policies from the moment Play
+    started, while the conversation's clock starts only once the segment has loaded and the voices
+    are scheduled; those pre-roll ticks consumed draws and advanced every fixation clock, and the
+    pre-roll length varies with load time. The decision grid is now anchored on the conversation's
+    clock (`DecisionClock`): no tick runs while that clock reads negative, and tick *k* belongs to
+    conversation time *k · step* however many frames it took to get there.
+  - Verified end to end, not just in unit tests: two independent bakes of `cand_v008` / Proposed /
+    seed 8 (per-agent 902093031 and 1194167276 — the seeds that diverged) are **byte-identical
+    apart from the `bakedAtUtc` stamp**: 706 samples per agent, 41/41 and 56/56 episodes equal.
+  - **The offline seed scan and the live runner now agree exactly**, which they could not before:
+    `SeedScan` has always ticked at `t = k · step` from conversation zero, so anchoring the live
+    grid the same way made them the same grid. Scanned seed 8 on `cand_v008` predicts aversion
+    0.596 / 0.516 and the bake of that configuration measures 421/706 = 0.596 and 364/706 = 0.516.
+    A scan is therefore a sound way to choose a clip's seed without recording it first.
+  - **Residual, and the reason a study still replays a baked track rather than re-deriving one:**
+    a tick reads the live scene at the frame it fires on, so voice activity and a turn boundary can
+    still land one frame either side of the grid. Baking removes that; nothing in a live take can.
+  - Baselines A and B were never implicated by the original measurement; B carries no random stream,
+    and A was not tested the same way. Both run on the fixed clock now regardless.
 
 - Pilot the full session on 3–5 people before recruiting: session length, whether the framing reads
   naturally, whether the manipulation is perceived at all.

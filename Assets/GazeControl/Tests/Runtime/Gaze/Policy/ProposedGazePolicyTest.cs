@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -8,10 +7,6 @@ namespace GazeControl.Gaze.Policy
     [TestFixture]
     public class ProposedGazePolicyTest
     {
-        // Aversion direction distributions only; the fitted file is committed
-        // so this needs no corpus checkout.
-        static ShintaniGazeParameters Parameters => ShintaniGazeParameters.LoadDefault();
-
         const float TickSeconds = 1f / 30f;
         const int PatternSeed = 1;
 
@@ -41,7 +36,7 @@ namespace GazeControl.Gaze.Policy
 
         static ProposedGazePolicy CreateSystemUnderTest(int seed = 1, ProposedSettings settings = null)
         {
-            var sut = new ProposedGazePolicy(CreateSubstrate(), settings ?? Settings(), PatternSeed, Parameters);
+            var sut = new ProposedGazePolicy(CreateSubstrate(), settings ?? Settings(), PatternSeed);
             sut.Reset(seed);
             return sut;
         }
@@ -55,11 +50,11 @@ namespace GazeControl.Gaze.Policy
             @"{""role"":""ad"",""sessionId"":""s"",""gazerId"":""g"",""startFrame"":0,""targets"":[""aversion""],""durations"":[5.0]}," +
             @"{""role"":""sd"",""sessionId"":""s"",""gazerId"":""g"",""startFrame"":0,""targets"":[""sp""],""durations"":[5.0]}]}");
 
-        static HoldingReplayGazePolicy CreateHoldingSubstrate() => new(CreateHoldingBank(), Parameters, User);
+        static HoldingReplayGazePolicy CreateHoldingSubstrate() => new(CreateHoldingBank(), User);
 
         static ProposedGazePolicy CreateSystemUnderTestOnHoldingReplay(int seed)
         {
-            var sut = new ProposedGazePolicy(CreateHoldingSubstrate(), Settings(), PatternSeed, Parameters);
+            var sut = new ProposedGazePolicy(CreateHoldingSubstrate(), Settings(), PatternSeed);
             sut.Reset(seed);
             return sut;
         }
@@ -170,19 +165,18 @@ namespace GazeControl.Gaze.Policy
         }
 
         [Test]
-        public void Update_AtThePrototypesAversionSegment_LooksAwayInASampledDirection()
+        public void Update_AtThePrototypesAversionSegment_RecentresTheEyesInTheHead()
         {
             var sut = CreateSystemUnderTest();
 
             // 0.40 s to go is 0.117 s into the track — inside 7e's 17-frame avert.
             var actual = TargetAt(sut, AgentA, ParticipantRole.Speaker, 0.40f);
 
-            // The prototype's "None" uses the same sampled directions as baseline
-            // A and the holding substrate (2026-08-24). It used to recentre the
-            // eyes, which with the head on pure mocap looks like no gaze control
-            // at all — see ProposedGazePolicy's summary.
+            // A zero offset is "eyes along the head's forward direction". This
+            // condition deliberately does NOT use Baseline A's sampled directions
+            // inside the window; see ProposedGazePolicy's summary.
             Assert.That(actual.Type, Is.EqualTo(GazeTargetType.Aversion), "aversion target");
-            Assert.That(actual.AversionOffset, Is.Not.EqualTo(Vector2.zero), "a real direction, not recentred");
+            Assert.That(actual.AversionOffset, Is.EqualTo(Vector2.zero), "eyes centred in the head");
         }
 
         [Test]
@@ -240,7 +234,7 @@ namespace GazeControl.Gaze.Policy
         }
 
         [Test]
-        public void Update_AtTheListenerTracksAversionSegment_LooksAwayInASampledDirection()
+        public void Update_AtTheListenerTracksAversionSegment_RecentresTheEyesInTheHead()
         {
             var sut = CreateSystemUnderTest();
 
@@ -248,7 +242,7 @@ namespace GazeControl.Gaze.Policy
             var actual = TargetAt(sut, User, ParticipantRole.SideParticipant, SecondsToEndAtPatternStart);
 
             Assert.That(actual.Type, Is.EqualTo(GazeTargetType.Aversion), "aversion target");
-            Assert.That(actual.AversionOffset, Is.Not.EqualTo(Vector2.zero), "a real direction, not recentred");
+            Assert.That(actual.AversionOffset, Is.EqualTo(Vector2.zero), "eyes centred in the head");
         }
 
         [Test]
@@ -343,7 +337,7 @@ namespace GazeControl.Gaze.Policy
 
             var actual = RunProposed(CreateSystemUnderTestOnHoldingReplay(seed: 3), secondsToTurnEnd: -1f, ticks: 2000);
 
-            Assert.That(expected.Any(t => t.Type == GazeTargetType.Aversion),
+            Assert.That(expected, Does.Contain(GazeTarget.Away(Vector2.zero)),
                 "the holding material plays — baseline B never averts");
             Assert.That(actual, Is.EqualTo(expected), "every out-of-window tick comes from the substrate");
         }

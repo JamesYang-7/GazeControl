@@ -8,11 +8,13 @@ namespace GazeControl.Gaze.Policy
     /// a file, not a re-derivation.
     ///
     /// <para>It reads the conversation's clock rather than counting its own
-    /// ticks. That is what makes it timing-proof: the runner starts ticking when
-    /// Play begins but the conversation's clock starts only once the segment has
-    /// loaded, and that gap varies with load time. A tick-counting replay would
-    /// consume the track during that pre-roll and reintroduce exactly the drift
-    /// baking exists to remove.</para>
+    /// ticks. That is what makes it timing-proof: what it emits is a function of
+    /// the clock alone, so a slow load, a hitch, a catch-up burst of decisions
+    /// in one frame and a different frame rate all leave the take unchanged.
+    /// The runner no longer ticks a policy before the conversation starts
+    /// (<see cref="DecisionClock"/>), but replay does not depend on that —
+    /// a tick-counting replay would reintroduce the drift baking exists to
+    /// remove the moment any of the above changed.</para>
     ///
     /// <para>It carries no random stream and ignores <see cref="Reset"/>'s seed:
     /// there is nothing left to seed. The seed that produced the track is

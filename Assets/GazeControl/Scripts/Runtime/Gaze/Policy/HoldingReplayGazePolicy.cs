@@ -23,30 +23,27 @@ namespace GazeControl.Gaze.Policy
     /// agent itself into the fixation's target role, finishing would mean
     /// gazing at itself, so the fixation ends on that tick instead.
     ///
-    /// Aversion is rendered as a sampled direction, through the same
-    /// <see cref="AversionSampler"/> baseline A uses (2026-08-24). It used to
-    /// recentre the eyes, matching the prototypes' "None" — consistent within
-    /// the condition, but it made "looking away" look different here than in
-    /// baseline A, and the replay averts for 40-55% of a take. With the head on
-    /// pure mocap a recentred agent is indistinguishable from one with no gaze
-    /// control at all, so the study's own naturalness question would have been
-    /// answered by the rendering rather than by the policy. Sharing the sampler
-    /// restores the one-animation-layer rule (spec §0.1) by construction.
+    /// Aversion renders as a zero offset — eyes recentred in the head — matching
+    /// how the proposed condition renders the prototypes' "None", so the whole
+    /// condition expresses "looking away" one way.
+    ///
+    /// <para><b>Do not re-do this.</b> On 2026-08-25 aversion here was changed to
+    /// sample a direction from baseline A's fitted table, because live previews
+    /// looked like "the eyes are just centered". That observation was confounded:
+    /// <c>GazeController</c> was frame-rate dependent — the mocap re-poses the eye
+    /// bones every frame and the corpus carries no eye animation, so the rendered
+    /// angle was capped at <c>EyeDegreesPerSecond / fps</c> and *every* target,
+    /// person fixations included, rendered near centre in a live editor preview.
+    /// Recorded takes were locked to 30 fps by the recorder and looked right,
+    /// which is why the two disagreed. With that fixed, recentred aversion reads
+    /// as intended, and the condition is back to what the signed-off 2026-08-14
+    /// take played. Reverted the same day at the user's call.</para>
     /// </summary>
     public sealed class HoldingReplayGazePolicy : IGazePolicy
     {
         readonly HoldingSequenceBank _bank;
         readonly DeterministicRandom _random = new(0);
         readonly ParticipantId _fallbackTarget;
-        readonly AversionSampler _aversion;
-
-        /// <summary>
-        /// Whether the previous tick was already averting. Edge detection, not
-        /// derivable from the current fixation: the sampler needs Begin on the
-        /// tick an aversion starts and Tick on every one after, and those are
-        /// the same fixation state.
-        /// </summary>
-        bool _averting;
 
         ParticipantId _speaker;
         ParticipantId _addressee;
@@ -65,13 +62,7 @@ namespace GazeControl.Gaze.Policy
         /// matching baselines A and B, so the conditions look alike before the
         /// conversation itself starts.
         /// </param>
-        /// <param name="parameters">
-        /// Baseline A's fitted parameters, used only for the aversion direction
-        /// distributions and re-target period — so both conditions look away
-        /// the same way and only the choice of when differs.
-        /// </param>
-        public HoldingReplayGazePolicy(HoldingSequenceBank bank, ShintaniGazeParameters parameters,
-            ParticipantId fallbackTarget)
+        public HoldingReplayGazePolicy(HoldingSequenceBank bank, ParticipantId fallbackTarget)
         {
             _bank = bank ?? throw new ArgumentNullException(nameof(bank));
 
@@ -79,7 +70,6 @@ namespace GazeControl.Gaze.Policy
                 throw new ArgumentException("Fallback target must be a real participant.", nameof(fallbackTarget));
 
             _fallbackTarget = fallbackTarget;
-            _aversion = new AversionSampler(parameters, _random);
             Reset(0);
         }
 
@@ -104,8 +94,6 @@ namespace GazeControl.Gaze.Policy
             _hasRoleAssignment = false;
 
             _playing = false;
-            _averting = false;
-            _aversion.Reset();
         }
 
         /// <inheritdoc/>
@@ -143,7 +131,6 @@ namespace GazeControl.Gaze.Policy
             if (WouldGazeAtSelf(state.SelfId))
                 BeginStretch(selfRole);
 
-            UpdateAversion(selfRole, deltaTime);
             return Emit();
         }
 
@@ -229,40 +216,11 @@ namespace GazeControl.Gaze.Policy
             return fixation.Target != GazeTargetRole.Aversion && PersonInRole(fixation.Target) == self;
         }
 
-        /// <summary>
-        /// Drive the shared aversion sampler from the settled fixation, before
-        /// <see cref="Emit"/> reads its offset, so the first tick of an aversion
-        /// already carries a direction rather than the previous one.
-        ///
-        /// Consecutive aversion fixations continue one aversion rather than
-        /// starting a new direction each time: the sampler re-targets on its own
-        /// measured period, which is what the corpus records, and the fixation
-        /// split between two adjacent aversions is an artifact of how the event
-        /// table tiles the timeline.
-        /// </summary>
-        void UpdateAversion(ParticipantRole selfRole, float deltaTime)
-        {
-            if (Current().Target != GazeTargetRole.Aversion)
-            {
-                _averting = false;
-                return;
-            }
-
-            if (_averting)
-            {
-                _aversion.Tick(deltaTime);
-                return;
-            }
-
-            _averting = true;
-            _aversion.Begin(selfRole);
-        }
-
         GazeTarget Emit()
         {
             var fixation = Current();
             return fixation.Target == GazeTargetRole.Aversion
-                ? GazeTarget.Away(_aversion.Offset)
+                ? GazeTarget.Away(Vector2.zero)
                 : GazeTarget.AtPerson(PersonInRole(fixation.Target));
         }
 

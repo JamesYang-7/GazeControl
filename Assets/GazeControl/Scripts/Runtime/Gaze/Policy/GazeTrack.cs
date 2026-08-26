@@ -17,12 +17,13 @@ namespace GazeControl.Gaze.Policy
     ///
     /// <para><b>Samples carry a timestamp rather than an index.</b> That is the
     /// whole point. Indexing by tick number reproduces the bug this replaces:
-    /// the runner ticks from the moment Play starts while the conversation's
-    /// clock only starts once the segment has loaded and both voices are
-    /// scheduled, and that gap varies with load time — so tick <c>n</c> falls on
-    /// a different moment of the conversation in every run. Sampling by
-    /// conversation time is immune to load time, frame rate and tick alignment
-    /// alike.</para>
+    /// the runner used to tick from the moment Play started while the
+    /// conversation's clock only starts once the segment has loaded and both
+    /// voices are scheduled, so tick <c>n</c> fell on a different moment of the
+    /// conversation in every run. The decision grid is anchored on the
+    /// conversation clock now (<see cref="DecisionClock"/>), which is where the
+    /// timestamps come from; sampling by conversation time keeps replay immune
+    /// to load time, frame rate and tick alignment even so.</para>
     ///
     /// <para>Baking is only sound because no policy input depends on the human
     /// participant: voice activity comes from the agents' own clips, the turn
