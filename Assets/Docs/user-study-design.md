@@ -94,8 +94,14 @@ the real policies and the real `ConversationDirector` and deriving seeds with th
 `SeedFor`, so a scanned seed is the draw a take will play — verified against the five baked clips on
 both agents. Use it to *see the spread* — whether what you are watching is a property of the clip or
 of one draw — rather than to pick the seed: the study's own seeds are deliberately unselected (§3).
-It scans the **Proposed** condition only: baseline A is stochastic too and an unlucky A draw would
-not show up here.
+
+**Both stochastic conditions are swept in one press** (2026-08-26). It scanned Proposed only until
+then, which looked for an unlucky draw in one half of the comparison; baseline A samples dwells and
+jump targets of its own, and scene 2 has already produced a baseline A take that averted 100% of a
+hold. Baseline B is refused rather than scanned — it carries no random stream and reads voice
+activity rather than the schedule, and the scan runs in silence. Verified the same way as Proposed:
+scanning baseline A at each clip's baked seed reproduces the baked track on **all five clips and
+both agents to within 0.05 percentage points**.
 
 ---
 
@@ -126,6 +132,30 @@ fraction spans **26.8% to 66.6%**, the top end being `study_c5`'s agent B, which
 thirds of a 24 s clip. Baseline A spans 34.5–58.3%; baseline B never averts. **Report the twelve-seed
 scan spread alongside the results** so a reader sees the condition's variability rather than
 inferring consistency from five draws.
+
+**The spread to report, measured 2026-08-26** — seeds 1–12 on all five clips, both agents, so 120
+simulated agent-takes per condition. Each condition's baked draw is given as its rank within its own
+clip × agent distribution of twelve.
+
+| Condition | mean | sd | range over 120 takes | ranks of the ten baked draws | mean rank |
+|---|---|---|---|---|---|
+| Proposed | 41.5% | 11.2 pts | 18.0–67.9% | 3, 3, 6, 11, 11, 5, 3, 7, 9, 12 | 7.0 |
+| Baseline A | 44.7% | 8.7 pts | 21.8–61.8% | 8, 3, 1, 12, 6, 7, 10, 7, 1, 10 | 6.5 |
+
+Three things follow, and all three are worth a sentence in the paper:
+
+- **Baseline A is stochastic but less variable than the proposed method** (sd 8.7 against 11.2
+  points), which is what the mechanisms predict: baseline A samples many short dwells, while holding
+  replay draws whole recorded stretches whose length distribution has a long tail.
+- **The arbitrary seeds behaved like arbitrary seeds.** Both mean ranks sit at the 6.5 expected of
+  uniform draws, and the ten ranks cover 1 to 12 in each condition. That is the empirical form of
+  the claim §3 makes in words — the seed choice carried no information about the resulting take.
+- **The extremes of the baked set are the extremes of the distribution, not accidents of one clip.**
+  `study_c5`'s agent B under Proposed (66.6%) is rank 12 of 12, and baseline A's most extreme draws
+  are `study_c2` and `study_c5`, where one agent sits at the bottom of its twelve and the other near
+  the top — a visibly unbalanced pair rather than an unlucky single agent. Nothing approaches scene
+  2's pathological baseline A take (100% of a hold averted): over all 240 scanned agent-takes the
+  maximum is 67.9%.
 
 Twelve events, all three EoT classes, seven distinct speakers — the most this shortlist allows,
 because only five distinct speaker pairings exist in it and one woman appears in four of the five.
@@ -348,7 +378,10 @@ Nothing below exists yet; all of it gates data collection.
     a tick reads the live scene at the frame it fires on, so voice activity and a turn boundary can
     still land one frame either side of the grid. Baking removes that; nothing in a live take can.
   - Baselines A and B were never implicated by the original measurement; B carries no random stream,
-    and A was not tested the same way. Both run on the fixed clock now regardless.
+    and A was not tested the same way. Both run on the fixed clock now regardless. **A has since
+    been tested** (2026-08-26): the offline scan, which ticks the same grid from conversation zero,
+    reproduces all five baked baseline A tracks on both agents to within 0.05 percentage points of
+    aversion — so a baseline A take is determined by its seed exactly as a Proposed one is.
 
 - Pilot the full session on 3–5 people before recruiting: session length, whether the framing reads
   naturally, whether the manipulation is perceived at all.

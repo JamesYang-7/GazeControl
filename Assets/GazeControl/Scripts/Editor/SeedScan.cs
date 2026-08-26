@@ -9,16 +9,19 @@ using UnityEngine;
 namespace GazeControl.Editor
 {
     /// <summary>
-    /// Simulates the Proposed condition over a segment for a range of base
-    /// seeds, offline, and reports how much each agent averts.
+    /// Simulates one of the two stochastic conditions over a segment for a range
+    /// of base seeds, offline, and reports how much each agent averts.
     ///
-    /// <para>Why this exists: the holding-replay substrate draws whole recorded
-    /// fixation stretches, and a stretch can be long relative to a 25 s clip.
-    /// Measured over the draw rule, the aversion fraction of a single take has a
-    /// standard deviation of about 13 percentage points — one seed yields an
-    /// agent that looks attentive, another one that looks checked out, from the
-    /// same policy and the same clip. Picking a clip by watching one seed means
-    /// judging the clip partly on its seed.</para>
+    /// <para>Why this exists: the Proposed condition's holding-replay substrate
+    /// draws whole recorded fixation stretches, and a stretch can be long
+    /// relative to a 25 s clip. Measured over the draw rule, the aversion
+    /// fraction of a single take has a standard deviation of about 13 percentage
+    /// points — one seed yields an agent that looks attentive, another one that
+    /// looks checked out, from the same policy and the same clip. Baseline A
+    /// samples dwells and jumps of its own and needs the same treatment, or an
+    /// unlucky A draw goes unnoticed while the Proposed draw is checked. Picking
+    /// a clip by watching one seed means judging the clip partly on its
+    /// seed.</para>
     ///
     /// <para>It drives the real policies and the real
     /// <see cref="ConversationDirector"/> on a simulated clock rather than
@@ -46,11 +49,13 @@ namespace GazeControl.Editor
         }
 
         /// <summary>
-        /// Run <paramref name="seedCount"/> seeds from <paramref name="firstSeed"/>.
-        /// Returns null (after logging) when the scene is not wired for it.
+        /// Run <paramref name="seedCount"/> seeds from <paramref name="firstSeed"/>
+        /// in <paramref name="condition"/>. Returns null (after logging) when the
+        /// scene is not wired for it, or when the condition carries no random
+        /// stream to scan.
         /// </summary>
         public static List<Result> Run(RecordedConversation conversation, GazeConditionRunner runner,
-            DemoSegment segment, int firstSeed, int seedCount)
+            DemoSegment segment, GazeConditionRunner.GazeCondition condition, int firstSeed, int seedCount)
         {
             if (conversation == null || runner == null || segment == null)
             {
@@ -64,14 +69,40 @@ namespace GazeControl.Editor
                 return null;
             }
 
-            HoldingSequenceBank bank;
+            // Both refusals below are the same point: the scan simulates in
+            // silence, because the schedule and the clock are what the scanned
+            // policies read. Anything driven by voice activity would be scanned
+            // against a microphone that never opens — and both cases are
+            // deterministic anyway, so there is nothing to scan.
+            if (condition == GazeConditionRunner.GazeCondition.SpeakerFollowing)
+            {
+                Debug.LogWarning(
+                    "Seed scan: baseline B carries no random stream and reads voice activity rather than " +
+                    "the schedule, so there is nothing to scan.");
+                return null;
+            }
+
+            if (condition == GazeConditionRunner.GazeCondition.Proposed
+                && runner.Proposed.Substrate != ProposedSubstrate.HoldingReplay)
+            {
+                Debug.LogWarning(
+                    "Seed scan: only the HoldingReplay substrate draws stretches, so there is nothing " +
+                    "to scan on the SpeakerFollowing ablation — it is deterministic.");
+                return null;
+            }
+
+            HoldingSequenceBank bank = null;
+            ShintaniGazeParameters parameters = null;
             try
             {
-                bank = HoldingSequenceBank.LoadDefault();
+                if (condition == GazeConditionRunner.GazeCondition.Proposed)
+                    bank = HoldingSequenceBank.LoadDefault();
+                else
+                    parameters = ShintaniGazeParameters.LoadDefault();
             }
             catch (Exception e)
             {
-                Debug.LogError($"Seed scan: could not load the holding sequence bank — {e.Message}");
+                Debug.LogError($"Seed scan: could not load what the {condition} condition needs — {e.Message}");
                 return null;
             }
 
@@ -110,15 +141,19 @@ namespace GazeControl.Editor
                     var baseSeed = firstSeed + s;
                     var fractions = new float[agents.Length];
 
-                    var policies = new ProposedGazePolicy[agents.Length];
+                    var policies = new IGazePolicy[agents.Length];
                     for (var i = 0; i < agents.Length; i++)
                     {
-                        policies[i] = new ProposedGazePolicy(
-                            new HoldingReplayGazePolicy(bank, human),
-                            runner.Proposed, baseSeed);
+                        // The prototype seed handed to ProposedGazePolicy is the
+                        // run's, not the agent's, exactly as in the runner: both
+                        // agents must draw the same prototype for a boundary.
+                        policies[i] = condition == GazeConditionRunner.GazeCondition.Proposed
+                            ? new ProposedGazePolicy(
+                                new HoldingReplayGazePolicy(bank, human), runner.Proposed, baseSeed)
+                            : new ShintaniGazePolicy(parameters, human);
+
                         policies[i].Reset(GazeConditionRunner.SeedFor(
-                            runner.StudyParticipantId, GazeConditionRunner.GazeCondition.Proposed,
-                            agents[i].Id, baseSeed));
+                            runner.StudyParticipantId, condition, agents[i].Id, baseSeed));
                     }
 
                     var averted = new int[agents.Length];
@@ -164,12 +199,13 @@ namespace GazeControl.Editor
         }
 
         /// <summary>
-        /// The subset of <see cref="ConversationState"/> the proposed condition
-        /// reads. Voice activity is absent on purpose: the holding substrate and
-        /// the prototypes are driven by the schedule and the clock, never by the
-        /// microphone, so a silent simulation gives the same draws as a take.
-        /// The speaker-following ablation substrate *does* read voice, so it is
-        /// not scanned — see the caller's guard.
+        /// The subset of <see cref="ConversationState"/> the scanned conditions
+        /// read. Voice activity is absent on purpose: the holding substrate, the
+        /// prototypes and baseline A's jump chain are all driven by the schedule
+        /// and the clock, never by the microphone, so a silent simulation gives
+        /// the same draws as a take. Whatever does read voice — baseline B, and
+        /// the speaker-following ablation substrate — is refused by the guards
+        /// in <see cref="Run"/>.
         /// </summary>
         static ConversationState BuildState(GazeParticipant self, ConversationDirector director,
             RecordedConversation conversation, float clock)

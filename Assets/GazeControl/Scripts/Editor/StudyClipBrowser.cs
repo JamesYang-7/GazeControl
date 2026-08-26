@@ -31,6 +31,16 @@ namespace GazeControl.Editor
         /// <summary>Seeds reported by the scan; enough to see the spread without a long wait.</summary>
         const int k_SeedScanCount = 12;
 
+        /// <summary>
+        /// What the scan sweeps, in report order. Baseline B is absent because it
+        /// carries no random stream — one recording of it really is the condition.
+        /// </summary>
+        static readonly GazeConditionRunner.GazeCondition[] k_StochasticConditions =
+        {
+            GazeConditionRunner.GazeCondition.Proposed,
+            GazeConditionRunner.GazeCondition.RoleConditioned,
+        };
+
         /// <summary>One row: the parsed segment plus what the list needs to draw it.</summary>
         sealed class Entry
         {
@@ -388,38 +398,51 @@ namespace GazeControl.Editor
         /// Report how much each agent averts under the first
         /// <see cref="k_SeedScanCount"/> base seeds, so a clip is judged on the
         /// clip rather than on whichever draw its current seed happens to be.
+        ///
+        /// Both stochastic conditions are swept in one press, whatever the
+        /// runner's current Method: an unlucky baseline A draw misrepresents the
+        /// comparison exactly as much as an unlucky Proposed one, and scanning
+        /// only the method under test would look for it in one half of the
+        /// comparison. Each condition reports separately — the seeds are shared
+        /// but the draws are not comparable across conditions.
         /// </summary>
         void ScanSeeds(RecordedConversation conversation, GazeConditionRunner runner)
         {
-            if (runner.Proposed.Substrate != ProposedSubstrate.HoldingReplay)
-            {
-                Debug.LogWarning(
-                    "Seed scan: only the HoldingReplay substrate draws stretches, so there is nothing " +
-                    "to scan on the SpeakerFollowing ablation — it is deterministic.");
-                return;
-            }
+            foreach (var condition in k_StochasticConditions)
+                ReportSeedScan(conversation, runner, condition);
+        }
 
-            var results = SeedScan.Run(conversation, runner, _selected.Segment, firstSeed: 1, seedCount: k_SeedScanCount);
+        /// <summary>One condition's sweep, logged as a table sorted by distance from the mean.</summary>
+        void ReportSeedScan(RecordedConversation conversation, GazeConditionRunner runner,
+            GazeConditionRunner.GazeCondition condition)
+        {
+            var results = SeedScan.Run(conversation, runner, _selected.Segment, condition,
+                firstSeed: 1, seedCount: k_SeedScanCount);
+
+            // Null means the scan refused this condition and said why.
             if (results == null)
                 return;
 
             var mean = results.Average(r => r.Mean);
+            var ordered = results.OrderBy(r => Mathf.Abs(r.Mean - mean)).ToList();
+            var label = condition == GazeConditionRunner.GazeCondition.Proposed
+                ? $"Proposed / {runner.Proposed.Substrate}"
+                : "Baseline A / RoleConditioned";
+
             var report = new StringBuilder();
             report.AppendLine($"Seed scan — {_selected.Name} ({_selected.Segment.durationSeconds:F1} s), " +
-                              $"Proposed / HoldingReplay, {results.Count} seeds");
+                              $"{label}, {results.Count} seeds");
             report.AppendLine($"  aversion fraction per agent, mean over seeds {mean:P0}");
 
-            foreach (var result in results.OrderBy(r => Mathf.Abs(r.Mean - mean)))
+            foreach (var result in ordered)
             {
                 var per = string.Join("  ", result.AversionFractions.Select(f => $"{f,6:P0}"));
-                var marker = Mathf.Approximately(result.BaseSeed, results.OrderBy(r => Mathf.Abs(r.Mean - mean)).First().BaseSeed)
-                    ? "  <- closest to the mean"
-                    : string.Empty;
+                var marker = result.BaseSeed == ordered[0].BaseSeed ? "  <- closest to the mean" : string.Empty;
                 report.AppendLine($"  seed {result.BaseSeed,3}:  {per}   (mean {result.Mean:P0}){marker}");
             }
 
-            report.AppendLine("Sorted by distance from the mean. A 25 s take has a standard deviation of " +
-                              "roughly 13 points here, so the extremes are draws, not the condition.");
+            report.AppendLine("Sorted by distance from the mean. The spread across seeds is the condition's " +
+                              "own variance — the extremes are draws, not the clip.");
             Debug.Log(report.ToString(), runner);
         }
 
