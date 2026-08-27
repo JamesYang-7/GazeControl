@@ -466,9 +466,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: GazeControl.Xr::GazeControl.Xr.XrParticipantRig
   <CameraOffset>k__BackingField: {fileID: 1811005179}
   <HeadCamera>k__BackingField: {fileID: 982743566}
-  <ReferenceEyeHeight>k__BackingField: 1.6
-  <FallbackEyeHeight>k__BackingField: 1.6
+  <EyeHeight>k__BackingField: 1.6846
   <StartXrOnPlay>k__BackingField: 0
+  <RecentreOnXrStart>k__BackingField: 1
 --- !u!114 &184681078
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1252,7 +1252,7 @@ Transform:
   m_GameObject: {fileID: 982743563}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1.6, z: 0}
+  m_LocalPosition: {x: 0, y: 1.6846, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1329,7 +1329,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c2fadf230d1919748a9aa21d40f74619, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.InputSystem::UnityEngine.InputSystem.XR.TrackedPoseDriver
-  m_TrackingType: 0
+  m_TrackingType: 1
   m_UpdateType: 0
   m_IgnoreTrackingState: 0
   m_PositionInput:
@@ -1338,12 +1338,12 @@ MonoBehaviour:
       m_Name: XR Head Position
       m_Type: 0
       m_ExpectedControlType: Vector3
-      m_Id: c1f6c6a0-c256-4ec7-8f48-2f7706b0728a
+      m_Id: 8b358b3a-1da9-4da7-8348-7fca592f3a3e
       m_Processors: 
       m_Interactions: 
       m_SingletonActionBindings:
       - m_Name: 
-        m_Id: fe2495ce-6bc6-41fa-8f59-e5f19fb6c772
+        m_Id: 494f7d42-a382-4238-b1e3-f6807c6f011a
         m_Path: <XRHMD>/centerEyePosition
         m_Interactions: 
         m_Processors: 
@@ -1358,12 +1358,12 @@ MonoBehaviour:
       m_Name: XR Head Rotation
       m_Type: 0
       m_ExpectedControlType: Quaternion
-      m_Id: 70763117-8c89-4eb0-bf76-1456983850f1
+      m_Id: ecad36eb-e22e-4db5-a321-74c6cc04e5a9
       m_Processors: 
       m_Interactions: 
       m_SingletonActionBindings:
       - m_Name: 
-        m_Id: b1c68ac7-c1e9-4ede-91ac-f0ec1a4483b9
+        m_Id: 169f9316-bcb4-418a-99aa-7cf8d2e8f743
         m_Path: <XRHMD>/centerEyeRotation
         m_Interactions: 
         m_Processors: 
@@ -1378,12 +1378,12 @@ MonoBehaviour:
       m_Name: XR Head Tracking State
       m_Type: 0
       m_ExpectedControlType: Integer
-      m_Id: 4813a5c3-0e7b-40ec-ad5c-027b42f9453d
+      m_Id: 76980984-dc66-4572-936d-fce6f697d2c4
       m_Processors: 
       m_Interactions: 
       m_SingletonActionBindings:
       - m_Name: 
-        m_Id: 9f4dad65-2348-4bd2-ad32-73dc8fbe2497
+        m_Id: 980d802c-67f8-4b1c-8e02-8f62b07023cb
         m_Path: <XRHMD>/trackingState
         m_Interactions: 
         m_Processors: 

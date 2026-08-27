@@ -222,11 +222,36 @@ Two properties of it matter to the study:
 - **The agents track the participant's real head.** The human's `LookAtAnchor` is that camera, so
   nothing in the gaze pipeline needed changing — in the headset the agents aim where the
   participant's head actually is, which is what item I1 rests on.
-- **Eye height is normalised to 1.60 m**, the height the flat camera has always used, by moving the
-  play area rather than the participant (`XrParticipantRig.Calibrate()`). A sample outside
-  1.20–2.10 m is rejected rather than clamped, and re-calibrating re-measures rather than stacking.
-  Record the raw measured height per participant: normalisation makes height a constant in the
-  stimulus, but the raw value is the datum if it ever has to be checked as a covariate.
+- **The participant's viewpoint is a fixed point in the room** (2026-08-27): the camera sits on the
+  triad vertex at 1.6846 m and stays there. Head **rotation** tracks; head **translation** does not
+  (`TrackedPoseDriver` is `RotationOnly`). Every participant therefore sees the two agents from the
+  identical position, at the identical distance, on the identical eye line — height, build and where
+  someone drifts to all stop being uncontrolled between-participant variables, and there is no
+  calibration step to run or forget.
+  - **The height is the agents' own eye line**, measured off their `left/right_eye_smplhf` bones,
+    rather than the generic 1.60 m that preceded it and left the participant 8.5 cm below both of
+    them. Under mocap the agents' eyes travel 1.663–1.713 m, with a mean 3 mm below the rest-pose
+    value, so a fixed height is level with them to within the agents' own postural sway.
+  - **It also makes the agents' rendered gaze deterministic.** They aim at the human's
+    `LookAtAnchor`, which is this camera; with the camera fixed, that aim is the same for every
+    participant and the same as in a desktop preview. Under positional tracking it varied with
+    whoever was wearing the headset and how they had drifted.
+  - **The cost is no positional parallax, and the pilot must check it.** Swaying or leaning does not
+    move the view, and rotation is applied at the eyes rather than about the neck, so turning the
+    head pivots the world slightly more than a body expects. This is ordinary 3DOF viewing and the
+    task is to stand still and watch for 20–30 s, but comfort is a pilot question, not an assumption.
+    A participant who walks gets no visual feedback that they have, so the operator stays in the
+    room. If parallax is wanted back, a neck-pivot model restores most of it while keeping the
+    geometry identical across participants, since it depends only on head rotation.
+  - **The initial orientation is recentred too** (`RecentreView()`): the headset's yaw origin comes
+    from the room's tracking setup, not from where the participant stands, so without it a session
+    can start with the triad off to one side. It fires automatically on the first tracked frame and
+    the operator can repeat it — "look straight ahead, please" — from the component's context menu.
+    Yaw only; pitch and roll come from gravity and are already right, and turning them would tilt
+    the virtual horizon. A near-vertical head pose is refused rather than guessed.
+  - Record the raw measured height per participant (`XrParticipantRig.MeasuredEyeHeight`, read off
+    the headset device rather than the camera, which no longer follows the head): the stimulus does
+    not depend on it, but it is the datum if height ever has to be checked as a covariate.
 
 **XR is off unless asked for.** "Initialize XR on Startup" is unchecked and `StartXrOnPlay` is
 false in the committed scene, so baking, clip browsing and video recording still run flat on a

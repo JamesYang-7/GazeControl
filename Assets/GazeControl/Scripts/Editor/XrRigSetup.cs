@@ -19,11 +19,14 @@ namespace GazeControl.Editor
     /// but the wiring is written down as code rather than as hand-edited scene
     /// YAML, so it can be reviewed and re-run.
     ///
-    /// It is deliberately conservative about the camera's pose. The flat rig
-    /// (offset at zero, camera at 1.60 m above the vertex) is exactly where the
-    /// camera has always been, so every existing desktop workflow — baking gaze
-    /// tracks, the Clip Browser, Record Demo — renders the same frames after the
-    /// port as before it.
+    /// The camera sits on the vertex at
+    /// <see cref="ParticipantEyeHeight.SmplxEyeHeight"/> and the pose driver is
+    /// set to rotation only, so that is where the viewpoint stays in a headset
+    /// too and a desktop preview frames the triad exactly as a worn take does.
+    /// The height moved up 8.5 cm on 2026-08-27, from a generic 1.60 m to the
+    /// agents' own eye line; no baked gaze track is affected, because no policy
+    /// reads scene geometry (the one field that did, `MutualGazeActive`, has gone
+    /// unread since the 2026-07-30 decision to drop mutual-gaze breaking).
     /// </summary>
     public static class XrRigSetup
     {
@@ -37,6 +40,13 @@ namespace GazeControl.Editor
         /// changes no existing recording.
         /// </summary>
         const float VrNearClipPlane = 0.05f;
+
+        /// <summary>
+        /// How far the User vertex may face away from the agents' midpoint before
+        /// the setup complains, degrees. Recentring aims the participant along the
+        /// vertex's forward axis, so this bounds how off-centre they can end up.
+        /// </summary>
+        const float MaxVertexFacingErrorDegrees = 3f;
 
         [MenuItem("GazeControl/Set Up XR Rig")]
         public static void SetUp()
@@ -62,7 +72,7 @@ namespace GazeControl.Editor
             if (camera.transform.parent != offset)
                 Undo.SetTransformParent(camera.transform, offset, "Reparent head camera");
 
-            camera.transform.localPosition = new Vector3(0f, EyeHeightCalibration.DefaultReferenceEyeHeight, 0f);
+            camera.transform.localPosition = new Vector3(0f, ParticipantEyeHeight.SmplxEyeHeight, 0f);
             camera.transform.localRotation = Quaternion.identity;
             Undo.RecordObject(camera, "Configure head camera");
             camera.nearClipPlane = VrNearClipPlane;
@@ -88,14 +98,58 @@ namespace GazeControl.Editor
             }
 
             ConfigureParticipantGazeLogger(user, rig);
+            WarnIfTheVertexIsNotFacingTheAgents(user);
 
             Undo.CollapseUndoOperations(undoGroup);
             EditorSceneManager.MarkSceneDirty(user.scene);
 
             Debug.Log(
-                $"Set Up XR Rig: '{UserObjectName}' is now a standing play area — '{CameraOffsetName}' carries the " +
-                "eye-height calibration and the camera is head-tracked. XR starts only when asked " +
-                "(XrParticipantRig.StartXrOnPlay), so desktop workflows are unchanged.", rig);
+                $"Set Up XR Rig: '{UserObjectName}' is a fixed viewpoint on the triad vertex at " +
+                $"{ParticipantEyeHeight.SmplxEyeHeight:F3} m — head rotation tracks, head translation does not, so " +
+                "every participant sees the agents from the identical position. XR starts only when asked " +
+                "(XrParticipantRig.StartXrOnPlay).", rig);
+        }
+
+        /// <summary>
+        /// Check the invariant that view recentring rests on: the User vertex
+        /// faces the midpoint of the two agents, so "centred between the agents"
+        /// and "yaw zero relative to this rig" are the same thing.
+        ///
+        /// <para>A warning rather than a repair. Which way the vertex faces is a
+        /// scene-layout decision, and silently rotating someone's scene to satisfy
+        /// a rig assumption would be worse than telling them it is violated.</para>
+        /// </summary>
+        static void WarnIfTheVertexIsNotFacingTheAgents(GameObject user)
+        {
+            var agents = new System.Collections.Generic.List<GazeParticipant>();
+            foreach (var participant in Object.FindObjectsByType<GazeParticipant>(FindObjectsInactive.Include))
+            {
+                if (!participant.IsHuman && participant.LookAtAnchor != null)
+                    agents.Add(participant);
+            }
+
+            if (agents.Count != 2)
+                return;
+
+            var midpoint = (agents[0].LookAtAnchor.position + agents[1].LookAtAnchor.position) * 0.5f;
+            var toMidpoint = midpoint - user.transform.position;
+            toMidpoint.y = 0f;
+            if (toMidpoint.sqrMagnitude < 1e-6f)
+                return;
+
+            var forward = user.transform.forward;
+            forward.y = 0f;
+            var error = Vector3.Angle(forward, toMidpoint);
+
+            // A couple of degrees is the agents' own head asymmetry under mocap,
+            // not a layout problem; it measured 0.32 degrees when this was added.
+            if (error <= MaxVertexFacingErrorDegrees)
+                return;
+
+            Debug.LogWarning(
+                $"Set Up XR Rig: '{user.name}' faces {error:F1} deg away from the midpoint of the two agents. " +
+                "View recentring points the participant along this object's forward axis, so they would end up " +
+                "off-centre by that much. Rotate the vertex to face the triad centroid.", user);
         }
 
         /// <summary>
@@ -158,13 +212,21 @@ namespace GazeControl.Editor
                 driver = Undo.AddComponent<TrackedPoseDriver>(cameraObject);
 
             Undo.RecordObject(driver, "Configure tracked pose driver");
-            driver.trackingType = TrackedPoseDriver.TrackingType.RotationAndPosition;
+
+            // Rotation only: the participant's viewpoint is a fixed point in the
+            // room (see XrParticipantRig). Locking translation here rather than
+            // correcting it afterwards means the driver simply never writes a
+            // position, so nothing has to run after it to undo one.
+            driver.trackingType = TrackedPoseDriver.TrackingType.RotationOnly;
 
             // Before-render as well as per-frame: a head pose sampled only in
             // Update is one frame stale by the time the eyes are rendered, which
             // is the difference between a stable room and a swimming one.
             driver.updateType = TrackedPoseDriver.UpdateType.UpdateAndBeforeRender;
 
+            // Still bound although RotationOnly ignores it: the binding costs
+            // nothing, and switching the driver back to RotationAndPosition (to
+            // restore parallax) is then a one-field change rather than a rebuild.
             driver.positionInput = new InputActionProperty(new InputAction(
                 "XR Head Position", InputActionType.Value, "<XRHMD>/centerEyePosition", expectedControlType: "Vector3"));
             driver.rotationInput = new InputActionProperty(new InputAction(
