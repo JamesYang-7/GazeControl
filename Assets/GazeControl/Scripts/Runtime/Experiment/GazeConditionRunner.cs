@@ -100,8 +100,10 @@ namespace GazeControl.Experiment
         public float ShiftAngularSpeed { get; set; } = 20f;
 
         [field: SerializeField]
-        [field: Tooltip("Study participant (the human subject) identifier written to the log")]
-        public string StudyParticipantId { get; set; } = "P00";
+        [field: Tooltip("Study participant (the human subject) identifier written to the log. " +
+                        "P00 is reserved for debugging; real participants start at P01 — " +
+                        "Alt+N, or the component's Next Participant menu item, steps it.")]
+        public string StudyParticipantId { get; set; } = Study.ParticipantLabel.DebugLabel;
 
         [field: SerializeField]
         [field: Tooltip("Mixed into the per-agent seeds; change it to get a different but reproducible run")]
@@ -136,6 +138,39 @@ namespace GazeControl.Experiment
         /// <summary>Where this run's video and gaze log are written, absolute.</summary>
         public string TakeDirectory => System.IO.Path.Combine(
             Application.dataPath, "..", OutputDirectory, CaseName);
+
+#if UNITY_EDITOR
+        /// <summary>
+        /// Step <see cref="StudyParticipantId"/> to the next label, from the
+        /// component's context menu (the gear icon) or its keyboard shortcut.
+        ///
+        /// <para>Saves retyping it between participants, which is the one field
+        /// that has to change for each of the thirty and the one whose default
+        /// would silently mislabel a whole session's files.</para>
+        ///
+        /// <para>Refused while playing: a relabel mid-session would split one
+        /// participant's fifteen takes across two names, and the logs already
+        /// written would keep the old one.</para>
+        /// </summary>
+        [ContextMenu("Next Participant")]
+        public void NextParticipant()
+        {
+            if (Application.isPlaying)
+            {
+                Debug.LogWarning(
+                    $"{name}: the participant label must not change mid-session — the takes already " +
+                    "written carry the old one. Stop play first.", this);
+                return;
+            }
+
+            UnityEditor.Undo.RecordObject(this, "Next participant");
+            var before = StudyParticipantId;
+            StudyParticipantId = Study.ParticipantLabel.Next(before);
+            UnityEditor.EditorUtility.SetDirty(this);
+
+            Debug.Log($"{name}: study participant '{before}' -> '{StudyParticipantId}'.", this);
+        }
+#endif
 
         const float VoiceReportInterval = 5f;
 
@@ -177,6 +212,7 @@ namespace GazeControl.Experiment
         /// <summary>Shared by the agent log and the participant's, so a take's two files pair by name.</summary>
         string _logStem;
         bool _participantLogStarted;
+        bool _takeEnded;
         DecisionClock _decisions;
         float _sessionTime;
         float _nextVoiceReportTime;
@@ -211,7 +247,36 @@ namespace GazeControl.Experiment
                 return;
             }
 
-            // Fixed at Awake: changing the decision rate part-way through a take
+            // A session runner clears this in its own Awake: it will arm the
+            // first real take itself, and arming here as well would open a log
+            // named for whatever segment the inspector was left on, write the
+            // handful of frames before the session starts, and leave a stray
+            // near-empty CSV in the wrong folder every run.
+            if (ArmOnAwake)
+                ArmTake();
+        }
+
+        /// <summary>
+        /// Whether to arm a take at <c>Awake</c>. True for a scene driven
+        /// straight from the inspector; a <c>StudySessionRunner</c> clears it.
+        /// Not serialized — it is set in code, by the component that knows.
+        /// </summary>
+        [NonSerialized]
+        public bool ArmOnAwake = true;
+
+        /// <summary>
+        /// Bring every per-take structure up: the decision grid, the voice
+        /// detectors, one policy per agent, and this take's log.
+        ///
+        /// <para>Factored out of <c>Awake</c> so a session can run a second clip
+        /// without leaving play mode. It is the <i>same</i> code either way,
+        /// deliberately — a parallel "reset" path is how a re-run would come to
+        /// differ from a fresh play, which is the class of bug that made the
+        /// proposed condition irreproducible in August.</para>
+        /// </summary>
+        void ArmTake()
+        {
+            // Fixed per take: changing the decision rate part-way through one
             // would change how long every fixation in flight lasts.
             _decisions = new DecisionClock(DecisionHz);
 
@@ -249,6 +314,48 @@ namespace GazeControl.Experiment
                 OpenLog();
         }
 
+        /// <summary>
+        /// Close the take in progress and arm the next one, on a new condition,
+        /// seed and output folder. The session sequencer calls this between
+        /// clips; nothing else should.
+        /// </summary>
+        /// <remarks>
+        /// The caller is responsible for restarting the conversation itself —
+        /// see <c>RecordedConversation.RestartAsync</c>. This only re-arms the
+        /// gaze side, and it must run <i>before</i> the new conversation's clock
+        /// starts, or the first ticks of the clip would be decided by the
+        /// previous take's policies.
+        /// </remarks>
+        public void BeginTake(GazeCondition condition, int baseSeed, string caseName)
+        {
+            EndTake();
+
+            Condition = condition;
+            BaseSeed = baseSeed;
+            CaseName = caseName;
+
+            _takeEnded = false;
+            _participantLogStarted = false;
+            _trackWritten = false;
+            _warnedAboutMissingTarget = false;
+
+            // Re-run the condition's own preparation: Replay has to load the
+            // track for the new condition and seed, and the proposed condition's
+            // pattern draw depends on the seed.
+            if (!TryPrepareCondition())
+            {
+                Debug.LogError($"{name}: could not prepare {condition}; the session cannot continue.", this);
+                enabled = false;
+                return;
+            }
+
+            ArmTake();
+            _log?.WriteMetadata(BuildMetadataJson());
+            PrepareBake();
+
+            Debug.Log($"{name}: take armed — {caseName} / {condition} / seed {baseSeed}.", this);
+        }
+
 
         /// <summary>
         /// Why this run must not be shown to a participant, or null when it may.
@@ -264,6 +371,20 @@ namespace GazeControl.Experiment
         {
             if (!StudySession)
                 return null;
+
+            // Checked first because it is about who the run is for. P00 is the
+            // committed default and the label every development run carries, so
+            // a participant run still on it would file fifteen takes under the
+            // same name as the debugging ones — recoverable only by timestamp,
+            // and only if someone noticed.
+            if (string.Equals(StudyParticipantId?.Trim(), Study.ParticipantLabel.DebugLabel,
+                    StringComparison.OrdinalIgnoreCase))
+                return $"the participant label is still {Study.ParticipantLabel.DebugLabel}, which is " +
+                       "reserved for debugging. Press Alt+N (or Next Participant on this component) to " +
+                       $"step it to {Study.ParticipantLabel.First}.";
+
+            if (string.IsNullOrWhiteSpace(StudyParticipantId))
+                return "the participant label is empty, so this participant's takes would be unattributable.";
 
             if (Tracks != TrackMode.Replay)
                 return $"Tracks is {Tracks}, so gaze would be decided live and this participant " +
@@ -298,16 +419,44 @@ namespace GazeControl.Experiment
             return null;
         }
 
-        void OnDestroy()
+        /// <summary>
+        /// Close this take: commit the bake and shut both logs.
+        ///
+        /// <para>Called when the clip is over rather than only when the scene
+        /// dies. Both logs used to run until destruction, so a take that ended
+        /// and then sat on screen while the participant answered kept appending
+        /// — the agent log recording a frozen skeleton and the participant log
+        /// recording someone reading a questionnaire. Over the twenty pauses of
+        /// a session that is most of both files, and none of it is the take.</para>
+        ///
+        /// <para>Idempotent, because it is reached from the pause controller and
+        /// from <c>OnDestroy</c> and the order between them is not fixed.</para>
+        /// </summary>
+        public void EndTake()
         {
-            WriteTrackIfBaking();
-            _log?.Dispose();
+            if (_takeEnded)
+                return;
 
-            // Closed from here as well as from its own OnDestroy, because
-            // Unity gives no destruction order between the two components and
-            // the summary line belongs to the take that just ended.
+            _takeEnded = true;
+            WriteTrackIfBaking();
+
+            if (_log != null)
+            {
+                Debug.Log($"{name}: gaze log closed — {_log.RowCount} frames -> {_log.CsvPath}", this);
+                _log.Dispose();
+                _log = null;
+            }
+
+            // Closed from here as well as from its own OnDestroy, because Unity
+            // gives no destruction order between the two components and the
+            // summary line belongs to the take that just ended.
             if (ParticipantGaze != null)
                 ParticipantGaze.End();
+        }
+
+        void OnDestroy()
+        {
+            EndTake();
         }
 
         /// <summary>
@@ -400,6 +549,11 @@ namespace GazeControl.Experiment
 
         void Update()
         {
+            // Null until a take is armed, which a session defers to its first
+            // clip. Nothing is decided, applied or logged before then.
+            if (_decisions == null)
+                return;
+
             _sessionTime += Time.deltaTime;
 
             // Ticked on the conversation's clock rather than on Play's, so the
@@ -703,6 +857,9 @@ namespace GazeControl.Experiment
 
         void RecordFrame()
         {
+            if (_takeEnded || _log == null)
+                return;
+
             var turn = CurrentTurn();
             var human = FindHuman();
 
@@ -757,7 +914,7 @@ namespace GazeControl.Experiment
         /// </summary>
         void SampleParticipantGaze(int tick, float conversationTime)
         {
-            if (ParticipantGaze == null || !LoggingEnabled)
+            if (ParticipantGaze == null || !LoggingEnabled || _takeEnded)
                 return;
 
             if (!_participantLogStarted)

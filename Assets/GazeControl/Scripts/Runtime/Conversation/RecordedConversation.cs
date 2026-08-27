@@ -61,6 +61,11 @@ namespace GazeControl.Conversation
         public ConversationDirector Director { get; set; }
 
         [field: SerializeField]
+        [field: Tooltip("Play the inspector's segment when the scene starts. A study session clears this, "
+                        + "because the first clip is the session's to choose, not the inspector's.")]
+        public bool AutoplayOnStart { get; set; } = true;
+
+        [field: SerializeField]
         [field: Range(0.05f, 1f)]
         [field: Tooltip("Lead given to the audio engine before playback starts, seconds")]
         public float ScheduleLeadSeconds { get; set; } = 0.2f;
@@ -115,7 +120,7 @@ namespace GazeControl.Conversation
         {
             try
             {
-                if (Segment == null)
+                if (Segment == null || !AutoplayOnStart)
                     return;
 
                 await PlayAsync(destroyCancellationToken);
@@ -124,6 +129,72 @@ namespace GazeControl.Conversation
             {
                 // play mode ended / object destroyed mid-segment; nothing to clean up
             }
+        }
+
+        /// <summary>
+        /// Load another segment, ready to play, without starting it.
+        ///
+        /// <para>Split from <see cref="PlayLoadedAsync"/> because the gaze runner
+        /// has to be armed <i>between</i> the two: it validates its baked track
+        /// against the loaded segment's name, so the new segment must already be
+        /// in place — but it must be armed before the conversation's clock
+        /// starts, because that clock is what every decision grid is anchored on.
+        /// Doing both in one call made those two requirements impossible to
+        /// satisfy at once, and the track guard caught it.</para>
+        ///
+        /// <para>The motion players are re-enabled explicitly because
+        /// <see cref="FreezeMotion"/> disables them to hold the last pose; a clip
+        /// that followed a frozen one would otherwise play a still.</para>
+        /// </summary>
+        /// <returns>False when the segment could not be loaded; the component is then disabled.</returns>
+        public bool LoadSegment(string segmentPath)
+        {
+            foreach (var speaker in Speakers)
+            {
+                if (speaker.Participant != null && speaker.Participant.Voice != null)
+                    speaker.Participant.Voice.Stop();
+
+                if (speaker.Motion != null)
+                    speaker.Motion.enabled = true;
+            }
+
+            _started = false;
+            _motionFrozen = false;
+            HasFinished = false;
+            Segment = null;
+            SegmentPath = segmentPath;
+
+            if (!TryLoadSegment())
+            {
+                enabled = false;
+                return false;
+            }
+
+            enabled = true;
+            return true;
+        }
+
+        /// <summary>
+        /// Start the segment loaded by <see cref="LoadSegment"/>: schedule both
+        /// voices on one DSP instant, then start the conversation clock. This is
+        /// the same path <c>Start</c> takes on the first clip, so a later clip
+        /// begins in the state a fresh play would give it.
+        /// </summary>
+        public async Awaitable<bool> PlayLoadedAsync(System.Threading.CancellationToken cancellationToken)
+        {
+            if (Segment == null)
+                return false;
+
+            try
+            {
+                await PlayAsync(cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                return false;
+            }
+
+            return true;
         }
 
         void Update()
@@ -321,6 +392,29 @@ namespace GazeControl.Conversation
             }
 
             return ParticipantId.None;
+        }
+
+        /// <summary>
+        /// End the clip immediately: stop the voices and freeze the bodies as if
+        /// it had played out.
+        ///
+        /// <para>For walking a session quickly while testing. It does <b>not</b>
+        /// fast-forward — the rest of the conversation simply never happens, so
+        /// the take's log stops early and is not a take of this clip. Refused
+        /// once the clip is already over, and before it has started.</para>
+        /// </summary>
+        public bool SkipToEnd()
+        {
+            if (!_started || HasFinished)
+                return false;
+
+            Finish();
+
+            // Frozen here as well: Update only freezes at duration + hold, which
+            // a skipped clip never reaches, and two agents left playing mocap
+            // over a paused scene would look like the pause had not happened.
+            FreezeMotion();
+            return true;
         }
 
         void Finish()

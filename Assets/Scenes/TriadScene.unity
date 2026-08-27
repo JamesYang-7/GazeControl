@@ -467,7 +467,7 @@ MonoBehaviour:
   <CameraOffset>k__BackingField: {fileID: 1811005179}
   <HeadCamera>k__BackingField: {fileID: 982743566}
   <EyeHeight>k__BackingField: 1.6846
-  <StartXrOnPlay>k__BackingField: 0
+  <StartXrOnPlay>k__BackingField: 1
   <RecentreOnXrStart>k__BackingField: 1
 --- !u!114 &184681078
 MonoBehaviour:
@@ -698,6 +698,7 @@ MonoBehaviour:
     <Clip>k__BackingField: {fileID: 0}
   <User>k__BackingField: {fileID: 184681076}
   <Director>k__BackingField: {fileID: 696636976}
+  <AutoplayOnStart>k__BackingField: 1
   <ScheduleLeadSeconds>k__BackingField: 0.2
 --- !u!114 &644306070
 MonoBehaviour:
@@ -711,7 +712,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 13e1f7cfc08b7594db6b89625ace198e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GazeControl.Experiment.DeveloperOverlay
-  <Enabled>k__BackingField: 1
+  <Enabled>k__BackingField: 0
   <Conversation>k__BackingField: {fileID: 644306069}
   <Runner>k__BackingField: {fileID: 0}
 --- !u!1 &672148326
@@ -815,6 +816,8 @@ GameObject:
   - component: {fileID: 696636975}
   - component: {fileID: 696636974}
   - component: {fileID: 696636976}
+  - component: {fileID: 696636977}
+  - component: {fileID: 696636978}
   m_Layer: 0
   m_Name: GazeCondition
   m_TagString: Untagged
@@ -835,7 +838,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GazeControl.Experiment.GazeConditionRunner
   <Condition>k__BackingField: 2
-  <Tracks>k__BackingField: 0
+  <Tracks>k__BackingField: 2
   <StudySession>k__BackingField: 0
   <Participants>k__BackingField:
   - {fileID: 672148330}
@@ -897,6 +900,50 @@ MonoBehaviour:
   - {fileID: 1579353673}
   - {fileID: 184681076}
   <TurnWindowSeconds>k__BackingField: 1
+--- !u!114 &696636977
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 696636973}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f77ae4e136642f848b0ae6d2d42ff437, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GazeControl.Experiment.ClipPauseController
+  <Conversation>k__BackingField: {fileID: 644306069}
+  <Runner>k__BackingField: {fileID: 696636974}
+  <HideWhilePaused>k__BackingField:
+  - {fileID: 672148326}
+  - {fileID: 1579353669}
+  <HoldSeconds>k__BackingField: -1
+  <AdvanceKey>k__BackingField: 1
+--- !u!114 &696636978
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 696636973}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 58766af5f86f3e04f97f07b9c964f084, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GazeControl.Experiment.StudySessionRunner
+  <Conversations>k__BackingField:
+  - study_c1
+  - study_c2
+  - study_c3
+  - study_c4
+  - study_c5
+  <Seeds>k__BackingField: 0800000004000000070000000700000004000000
+  <SegmentRoot>k__BackingField: Assets/DemoSegments
+  <Conversation>k__BackingField: {fileID: 644306069}
+  <Runner>k__BackingField: {fileID: 696636974}
+  <Pause>k__BackingField: {fileID: 696636977}
+  <StartOnPlay>k__BackingField: 0
+  <AdvanceKey>k__BackingField: 1
 --- !u!1 &857390468
 GameObject:
   m_ObjectHideFlags: 0

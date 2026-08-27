@@ -47,12 +47,33 @@ Block k (k = 1..5):
 | Method (within) | Proposed, Baseline A (role-conditioned), Baseline B (speaker-following) |
 | Conversation (within) | 5 scene-1 segments |
 
-**Counterbalancing.** Method order within a block has 6 permutations; each participant receives a
-different permutation per block, rotated across participants so every method appears in every
-serial position equally often. Conversation order is randomised independently per participant.
+**Counterbalancing.** ~~Method order within a block has 6 permutations; each participant receives a
+different permutation per block, rotated across participants. Conversation order is randomised
+independently per participant.~~ **Superseded 2026-08-27 (user's call): every participant sees the
+same fixed order of all fifteen clips.** The reason is operational — with one known order, a log
+that goes missing or arrives misnamed is still identifiable by the position it occupied, which a
+per-participant shuffle makes impossible.
 
-**N = 30** (a multiple of 6, so the counterbalancing closes exactly). Power for a 3-level within
-factor at f = 0.25, α = .05, power .80 is ≈28; run the formal calculation before committing.
+Method order still varies **between blocks**, and that is what keeps it sound. `StudySequence` picks
+the five permutations so each method sits in each serial position once or twice — as even as five
+blocks over three positions allows:
+
+```
+block 1  study_c1   B A P        B : pos1=2  pos2=1  pos3=2
+block 2  study_c2   A P B        A : pos1=1  pos2=2  pos3=2
+block 3  study_c3   P B A        P : pos1=2  pos2=2  pos3=1
+block 4  study_c4   P A B
+block 5  study_c5   B P A
+```
+
+Serial position is therefore balanced **within** each participant, which is where a novelty or
+fatigue effect would otherwise load onto one method; and a participant cannot learn that "the third
+one is always the proposed method", which back-to-back repetition would teach by block three.
+
+**What this gives up, and must be reported as a limitation:** order effects no longer average across
+the sample as well as within it, and the N = 30 multiple-of-six argument no longer applies. Power for
+a 3-level within factor at f = 0.25, α = .05, power .80 is ≈28; run the formal calculation before
+committing.
 
 Session length ≈35 min: 15 clips × ~25 s = ~6.5 min of stimulus, the rest instrument and setup.
 
@@ -416,7 +437,11 @@ Nothing below exists yet; all of it gates data collection.
 4. ~~**User gaze and head logging** at the decision rate~~ — **built 2026-08-27** (§7), unverified on
    real hardware. **The four derived measures of §7 are still to write**, as offline analysis over
    the captured `_user.csv` files.
-5. **Study harness** — sequences the 15 runs, applies the counterbalancing, derives Baseline A's
+5. ~~**Study harness**~~ — **built 2026-08-27**: `StudySessionRunner` runs all fifteen clips in one
+   play session, re-arming the conversation and the gaze runner in place between them, with
+   `ClipPauseController` stopping the scene after each clip so the questionnaire can be answered.
+   One key (Space) starts, skips and advances. Still to do: hooking the response writer to the
+   session, and one folder per participant. Formerly: sequences the 15 runs, applies Baseline A's
    *and* Proposed's seed from participant × conversation, and writes one folder per participant.
 6. **Ethics approval** and a participant information sheet.
 7. ~~**Fix run-to-run reproducibility of the Proposed condition**~~ — done 2026-08-25, see §10.

@@ -1,0 +1,54 @@
+{
+  "schema": "gazecontrol.questionnaire/1",
+  "source": "Assets/Docs/user-study-design.md §6, instrument settled 2026-08-21",
+  "scale": {
+    "min": 1,
+    "max": 7,
+    "minLabel": "strongly disagree",
+    "midLabel": "neither agree nor disagree",
+    "maxLabel": "strongly agree"
+  },
+  "framing": {
+    "title": "Before we begin",
+    "body": "You will watch two people having a conversation. You are the third person in this conversation. Please pay attention to how the two characters use their eyes, rather than to what they are talking about. You will be asked some questions after each conversation."
+  },
+  "spokenAnswerInstruction": "Please say your answer out loud.",
+  "perClipItems": [
+    {
+      "code": "N1",
+      "text": "The characters' eye movements looked natural.",
+      "construct": "Gaze naturalness"
+    },
+    {
+      "code": "T2",
+      "text": "The characters' eye movements around the speaker changes felt well-timed.",
+      "construct": "Boundary gaze quality"
+    },
+    {
+      "code": "A1",
+      "text": "The characters looked at each other as if they were paying attention to each other.",
+      "construct": "Mutual engagement"
+    },
+    {
+      "code": "I1",
+      "text": "The characters seemed aware that I was there.",
+      "construct": "Inclusion / being noticed"
+    }
+  ],
+  "ranking": {
+    "code": "R1",
+    "prompt": "Rank the three versions by how natural the characters' eye movements were.",
+    "instruction": "1 = most natural, 3 = least natural. No ties.",
+    "versionLabelFormat": "Version {0}"
+  },
+  "comment": {
+    "code": "D1",
+    "prompt": "Did any version feel uncomfortable or unsettling to watch? Which, and why?",
+    "instruction": "You may skip this question.",
+    "optional": true
+  },
+  "closing": {
+    "title": "That was the last conversation",
+    "body": "Thank you. Please stay still while the headset is taken off. There are a few short questions to finish, on paper."
+  }
+}
