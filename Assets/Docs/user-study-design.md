@@ -201,12 +201,20 @@ The headset provides **eye tracking**, and the participant's gaze is captured (s
 height; a participant materially taller or shorter changes the vertical gaze geometry and therefore
 whether an agent's gaze reads as directed at them.
 
-**Decided 2026-08-26: a Varjo headset on tethered PC VR, driven through OpenXR.** Not the vendor
-SDK — Varjo's runtime exposes the eye-gaze extension through OpenXR, so the study depends on a
-standard rather than on one vendor's plugin version, and the port survives a change of headset.
-Tethered rather than standalone because the segment's motion streams from the corpus on the lab
-machine (`F:\Data\...`, an absolute path baked into every `segment.json`) and because SMPL-X's 486
-pose correctives plus Oculus LipSync on two agents is desktop-CPU work.
+**Decided 2026-08-26: a Varjo headset on tethered PC VR.** Tethered rather than standalone because
+the segment's motion streams from the corpus on the lab machine (`F:\Data\...`, an absolute path
+baked into every `segment.json`) and because SMPL-X's 486 pose correctives plus Oculus LipSync on
+two agents is desktop-CPU work.
+
+**The backend is the Varjo Unity XR plugin, decided 2026-08-27 after testing on the headset.** The
+port was built against OpenXR on the portability argument, and on real hardware that path renders
+fine — `Varjo OpenXR Runtime 4.14.0`, stereo, floor origin, **90 fps** with both agents, which
+closes the frame-rate risk. It would not produce gaze: `XR_EXT_eye_gaze_interaction` was available
+*and* enabled on the instance, yet no eye-tracking device ever appeared. Varjo's own plugin also
+gives more than the extension does — per-eye rays, pupil size and focus distance rather than one
+combined ray — so §7's measures are built on `VarjoEyeTracking`. The OpenXR package and its
+feature set stay configured but inactive, so the loader can be switched back if the vendor path
+disappoints.
 
 The rig is `User` → `Camera Offset` → the head camera, built by `GazeControl → Set Up XR Rig`.
 Two properties of it matter to the study:
@@ -354,12 +362,11 @@ Nothing below exists yet; all of it gates data collection.
 1. ~~**Sentence-final boundary rule**~~ done (2026-08-21) and the five clips chosen (2026-08-26,
    §3); **exporting them and baking a track per condition is still to do**.
 2. ~~**XR port of `TriadScene`**~~ — stereo rendering, standing play area and eye-height
-   calibration are **built** (2026-08-26, §4); **unverified on a Varjo**, which is the one thing
-   left. What has been checked, under the OpenXR mock runtime: subsystems start, the tracking
-   origin is floor-relative, the camera renders stereo, an HMD device is present, and a simulated
-   1.85 m participant is calibrated to eyes at exactly 1.600 m. What a headset session still has to
-   confirm: that Varjo's runtime grants the eye-gaze extension, the frame rate the two SMPL-X
-   agents hold at the headset's native rate, and that the geometry reads as eye-to-eye from inside.
+   calibration are **built** (2026-08-26, §4) and **confirmed on a real Varjo** (2026-08-27,
+   through the OpenXR path): subsystems start, floor-relative origin, stereo renders, head pose
+   drives the camera, **90 fps** with both agents. Still to confirm in a headset session: the same
+   run through the *Varjo loader* (the backend switched after those measurements), eye-height
+   calibration on a worn headset, and that the geometry reads as eye-to-eye from inside.
 3. **In-VR questionnaire UI** — 15 rating screens and 5 ranking screens, controller pointer.
    Likely more work than the XR port itself.
 4. **User gaze and head logging** at the decision rate, plus the four derived measures of §7.

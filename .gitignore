@@ -134,3 +134,9 @@ InitTestScene*.unity*
 
 # Python bytecode from the Tools/ scripts
 __pycache__/
+
+# AR Foundation's XR Simulation writes per-user preferences here (it arrived as a
+# dependency of the Varjo XR plugin). The XR *project* settings next to it —
+# Loaders/, Settings/, XRGeneralSettingsPerBuildTarget — are committed.
+/Assets/XR/UserSimulationSettings/
+/Assets/XR/UserSimulationSettings.meta
