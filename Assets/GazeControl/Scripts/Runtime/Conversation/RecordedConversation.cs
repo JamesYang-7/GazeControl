@@ -280,7 +280,7 @@ namespace GazeControl.Conversation
             _started = true;
 
             if (Director != null)
-                Director.SetSchedule(BuildSchedule(Segment), () => Elapsed);
+                Director.SetSchedule(BuildSchedule(Segment));
             else
                 Debug.LogWarning($"{name}: no director wired, so no policy can see a turn boundary coming.", this);
         }

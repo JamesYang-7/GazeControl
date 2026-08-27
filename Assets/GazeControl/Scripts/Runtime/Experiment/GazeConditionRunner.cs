@@ -428,11 +428,20 @@ namespace GazeControl.Experiment
                 return;
             }
 
+            // The schedule is advanced onto this tick's instant before anything
+            // reads it, so every time a policy sees — how long until the turn
+            // ends, how long since the last boundary, which phase of its turn —
+            // is measured from k · step rather than from whatever the frame
+            // clock happened to read. Sub-frame drift there is what made two
+            // bakes of one seed disagree on single-frame prototype segments.
+            if (Director != null)
+                Director.SyncTo(conversationTime);
+
             var turn = CurrentTurn();
 
             for (var i = 0; i < _agents.Length; i++)
             {
-                var state = BuildState(_agents[i], turn);
+                var state = BuildState(_agents[i], turn, conversationTime);
                 _targets[i] = _policies[i].Update(deltaTime, in state);
                 Apply(_agents[i], _targets[i]);
 
@@ -453,13 +462,19 @@ namespace GazeControl.Experiment
             Debug.Log($"[voice] t={_sessionTime:0.00} {participant.DisplayName} raw={voiced} ({state})", this);
         }
 
-        ConversationState BuildState(GazeParticipant self, in Turn turn)
+        /// <param name="conversationTime">
+        /// The tick's instant on the decision grid. The session clock used to be
+        /// reported here, which was two errors in one: it is Play's clock rather
+        /// than the conversation's, and it carried the frame's sub-frame
+        /// remainder into anything reading <see cref="ConversationState.Time"/>.
+        /// </param>
+        ConversationState BuildState(GazeParticipant self, in Turn turn, float conversationTime)
         {
             var partners = PartnersOf(self);
 
             return new ConversationState
             {
-                Time = _sessionTime,
+                Time = conversationTime,
                 CurrentSpeaker = turn.Speaker,
                 CurrentAddressee = turn.Addressee,
                 SelfId = self.ParticipantId,

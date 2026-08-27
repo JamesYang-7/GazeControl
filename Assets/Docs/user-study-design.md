@@ -101,7 +101,9 @@ jump targets of its own, and scene 2 has already produced a baseline A take that
 hold. Baseline B is refused rather than scanned — it carries no random stream and reads voice
 activity rather than the schedule, and the scan runs in silence. Verified the same way as Proposed:
 scanning baseline A at each clip's baked seed reproduces the baked track on **all five clips and
-both agents to within 0.05 percentage points**.
+both agents**. Since the tick-grid fix of 2026-08-27 (§10) that agreement is exact — every clip,
+condition and agent matches the bake tick for tick, the only difference being the one extra
+trailing tick the scan simulates when `duration × 60` is not an integer.
 
 ---
 
@@ -128,7 +130,7 @@ considered and rejected — seeds at the middle of a twelve-seed scan would make
 the 2026-08-21 decision wanted sampled, and it shows the method without its tail.
 
 The consequence is visible and accepted: over the ten agent-clips the Proposed condition's aversion
-fraction spans **26.8% to 66.6%**, the top end being `study_c5`'s agent B, which looks away for two
+fraction spans **26.8% to 66.7%**, the top end being `study_c5`'s agent B, which looks away for two
 thirds of a 24 s clip. Baseline A spans 34.5–58.3%; baseline B never averts. **Report the twelve-seed
 scan spread alongside the results** so a reader sees the condition's variability rather than
 inferring consistency from five draws.
@@ -389,7 +391,7 @@ Nothing below exists yet; all of it gates data collection.
     0.596 / 0.516 and the bake of that configuration measured exactly that.
     - **It briefly stopped agreeing, and the cause was the scan's, not the runner's.**
       `SeedScan` swept twelve seeds through **one** `ConversationDirector`, resetting only the
-      clock — but the director advances monotonically by design (`SyncToClock` only ever walks
+      clock — but the director advances monotonically by design (`SyncTo` only ever walks
       `_index` forward, because a live conversation never goes back). So the first seed scanned was
       right and every later one ran the whole simulation against a schedule frozen on the final
       turn. That is why a single-seed scan of `cand_v008` matched a bake exactly while the
@@ -421,12 +423,21 @@ Nothing below exists yet; all of it gates data collection.
       shorter than a 30 Hz tick, and at 60 Hz a tick is exactly one prototype frame) is sampled or
       missed depending on frame timing. At 30 Hz a tick spanned two prototype frames and filtered
       this out, which is why the earlier byte-identical result was real at the time.
-    - Consequences: the committed tracks are unaffected — they are files, and every participant
-      sees the same one. What is not true is that re-baking regenerates a track bit-for-bit. The
-      fix, if it is wanted, is to hand the policies the tick's nominal time (*k · step*) rather
-      than the frame's clock, which is exactly what the offline seed scan already does — it would
-      make scan and bake agree exactly instead of to a tenth of a point, and it re-opens all
-      fifteen tracks for a re-bake.
+    - **Fixed 2026-08-27 (user's call), and all fifteen tracks re-baked on the fix.**
+      `ConversationDirector` no longer pulls a live clock delegate on every read: the runner calls
+      `SyncTo(k · step)` once per decision tick, so time-to-boundary, time-since-boundary and turn
+      phase are all measured on the decision grid, and `ConversationState.Time` carries the tick's
+      instant instead of Play's session clock. The director also stopped advancing in its own
+      `Update`, which removes the ordering hazard the delegate existed for — it is now driven by
+      the one component that knows what instant is being decided at.
+    - **Verified**: two consecutive bakes of `study_c5` / Proposed / seed 4 are byte-identical
+      apart from the `bakedAtUtc` stamp — 0 differing ticks of 2,836, against 4 before the fix —
+      and the bake lands on the offline scan's prediction exactly (A 0.5028 / B 0.6671). 170/170
+      tests green.
+    - The remaining scan-vs-bake gap is arithmetic, not disagreement: the scan simulates
+      `ceil((duration + tail) / step)` ticks while a bake stops when the conversation finishes, so
+      when `duration × 60` is not an integer the scan counts **one extra trailing tick** (e.g.
+      `study_c1`: 448/1315 baked against 449/1316 scanned). Within their shared ticks they agree.
   - Baselines A and B were never implicated by the original measurement; B carries no random stream,
     and A was not tested the same way. Both run on the fixed clock now regardless. **A has since
     been tested** (2026-08-26): the offline scan, which ticks the same grid from conversation zero,

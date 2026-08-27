@@ -108,29 +108,38 @@ namespace GazeControl.Conversation
         public ParticipantId AddresseeId => Addressee != null ? Addressee.ParticipantId : ParticipantId.None;
 
         /// <summary>
-        /// Seconds into the conversation, read from whoever published the
-        /// schedule. Pulled on demand rather than cached each frame: the gaze
-        /// runner and this component both run in <c>Update</c> and Unity gives no
-        /// ordering between them, so a cached value would be a frame stale for
-        /// one of them half the time.
+        /// The instant the schedule is being evaluated at, in seconds of
+        /// conversation — set by <see cref="SyncTo"/> and nothing else.
+        ///
+        /// <para>It is the *decision grid's* instant, not the frame's. The
+        /// director used to pull a live clock delegate on every read, which made
+        /// every published time carry the sub-frame remainder of whichever frame
+        /// happened to be running: tick <i>k</i> asked "how long until the turn
+        /// ends?" and got an answer measured from the frame clock rather than
+        /// from <i>k · step</i>. That is invisible for roles, which change once
+        /// per turn, and decisive for a prototype, which is sampled at 60 Hz
+        /// against segments one frame long — it made two bakes of one seed differ.
+        /// Being driven instead of pulling also removes the ordering hazard the
+        /// delegate existed for: the director no longer advances in its own
+        /// <c>Update</c> against a clock the runner has not reached yet.</para>
         /// </summary>
-        public float Elapsed => _clock != null ? _clock() : 0f;
+        public float Elapsed { get; private set; }
 
         ScheduledTurn[] _turns = System.Array.Empty<ScheduledTurn>();
         ScheduledTurn _current;
-        System.Func<float> _clock;
         int _index;
 
-        void Update() => SyncToClock();
-
         /// <summary>
-        /// Advance to the turn the clock is now in. Called from Update during
-        /// play, and directly by offline tooling that drives a simulated clock
-        /// with no player loop running (the seed scan, and eventually the replay
-        /// harness) — those need the same advance rule, not a copy of it.
+        /// Evaluate the schedule at <paramref name="conversationTime"/> and
+        /// advance to the turn that instant falls in. The gaze runner calls this
+        /// once per decision tick with the tick's own instant, and offline
+        /// tooling (the seed scan) calls it with a simulated clock — both need
+        /// the same advance rule, not a copy of it.
         /// </summary>
-        public void SyncToClock()
+        public void SyncTo(float conversationTime)
         {
+            Elapsed = conversationTime;
+
             if (!HasTurn)
                 return;
 
@@ -142,12 +151,11 @@ namespace GazeControl.Conversation
         }
 
         /// <summary>
-        /// Publish a schedule and the clock its times are measured on. The clock
-        /// belongs to whoever plays the conversation — for a recorded segment it
-        /// is the audio clock, so the turn boundaries stay on the words even if
-        /// the player loop stalls.
+        /// Publish a schedule, measured in seconds of conversation. Whoever plays
+        /// the conversation owns the clock those times are read against and hands
+        /// each instant to <see cref="SyncTo"/>.
         /// </summary>
-        public void SetSchedule(IReadOnlyList<ScheduledTurn> turns, System.Func<float> clock)
+        public void SetSchedule(IReadOnlyList<ScheduledTurn> turns)
         {
             if (turns == null || turns.Count == 0)
             {
@@ -159,7 +167,7 @@ namespace GazeControl.Conversation
             for (var i = 0; i < turns.Count; i++)
                 _turns[i] = turns[i];
 
-            _clock = clock ?? throw new System.ArgumentNullException(nameof(clock));
+            Elapsed = 0f;
             HasTurn = true;
             Enter(0);
         }
