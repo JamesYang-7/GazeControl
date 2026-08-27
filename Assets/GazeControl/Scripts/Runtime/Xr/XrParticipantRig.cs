@@ -78,9 +78,8 @@ namespace GazeControl.Xr
         }
 
         /// <summary>
-        /// Bring up the headset. Returns false (after logging) when no OpenXR
-        /// runtime answers, leaving the scene in flat mode rather than half
-        /// initialised.
+        /// Bring up the headset. Returns false (after logging) when no XR loader
+        /// answers, leaving the scene in flat mode rather than half initialised.
         /// </summary>
         public bool StartXr()
         {
@@ -98,8 +97,8 @@ namespace GazeControl.Xr
             if (settings.Manager.activeLoader == null)
             {
                 Debug.LogError(
-                    $"{name}: no OpenXR runtime answered. Is the headset connected and is Varjo Base " +
-                    "(or whichever runtime is set as the active OpenXR runtime) running? Staying in flat mode.", this);
+                    $"{name}: no XR loader answered. Is the headset connected and is Varjo Base running, " +
+                    "and is the Varjo loader ticked in XR Plug-in Management? Staying in flat mode.", this);
                 return false;
             }
 
@@ -167,6 +166,43 @@ namespace GazeControl.Xr
                 $"play area offset {result.Offset:+0.000;-0.000} m to sit the participant at {ReferenceEyeHeight:F2} m.", this);
 
             return result;
+        }
+
+        /// <summary>
+        /// Run the headset's own eye-tracking calibration for this wearer.
+        ///
+        /// <para>This is the tracker's calibration, not
+        /// <see cref="Calibrate"/>'s: that one measures standing eye height and
+        /// moves the play area, this one teaches the headset where this person's
+        /// pupils point. Both are per-participant and both must be done, in this
+        /// order — gaze is not reported at all until the wearer is calibrated,
+        /// so eye height measured first is measured on a settled headset.</para>
+        /// </summary>
+        [ContextMenu("Calibrate Eye Tracking")]
+        public void CalibrateEyeTracking()
+        {
+#if VARJO_XR
+            if (!IsXrRunning)
+            {
+                Debug.LogError($"{name}: start the headset before calibrating eye tracking.", this);
+                return;
+            }
+
+            if (!Varjo.XR.VarjoEyeTracking.IsGazeAllowed())
+            {
+                Debug.LogError(
+                    $"{name}: Varjo Base has not granted this application permission to use eye tracking, " +
+                    "so calibration cannot be requested.", this);
+                return;
+            }
+
+            if (Varjo.XR.VarjoEyeTracking.RequestGazeCalibration())
+                Debug.Log($"{name}: eye-tracking calibration requested — the wearer follows the dots in the headset.", this);
+            else
+                Debug.LogError($"{name}: the headset refused the eye-tracking calibration request.", this);
+#else
+            Debug.LogError($"{name}: the Varjo XR plugin is not in this project, so there is no eye tracker to calibrate.", this);
+#endif
         }
 
         /// <summary>

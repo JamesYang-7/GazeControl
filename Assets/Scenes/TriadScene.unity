@@ -409,6 +409,7 @@ GameObject:
   - component: {fileID: 184681075}
   - component: {fileID: 184681076}
   - component: {fileID: 184681077}
+  - component: {fileID: 184681078}
   m_Layer: 0
   m_Name: User
   m_TagString: Untagged
@@ -468,6 +469,21 @@ MonoBehaviour:
   <ReferenceEyeHeight>k__BackingField: 1.6
   <FallbackEyeHeight>k__BackingField: 1.6
   <StartXrOnPlay>k__BackingField: 0
+--- !u!114 &184681078
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 184681074}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9c8b9b60349ea514da8a54e6d8a43a60, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GazeControl.Logging.ParticipantGazeLogger
+  <Rig>k__BackingField: {fileID: 184681077}
+  <HeadSphereRadius>k__BackingField: 0.15
+  <LogWithoutHeadset>k__BackingField: 0
 --- !u!1 &318294734
 GameObject:
   m_ObjectHideFlags: 0
@@ -846,6 +862,7 @@ MonoBehaviour:
   <BaseSeed>k__BackingField: 4
   <LoggingEnabled>k__BackingField: 1
   <LogVoiceActivity>k__BackingField: 0
+  <ParticipantGaze>k__BackingField: {fileID: 184681078}
   <OutputDirectory>k__BackingField: Recordings
   <CaseName>k__BackingField: study_c5
 --- !u!4 &696636975
@@ -1321,12 +1338,12 @@ MonoBehaviour:
       m_Name: XR Head Position
       m_Type: 0
       m_ExpectedControlType: Vector3
-      m_Id: a97e1664-203a-4f4c-bdc6-0f88d8313650
+      m_Id: c1f6c6a0-c256-4ec7-8f48-2f7706b0728a
       m_Processors: 
       m_Interactions: 
       m_SingletonActionBindings:
       - m_Name: 
-        m_Id: 30cbe727-e726-4e22-aced-b681b334581c
+        m_Id: fe2495ce-6bc6-41fa-8f59-e5f19fb6c772
         m_Path: <XRHMD>/centerEyePosition
         m_Interactions: 
         m_Processors: 
@@ -1341,12 +1358,12 @@ MonoBehaviour:
       m_Name: XR Head Rotation
       m_Type: 0
       m_ExpectedControlType: Quaternion
-      m_Id: 0dd4809c-cfbb-4860-b15f-839cfe6edd94
+      m_Id: 70763117-8c89-4eb0-bf76-1456983850f1
       m_Processors: 
       m_Interactions: 
       m_SingletonActionBindings:
       - m_Name: 
-        m_Id: 766740f1-94c1-4751-be6f-e58369584a16
+        m_Id: b1c68ac7-c1e9-4ede-91ac-f0ec1a4483b9
         m_Path: <XRHMD>/centerEyeRotation
         m_Interactions: 
         m_Processors: 
@@ -1361,12 +1378,12 @@ MonoBehaviour:
       m_Name: XR Head Tracking State
       m_Type: 0
       m_ExpectedControlType: Integer
-      m_Id: 2323b867-c0b3-4438-abad-b131c047f33c
+      m_Id: 4813a5c3-0e7b-40ec-ad5c-027b42f9453d
       m_Processors: 
       m_Interactions: 
       m_SingletonActionBindings:
       - m_Name: 
-        m_Id: 73ba010b-23e4-467a-a61b-47898a9a2372
+        m_Id: 9f4dad65-2348-4bd2-ad32-73dc8fbe2497
         m_Path: <XRHMD>/trackingState
         m_Interactions: 
         m_Processors: 

@@ -1,4 +1,6 @@
 using GazeControl.Conversation;
+using GazeControl.Experiment;
+using GazeControl.Logging;
 using GazeControl.Xr;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -85,6 +87,8 @@ namespace GazeControl.Editor
                 participant.LookAtAnchor = camera.transform;
             }
 
+            ConfigureParticipantGazeLogger(user, rig);
+
             Undo.CollapseUndoOperations(undoGroup);
             EditorSceneManager.MarkSceneDirty(user.scene);
 
@@ -92,6 +96,38 @@ namespace GazeControl.Editor
                 $"Set Up XR Rig: '{UserObjectName}' is now a standing play area — '{CameraOffsetName}' carries the " +
                 "eye-height calibration and the camera is head-tracked. XR starts only when asked " +
                 "(XrParticipantRig.StartXrOnPlay), so desktop workflows are unchanged.", rig);
+        }
+
+        /// <summary>
+        /// Put the participant's own gaze log on the rig and hand it to the
+        /// condition runner. It lives on the User vertex because it is the
+        /// participant's record, and the runner drives it because the runner owns
+        /// the decision grid the samples land on.
+        /// </summary>
+        static void ConfigureParticipantGazeLogger(GameObject user, XrParticipantRig rig)
+        {
+            var logger = user.GetComponent<ParticipantGazeLogger>();
+            if (logger == null)
+                logger = Undo.AddComponent<ParticipantGazeLogger>(user);
+
+            Undo.RecordObject(logger, "Configure participant gaze logger");
+            logger.Rig = rig;
+
+            var runner = Object.FindAnyObjectByType<GazeConditionRunner>(FindObjectsInactive.Include);
+            if (runner == null)
+            {
+                Debug.LogWarning(
+                    "Set Up XR Rig: no GazeConditionRunner in the scene, so the participant gaze logger is " +
+                    "unwired. Run GazeControl → Set Up Baseline Condition first, then this again.", logger);
+                return;
+            }
+
+            if (runner.ParticipantGaze == logger)
+                return;
+
+            Undo.RecordObject(runner, "Wire the participant gaze logger");
+            runner.ParticipantGaze = logger;
+            EditorUtility.SetDirty(runner);
         }
 
         static Transform FindOrCreateCameraOffset(Transform user)

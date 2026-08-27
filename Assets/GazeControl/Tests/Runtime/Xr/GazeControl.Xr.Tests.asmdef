@@ -3,6 +3,7 @@
     "rootNamespace": "",
     "references": [
         "GazeControl.Xr",
+        "Varjo.XR",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],
@@ -17,6 +18,12 @@
     "defineConstraints": [
         "UNITY_INCLUDE_TESTS"
     ],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.varjo.xr",
+            "expression": "",
+            "define": "VARJO_XR"
+        }
+    ],
     "noEngineReferences": false
 }

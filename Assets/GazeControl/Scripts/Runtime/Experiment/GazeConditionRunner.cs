@@ -116,6 +116,10 @@ namespace GazeControl.Experiment
         public bool LogVoiceActivity { get; set; }
 
         [field: SerializeField]
+        [field: Tooltip("Records the participant's own gaze at the decision rate; required for a study session")]
+        public ParticipantGazeLogger ParticipantGaze { get; set; }
+
+        [field: SerializeField]
         [field: Tooltip("Output root for this run's video and gaze log, relative to the project root")]
         public string OutputDirectory { get; set; } = "Recordings";
 
@@ -169,6 +173,10 @@ namespace GazeControl.Experiment
         string _bakePath;
         bool _trackWritten;
         GazeLogWriter _log;
+
+        /// <summary>Shared by the agent log and the participant's, so a take's two files pair by name.</summary>
+        string _logStem;
+        bool _participantLogStarted;
         DecisionClock _decisions;
         float _sessionTime;
         float _nextVoiceReportTime;
@@ -233,6 +241,10 @@ namespace GazeControl.Experiment
                 _targets[i] = GazeTarget.AtPerson(FindHuman().ParticipantId);
             }
 
+            // One stamp for the take, so the agent log and the participant's
+            // carry the same stem and can never be paired up wrongly.
+            _logStem = $"{StudyParticipantId}_{Condition}_{DateTime.Now:yyyyMMdd_HHmmss}";
+
             if (LoggingEnabled)
                 OpenLog();
         }
@@ -263,6 +275,18 @@ namespace GazeControl.Experiment
             if (!LoggingEnabled)
                 return "logging is off, so the trial would leave no record.";
 
+            // Only the wiring is checked here. Whether the headset is up and the
+            // wearer's eye tracking is calibrated cannot be known at Awake — the
+            // rig starts XR in Start and the operator calibrates after donning —
+            // so those are reported by the logger during the take instead.
+            if (ParticipantGaze == null)
+                return "no ParticipantGazeLogger is wired, so the study's objective gaze measures " +
+                       "would not be recorded for this participant.";
+
+            if (ParticipantGaze.Rig == null || ParticipantGaze.Rig.HeadCamera == null)
+                return "the participant gaze logger has no rig or head camera, so it would record " +
+                       "neither head pose nor gaze.";
+
             foreach (var overlay in FindObjectsByType<DeveloperOverlay>(
                          FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
@@ -278,6 +302,12 @@ namespace GazeControl.Experiment
         {
             WriteTrackIfBaking();
             _log?.Dispose();
+
+            // Closed from here as well as from its own OnDestroy, because
+            // Unity gives no destruction order between the two components and
+            // the summary line belongs to the take that just ended.
+            if (ParticipantGaze != null)
+                ParticipantGaze.End();
         }
 
         /// <summary>
@@ -378,7 +408,7 @@ namespace GazeControl.Experiment
             var due = _decisions.Advance(DecisionTime());
             var firstTick = _decisions.Ticks - due;
             for (var i = 0; i < due; i++)
-                Tick(_decisions.Step, _decisions.TimeOfTick(firstTick + i));
+                Tick(_decisions.Step, firstTick + i, _decisions.TimeOfTick(firstTick + i));
         }
 
         /// <summary>
@@ -390,11 +420,12 @@ namespace GazeControl.Experiment
         float DecisionTime() => Conversation != null ? Conversation.Elapsed : _sessionTime;
 
         /// <param name="deltaTime">One decision step.</param>
+        /// <param name="tick">Index of this tick on the decision grid.</param>
         /// <param name="conversationTime">
         /// The instant on the decision grid this tick belongs to — see
         /// <see cref="DecisionClock.TimeOfTick"/>.
         /// </param>
-        void Tick(float deltaTime, float conversationTime)
+        void Tick(float deltaTime, int tick, float conversationTime)
         {
             for (var i = 0; i < Participants.Length; i++)
             {
@@ -414,6 +445,12 @@ namespace GazeControl.Experiment
                 for (var i = 0; i < Participants.Length; i++)
                     ReportVoiceActivity(Participants[i], _rawVoiced[Participants[i].Id]);
             }
+
+            // Sampled before the finished-check below, so the participant's gaze
+            // is still recorded through the frozen tail — the agent log keeps
+            // writing there too, and what someone looks at once the agents stop
+            // is part of the trial.
+            SampleParticipantGaze(tick, conversationTime);
 
             // The demo freezes the motion players when the answer ends. Re-deciding
             // gaze past that point leaves the gaze layer as the only thing moving
@@ -707,6 +744,61 @@ namespace GazeControl.Experiment
             }
         }
 
+        /// <summary>
+        /// Record where the human participant is looking, on this tick's instant.
+        ///
+        /// <para>The log is opened here rather than in <c>Start</c> because it
+        /// needs the headset to be up, and <see cref="XrParticipantRig"/> starts
+        /// XR in its own <c>Start</c> — Unity guarantees no order between two
+        /// components' <c>Start</c>, so opening there would skip the log
+        /// whenever the runner happened to go first. The first tick cannot run
+        /// until the conversation clock reaches zero, which is long after every
+        /// <c>Start</c>.</para>
+        /// </summary>
+        void SampleParticipantGaze(int tick, float conversationTime)
+        {
+            if (ParticipantGaze == null || !LoggingEnabled)
+                return;
+
+            if (!_participantLogStarted)
+            {
+                _participantLogStarted = true;
+                ParticipantGaze.Begin(
+                    TakeDirectory, $"{_logStem}_user", StudyParticipantId,
+                    Condition.ToString(), CaseName, _agents);
+            }
+
+            ParticipantGaze.Sample(conversationTime, tick, AgentsLookingAtUser());
+        }
+
+        /// <summary>
+        /// Bit set over agent ids of the agents currently looking at the human,
+        /// by the same geometric criterion the agent log's
+        /// <c>mutual_gaze_with_human</c> uses.
+        ///
+        /// <para>Read from the rendered eye bones, so on a decision tick it is
+        /// the pose of the last completed frame — up to one frame stale, ~11 ms
+        /// at the headset's 90 Hz. That is well under the gaze-return latencies
+        /// §7.4 measures, and the alternative (reading the commanded target) is
+        /// forbidden: seeing that someone is looking at you is perception, not
+        /// shared policy state (§5.1).</para>
+        /// </summary>
+        int AgentsLookingAtUser()
+        {
+            var human = FindHuman();
+            if (human == null)
+                return 0;
+
+            var mask = 0;
+            for (var i = 0; i < _agents.Length; i++)
+            {
+                if (IsLookingAt(_agents[i], human))
+                    mask |= 1 << _agents[i].Id;
+            }
+
+            return mask;
+        }
+
         float AngularSpeed(Vector3 previous, Vector3 current) =>
             previous == Vector3.zero || Time.deltaTime <= 0f
                 ? 0f
@@ -949,11 +1041,9 @@ namespace GazeControl.Experiment
 
         void OpenLog()
         {
-            var stem = $"{StudyParticipantId}_{Condition}_{DateTime.Now:yyyyMMdd_HHmmss}";
-
             try
             {
-                _log = new GazeLogWriter(TakeDirectory, stem);
+                _log = new GazeLogWriter(TakeDirectory, _logStem);
                 Debug.Log($"{name}: gaze log -> {_log.CsvPath}", this);
             }
             catch (System.IO.IOException e)
@@ -1009,6 +1099,33 @@ namespace GazeControl.Experiment
             }
 
             json.Append("    ]\n");
+        }
+
+        /// <summary>
+        /// How the participant's own gaze was captured, so the <c>_user.csv</c>
+        /// beside this file is interpretable on its own — above all the two
+        /// different criteria the two halves of mutual gaze are measured by.
+        /// </summary>
+        void AppendParticipantGaze(StringBuilder json)
+        {
+            if (ParticipantGaze == null)
+                return;
+
+            var c = CultureInfo.InvariantCulture;
+            json.Append("  \"participant_gaze\": {\n");
+            json.Append($"    \"log\": \"{_logStem}_user.csv\",\n");
+            json.Append($"    \"sample_rate_hz\": {DecisionHz.ToString("0.##", c)},\n");
+            json.Append($"    \"head_sphere_radius_m\": {ParticipantGaze.HeadSphereRadius.ToString("0.###", c)},\n");
+            json.Append("    \"source\": \"VarjoEyeTracking (com.varjo.xr); OpenXR eye gaze never produced a device on this headset\",\n");
+            json.Append("    \"frame\": \"gaze and head columns are world space; the tracker reports head-relative and the head pose columns invert it\",\n");
+            json.Append(
+                "    \"target_id_note\": \"target_id names the nearest head even when target_type is 'elsewhere', so that a " +
+                "looser threshold can be applied offline — filter on target_type, never on target_id alone\",\n");
+            json.Append(
+                "    \"mutual_gaze_note\": \"the two directions use different criteria — the participant->agent half is a " +
+                $"{ParticipantGaze.HeadSphereRadius.ToString("0.###", c)} m head sphere, the agent->participant half the " +
+                $"{MutualGazeAngleDegrees.ToString("0.##", c)} deg cone above; target_angle_deg is logged so either can be re-thresholded offline\"\n");
+            json.Append("  },\n");
         }
 
         string BuildMetadataJson()
@@ -1077,7 +1194,8 @@ namespace GazeControl.Experiment
             json.Append("  ],\n");
             json.Append($"  \"unity_version\": \"{Application.unityVersion}\",\n");
             json.Append($"  \"blink_note\": \"no blink model (SMPL-X has no eyelid shapes); head motion is mocap only, identical in every condition\",\n");
-            json.Append("  \"human_gaze_note\": \"mutual_gaze_with_human records only the agent->human direction; the human's gaze is unobserved (no eye tracking)\"\n");
+            AppendParticipantGaze(json);
+            json.Append("  \"human_gaze_note\": \"this file's mutual_gaze_with_human column is the agent->human direction only; the human half is in the _user.csv when one was written\"\n");
             json.Append("}\n");
 
             return json.ToString();

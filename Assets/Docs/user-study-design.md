@@ -240,8 +240,10 @@ machine with no headset. The study harness turns it on.
 2. VR familiarisation for participants without prior VR experience.
 3. Eye-height calibration and eye-tracker calibration.
 4. Instructions (§6.1).
-5. Five blocks (§1), answered in VR via controller pointer — removing the headset fifteen times is
-   not viable.
+5. Five blocks (§1). The item is **displayed in VR and answered aloud**, and the experimenter
+   enters the response on the desktop — removing the headset fifteen times is not viable, and a
+   controller pointer would put the study on an untested SteamVR path under the Varjo loader
+   (decision 2026-08-27; the UI design is `questionnaire-ui-design.md`).
 6. Post-study questionnaire (§6.4), which may be answered outside the headset.
 
 ---
@@ -256,6 +258,12 @@ machine with no headset. The study harness turns it on.
 
 Deliberately does **not** say the characters may look at the participant (user's call 2026-08-21 —
 it primes the answer to I1 and reads as strange). An unprompted effect on I1 is the stronger result.
+
+**Experimenter conduct, because answers are spoken to a person in the room** (§5.5). Read each item
+verbatim from the screen the participant is already looking at, take the number, and acknowledge it
+with nothing beyond "thank you" — no repeats back, no "really?", no follow-up. The operator panel
+never names the condition (`questionnaire-ui-design.md` §2), so the experimenter does not know
+which version is the interesting one while they are speaking.
 
 ### 6.2 Per-video items (×15), 7-point Likert, 1 = strongly disagree … 7 = strongly agree
 
@@ -319,6 +327,14 @@ Eye tracking makes the human's gaze observable for the first time, which populat
 Log the participant's head pose and gaze ray at the decision rate, into the take's own folder
 alongside the existing 20-column agent log.
 
+**Built 2026-08-27** (`ParticipantGazeLogger` + `VarjoGazeSource` + `GazeSphereTargeting`, 18 tests):
+`<stem>_user.csv` beside the agent log, one row per decision tick, carrying tracker and per-eye
+status, the combined and per-eye rays in world space, head pose, focus distance, pupil diameters and
+eye openness, `target_type`/`target_id`/`target_angle_deg` for what the ray landed on, `mutual_gaze`,
+and `agents_looking_at_user` as a bit set. The four measures below are **not computed anywhere yet**
+— this is the capture, and they are offline analysis over these files. Nothing has been read from a
+real headset yet; see §9.2.
+
 1. **Mutual gaze proportion (user ↔ each agent)** — head bounding spheres; A looks at B when A's
    gaze ray intersects B's sphere, mutual when simultaneous. Prediction: Proposed ≫ B.
 2. **Gaze allocation on the agent mesh** — per-frame raycast, counts per triangle, rendered as a
@@ -367,9 +383,14 @@ Nothing below exists yet; all of it gates data collection.
    drives the camera, **90 fps** with both agents. Still to confirm in a headset session: the same
    run through the *Varjo loader* (the backend switched after those measurements), eye-height
    calibration on a worn headset, and that the geometry reads as eye-to-eye from inside.
-3. **In-VR questionnaire UI** — 15 rating screens and 5 ranking screens, controller pointer.
-   Likely more work than the XR port itself.
-4. **User gaze and head logging** at the decision rate, plus the four derived measures of §7.
+3. **In-VR questionnaire UI** — designed 2026-08-27 in `questionnaire-ui-design.md`, not built.
+   22 display-only screens in the headset plus a desktop operator panel for entry. The "likely more
+   work than the XR port itself" estimate was for a controller pointer; dropping the pointer
+   (§5.5) removes XRI, the interaction layer and the SteamVR dependency, and leaves a build whose
+   first two of four steps need no headset at all.
+4. ~~**User gaze and head logging** at the decision rate~~ — **built 2026-08-27** (§7), unverified on
+   real hardware. **The four derived measures of §7 are still to write**, as offline analysis over
+   the captured `_user.csv` files.
 5. **Study harness** — sequences the 15 runs, applies the counterbalancing, derives Baseline A's
    *and* Proposed's seed from participant × conversation, and writes one folder per participant.
 6. **Ethics approval** and a participant information sheet.
