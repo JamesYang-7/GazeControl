@@ -408,6 +408,7 @@ GameObject:
   m_Component:
   - component: {fileID: 184681075}
   - component: {fileID: 184681076}
+  - component: {fileID: 184681077}
   m_Layer: 0
   m_Name: User
   m_TagString: Untagged
@@ -428,7 +429,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 982743564}
+  - {fileID: 1811005179}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &184681076
@@ -450,6 +451,23 @@ MonoBehaviour:
   <Gaze>k__BackingField: {fileID: 0}
   <Voice>k__BackingField: {fileID: 0}
   <DefaultAddressee>k__BackingField: {fileID: 0}
+--- !u!114 &184681077
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 184681074}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 08e32baa0cc5cbf4d9de3280d73b2323, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: GazeControl.Xr::GazeControl.Xr.XrParticipantRig
+  <CameraOffset>k__BackingField: {fileID: 1811005179}
+  <HeadCamera>k__BackingField: {fileID: 982743566}
+  <ReferenceEyeHeight>k__BackingField: 1.6
+  <FallbackEyeHeight>k__BackingField: 1.6
+  <StartXrOnPlay>k__BackingField: 0
 --- !u!1 &318294734
 GameObject:
   m_ObjectHideFlags: 0
@@ -1200,6 +1218,7 @@ GameObject:
   - component: {fileID: 982743564}
   - component: {fileID: 982743566}
   - component: {fileID: 982743565}
+  - component: {fileID: 982743567}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -1220,7 +1239,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 184681075}
+  m_Father: {fileID: 1811005179}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!81 &982743565
 AudioListener:
@@ -1261,7 +1280,7 @@ Camera:
     y: 0
     width: 1
     height: 1
-  near clip plane: 0.3
+  near clip plane: 0.05
   far clip plane: 1000
   field of view: 60
   orthographic: 0
@@ -1281,6 +1300,99 @@ Camera:
   m_OcclusionCulling: 1
   m_StereoConvergence: 10
   m_StereoSeparation: 0.022
+--- !u!114 &982743567
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 982743563}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c2fadf230d1919748a9aa21d40f74619, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.InputSystem::UnityEngine.InputSystem.XR.TrackedPoseDriver
+  m_TrackingType: 0
+  m_UpdateType: 0
+  m_IgnoreTrackingState: 0
+  m_PositionInput:
+    m_UseReference: 0
+    m_Action:
+      m_Name: XR Head Position
+      m_Type: 0
+      m_ExpectedControlType: Vector3
+      m_Id: a97e1664-203a-4f4c-bdc6-0f88d8313650
+      m_Processors: 
+      m_Interactions: 
+      m_SingletonActionBindings:
+      - m_Name: 
+        m_Id: 30cbe727-e726-4e22-aced-b681b334581c
+        m_Path: <XRHMD>/centerEyePosition
+        m_Interactions: 
+        m_Processors: 
+        m_Groups: 
+        m_Action: XR Head Position
+        m_Flags: 0
+      m_Flags: 0
+    m_Reference: {fileID: 0}
+  m_RotationInput:
+    m_UseReference: 0
+    m_Action:
+      m_Name: XR Head Rotation
+      m_Type: 0
+      m_ExpectedControlType: Quaternion
+      m_Id: 0dd4809c-cfbb-4860-b15f-839cfe6edd94
+      m_Processors: 
+      m_Interactions: 
+      m_SingletonActionBindings:
+      - m_Name: 
+        m_Id: 766740f1-94c1-4751-be6f-e58369584a16
+        m_Path: <XRHMD>/centerEyeRotation
+        m_Interactions: 
+        m_Processors: 
+        m_Groups: 
+        m_Action: XR Head Rotation
+        m_Flags: 0
+      m_Flags: 0
+    m_Reference: {fileID: 0}
+  m_TrackingStateInput:
+    m_UseReference: 0
+    m_Action:
+      m_Name: XR Head Tracking State
+      m_Type: 0
+      m_ExpectedControlType: Integer
+      m_Id: 2323b867-c0b3-4438-abad-b131c047f33c
+      m_Processors: 
+      m_Interactions: 
+      m_SingletonActionBindings:
+      - m_Name: 
+        m_Id: 73ba010b-23e4-467a-a61b-47898a9a2372
+        m_Path: <XRHMD>/trackingState
+        m_Interactions: 
+        m_Processors: 
+        m_Groups: 
+        m_Action: XR Head Tracking State
+        m_Flags: 0
+      m_Flags: 0
+    m_Reference: {fileID: 0}
+  m_PositionAction:
+    m_Name: 
+    m_Type: 0
+    m_ExpectedControlType: 
+    m_Id: 90545fb9-9abe-46f6-8f7e-133986d1166e
+    m_Processors: 
+    m_Interactions: 
+    m_SingletonActionBindings: []
+    m_Flags: 0
+  m_RotationAction:
+    m_Name: 
+    m_Type: 0
+    m_ExpectedControlType: 
+    m_Id: b37d53d3-8e12-476d-aded-2408b042f6e0
+    m_Processors: 
+    m_Interactions: 
+    m_SingletonActionBindings: []
+    m_Flags: 0
 --- !u!1 &1412429818
 GameObject:
   m_ObjectHideFlags: 0
@@ -1503,6 +1615,38 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -988227544910358090, guid: 074bc99083525c94b981ace03a694ab0, type: 3}
   m_PrefabInstance: {fileID: 953799572}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1811005178
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1811005179}
+  m_Layer: 0
+  m_Name: Camera Offset
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1811005179
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1811005178}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 982743564}
+  m_Father: {fileID: 184681075}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

@@ -199,6 +199,29 @@ The headset provides **eye tracking**, and the participant's gaze is captured (s
 height; a participant materially taller or shorter changes the vertical gaze geometry and therefore
 whether an agent's gaze reads as directed at them.
 
+**Decided 2026-08-26: a Varjo headset on tethered PC VR, driven through OpenXR.** Not the vendor
+SDK — Varjo's runtime exposes the eye-gaze extension through OpenXR, so the study depends on a
+standard rather than on one vendor's plugin version, and the port survives a change of headset.
+Tethered rather than standalone because the segment's motion streams from the corpus on the lab
+machine (`F:\Data\...`, an absolute path baked into every `segment.json`) and because SMPL-X's 486
+pose correctives plus Oculus LipSync on two agents is desktop-CPU work.
+
+The rig is `User` → `Camera Offset` → the head camera, built by `GazeControl → Set Up XR Rig`.
+Two properties of it matter to the study:
+
+- **The agents track the participant's real head.** The human's `LookAtAnchor` is that camera, so
+  nothing in the gaze pipeline needed changing — in the headset the agents aim where the
+  participant's head actually is, which is what item I1 rests on.
+- **Eye height is normalised to 1.60 m**, the height the flat camera has always used, by moving the
+  play area rather than the participant (`XrParticipantRig.Calibrate()`). A sample outside
+  1.20–2.10 m is rejected rather than clamped, and re-calibrating re-measures rather than stacking.
+  Record the raw measured height per participant: normalisation makes height a constant in the
+  stimulus, but the raw value is the datum if it ever has to be checked as a covariate.
+
+**XR is off unless asked for.** "Initialize XR on Startup" is unchecked and `StartXrOnPlay` is
+false in the committed scene, so baking, clip browsing and video recording still run flat on a
+machine with no headset. The study harness turns it on.
+
 ---
 
 ## 5. Procedure
@@ -328,7 +351,13 @@ Nothing below exists yet; all of it gates data collection.
 
 1. ~~**Sentence-final boundary rule**~~ done (2026-08-21) and the five clips chosen (2026-08-26,
    §3); **exporting them and baking a track per condition is still to do**.
-2. **XR port of `TriadScene`** — stereo rendering, standing play area, eye-height calibration.
+2. ~~**XR port of `TriadScene`**~~ — stereo rendering, standing play area and eye-height
+   calibration are **built** (2026-08-26, §4); **unverified on a Varjo**, which is the one thing
+   left. What has been checked, under the OpenXR mock runtime: subsystems start, the tracking
+   origin is floor-relative, the camera renders stereo, an HMD device is present, and a simulated
+   1.85 m participant is calibrated to eyes at exactly 1.600 m. What a headset session still has to
+   confirm: that Varjo's runtime grants the eye-gaze extension, the frame rate the two SMPL-X
+   agents hold at the headset's native rate, and that the geometry reads as eye-to-eye from inside.
 3. **In-VR questionnaire UI** — 15 rating screens and 5 ranking screens, controller pointer.
    Likely more work than the XR port itself.
 4. **User gaze and head logging** at the decision rate, plus the four derived measures of §7.
@@ -377,6 +406,27 @@ Nothing below exists yet; all of it gates data collection.
   - **Residual, and the reason a study still replays a baked track rather than re-deriving one:**
     a tick reads the live scene at the frame it fires on, so voice activity and a turn boundary can
     still land one frame either side of the grid. Baking removes that; nothing in a live take can.
+    - **That residual is now measurable in the Proposed condition, and the "two bakes are
+      byte-identical" claim above does not survive the move to 60 Hz** (measured 2026-08-26, while
+      regression-testing the XR port). Five bakes of `study_c5` / Proposed / seed 4 all differ from
+      each other by a handful of ticks — the last two run back to back under matched editor
+      settings differ at **4 ticks of 2,836** (two agents × 1,418), almost all at t ≈ 3.3–3.5 s
+      inside a prototype window, flipping a single tick between a person and an aversion. Seeds,
+      sample counts and every other tick are identical, and the aversion fraction moves by at most
+      **0.14 percentage points** — which is why the §3 numbers are unaffected.
+    - Cause: `ProposedGazePolicy` reads its position in the prototype from
+      `state.PredictedTimeToTurnEnd`, which the director derives from the *frame's* conversation
+      clock. `DecisionClock` fixes which frame tick *k* runs on, but not the sub-frame remainder of
+      that frame's clock reading — so a prototype segment one frame long (13% of segments are
+      shorter than a 30 Hz tick, and at 60 Hz a tick is exactly one prototype frame) is sampled or
+      missed depending on frame timing. At 30 Hz a tick spanned two prototype frames and filtered
+      this out, which is why the earlier byte-identical result was real at the time.
+    - Consequences: the committed tracks are unaffected — they are files, and every participant
+      sees the same one. What is not true is that re-baking regenerates a track bit-for-bit. The
+      fix, if it is wanted, is to hand the policies the tick's nominal time (*k · step*) rather
+      than the frame's clock, which is exactly what the offline seed scan already does — it would
+      make scan and bake agree exactly instead of to a tenth of a point, and it re-opens all
+      fifteen tracks for a re-bake.
   - Baselines A and B were never implicated by the original measurement; B carries no random stream,
     and A was not tested the same way. Both run on the fixed clock now regardless. **A has since
     been tested** (2026-08-26): the offline scan, which ticks the same grid from conversation zero,

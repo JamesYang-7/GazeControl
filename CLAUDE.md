@@ -71,6 +71,18 @@ The **full gaze corpus** behind those prototypes — the complete per-frame sequ
 
 `ListenerCamera` remains in the codebase but is wired to nothing since gaze moved behind the policy interface.
 
+## XR — the study rig
+
+The study runs live in a **Varjo** headset on **tethered PC VR**, through **OpenXR** rather than a vendor SDK (`com.unity.xr.openxr`; Varjo's runtime provides the eye-gaze extension, and OpenXR keeps the port portable if the lab's headset changes). Enabled OpenXR features: **Eye Gaze Interaction** plus the Valve Index / HTC Vive / KHR Simple controller profiles. Settings live in `Assets/XR/` and must be committed.
+
+**XR does not start by itself, on purpose.** "Initialize XR on Startup" is unchecked, and `XrParticipantRig.StartXrOnPlay` (off in the committed scene) is the only switch. Baking gaze tracks, browsing clips and recording demo videos all press Play on a machine that may have no headset, and auto-initialisation would break every one of them.
+
+The rig is `User` (the triad vertex, unmoved) → `Camera Offset` (carries the eye-height calibration) → `Main Camera` (`TrackedPoseDriver` on the centre eye). With XR off the camera is parked at **1.60 m**, exactly where it has always sat, so desktop takes render the same frames as before the port. `GazeControl → Set Up XR Rig` builds or repairs the rig; nothing else in the scene changed, because the agents already aim at the user's `LookAtAnchor` and that is this camera — in a headset they aim at the participant's real head.
+
+**Eye-height calibration normalises every participant to 1.60 m** (`EyeHeightCalibration`, pure and unit-tested; `XrParticipantRig.Calibrate()`). The agents are standing mocap with fixed head height, so without it a short participant looks up at them and a tall one looks down — height would be an uncontrolled between-participant variable in exactly what the study measures. Samples outside 1.20–2.10 m are **rejected, not clamped** (the headset on the desk), leaving the rig where it was. Re-calibrating measures the participant again rather than stacking offsets.
+
+Verified so far only under the **OpenXR Mock Runtime** — no Varjo has been attached. What that proved: subsystems start, tracking origin is Floor, the camera renders stereo, an HMD device appears, and calibration moves a simulated 1.85 m participant's eyes to exactly 1.600 m. The mock feature is **disabled** in the committed settings; re-enable it temporarily to repeat that check. Still open: nothing reads the eye-gaze device yet (§7's measures), there is no in-VR questionnaire, and per-participant calibration is not persisted.
+
 ## Agent appearance
 
 **Match the textures to the segment's voices.** The corpus records nothing about who is speaking, so `Tools/find_demo_segments.py` measures it: median F0 over each speaker's own voiced frames, written into `segment.json` as `voicePitchHz`/`voice`, and filterable with `--voice male|female|mixed`. The scene wires agent A to the **stock** female albedo `smplx_texture_f_alb.png` and agent B to `smplitex_f00021_alb.png`, both on `SMPLX-Female-URP-AgentA/B.mat` with the stock female normal map. The male pair (`SMPLX-Male-URP`, `SMPLX-Male-URP-AgentB`) is kept for when a male segment is used.
