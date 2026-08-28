@@ -408,6 +408,15 @@ namespace GazeControl.Experiment
                 return "the participant gaze logger has no rig or head camera, so it would record " +
                        "neither head pose nor gaze.";
 
+            // Checked in the scene rather than through a field: this runner does
+            // not drive the questionnaire and should not hold a reference to it.
+            // Without one the fifteen takes still play and still log, and the
+            // participant is never asked anything — a session that looks complete
+            // and answers nothing the study is about.
+            if (FindAnyObjectByType<QuestionnaireSession>(FindObjectsInactive.Include) == null)
+                return "there is no QuestionnaireSession in the scene, so this participant would watch " +
+                       "all fifteen clips and never be asked a question. Run GazeControl → Set Up Questionnaire.";
+
             foreach (var overlay in FindObjectsByType<DeveloperOverlay>(
                          FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
@@ -832,11 +841,20 @@ namespace GazeControl.Experiment
             return true;
         }
 
+        /// <summary>
+        /// Record every rendered frame for as long as the component lives.
+        ///
+        /// <para>Deliberately <b>not</b> conditional on a log existing when it
+        /// starts. It used to return immediately when <c>_log</c> was null, which
+        /// is exactly the state a study session is in at <c>Start</c> — the
+        /// session defers arming to its first clip — so the loop exited before
+        /// the first take and never ran again, and all fifteen agent logs came
+        /// out as a header and nothing else. It only ever worked because the
+        /// runner sometimes won the <c>Awake</c> race and armed the inspector's
+        /// leftover clip. <see cref="RecordFrame"/> does the per-frame check.</para>
+        /// </summary>
         async Awaitable LogEveryFrameAsync(CancellationToken cancellationToken)
         {
-            if (_log == null)
-                return;
-
             try
             {
                 while (true)

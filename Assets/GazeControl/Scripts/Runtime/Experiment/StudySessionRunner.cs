@@ -23,6 +23,14 @@ namespace GazeControl.Experiment
     /// experience fifteen times. Both re-arm through the same code a fresh play
     /// takes.</para>
     /// </summary>
+    /// <remarks>
+    /// Ordered ahead of everything else because its <c>Awake</c> takes the
+    /// inspector's leftover clip away from the other components — and Unity gives
+    /// no order between two <c>Awake</c> calls, so without this the gaze runner
+    /// armed first about half the time and opened a four-frame log named for
+    /// whatever segment the scene was last left on.
+    /// </remarks>
+    [DefaultExecutionOrder(-100)]
     public sealed class StudySessionRunner : MonoBehaviour
     {
         [field: SerializeField]
@@ -57,6 +65,20 @@ namespace GazeControl.Experiment
         [field: SerializeField]
         [field: Tooltip("Operator key that starts the session and moves to the next clip")]
         public Key AdvanceKey { get; set; } = Key.Space;
+
+        /// <summary>
+        /// Methods compared within each conversation. Fixed by the study design
+        /// (§1) and read by the questionnaire, which asks for one rank per
+        /// version and so has to agree with this exactly.
+        /// </summary>
+        public const int ConditionCount = 3;
+
+        /// <summary>
+        /// While true the start key does nothing. <see cref="QuestionnaireSession"/>
+        /// holds it until the framing screen has been read, so the first clip
+        /// cannot begin before the participant has been told what to watch for.
+        /// </summary>
+        public bool StartHeld { get; set; }
 
         IReadOnlyList<StudyTrial> _trials;
         int _index = -1;
@@ -114,7 +136,7 @@ namespace GazeControl.Experiment
             // The scene's own first clip is whatever the inspector was left on,
             // which is almost never trial 1. Take it over immediately so the
             // session is what runs, not the leftover configuration.
-            if (StartOnPlay)
+            if (StartOnPlay && !StartHeld)
                 _ = BeginNext();
         }
 
@@ -128,7 +150,7 @@ namespace GazeControl.Experiment
         {
             // Before the first clip the pause controller is not paused yet, so it
             // will not consume the key; this is what starts the session.
-            if (_index < 0 && AdvanceKeyPressed())
+            if (_index < 0 && !StartHeld && AdvanceKeyPressed())
                 StartSession();
         }
 
@@ -139,7 +161,7 @@ namespace GazeControl.Experiment
         /// </summary>
         public void StartSession()
         {
-            if (_index >= 0 || _busy)
+            if (_index >= 0 || _busy || StartHeld)
                 return;
 
             _ = BeginNext();

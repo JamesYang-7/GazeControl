@@ -253,6 +253,13 @@ namespace GazeControl.Conversation
                     return false;
             }
 
+            // Here rather than in the study runner, so every path that loads a
+            // segment gets it: the session, the clip browser's Load and Play, a
+            // plain Play and a bake. The clips do not all have the same pair of
+            // voices, and a take shown on the previous clip's textures puts two
+            // women in a male-male recording for its whole length.
+            AgentAppearance.MatchToVoices(Segment, Speakers, this);
+
             Debug.Log(
                 $"{name}: {Segment.name} — {Segment.stem} {Segment.sourceStartSeconds:F2}-{Segment.sourceEndSeconds:F2} s " +
                 $"({Segment.durationSeconds:F2} s, {Segment.events.Length} end-of-turn events)", this);

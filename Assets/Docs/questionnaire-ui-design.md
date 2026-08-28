@@ -5,7 +5,14 @@ The **instrument** is not designed here — §6 of that document fixes the items
 ranking and when each is asked, settled 2026-08-21. This is only how a participant is shown them
 and how the answers are captured.
 
-Status: design, 2026-08-27. Nothing below is built.
+Status: **built 2026-08-27**, to this design. `QuestionnaireSession` + `QuestionnaireDisplay` +
+`QuestionnaireOperatorPanel`, wired by `GazeControl → Set Up Questionnaire`; §9 steps 1-2 and 4 are
+done and step 3 is built but has not had its legibility pass in the headset. §1's assumption — that
+the IMGUI panel does not reach the eye textures — is still unconfirmed on hardware.
+
+For a spell on the same day the items were dropped from the headset entirely (recorded only in
+`ClipPauseController`'s doc, never in the decisions log); the user restored this design after a VR
+verification found that nothing was displayed after a clip.
 
 ---
 
@@ -145,12 +152,15 @@ Study harness and counterbalancing (§9.5); post-study questionnaire, consent an
 
 Ordered so that headset time — the scarce resource — is needed only at step 3.
 
-1. **Data and the writer.** Item/screen definitions and the response writer, pure and unit-tested,
-   in the style of `GazeControl.Gaze.Policy`. No Unity dependency beyond `UnityEngine`.
-2. **Operator panel** driving the state machine over a stub screen list. Fully exercisable flat, on
-   a machine with no headset — which is also how it gets tested.
-3. **World-space item canvas** and a legibility pass in the Varjo.
-4. **Harness seam** — the event and the block hand-off of §5.
+1. ~~**Data and the writer.**~~ Done. `QuestionnaireDefinition`, `QuestionnaireScript`,
+   `QuestionnaireScreen`, `QuestionnaireResponseWriter` and `QuestionnaireEntry` — pure, unit-tested,
+   no Unity dependency beyond `UnityEngine`.
+2. ~~**Operator panel**~~ Done, driving the real state machine rather than a stub, and walked flat
+   through a full block and through a one-conversation run to the closing screen.
+3. **World-space item canvas** — built; the legibility pass in the Varjo is still owed.
+4. ~~**Harness seam**~~ Done, as two hold flags: `ClipPauseController.AdvanceHeld` and
+   `StudySessionRunner.StartHeld`. The questionnaire releases the next clip when its screen is
+   answered, and the harness never learns what was asked.
 
 ## 10. Open items
 

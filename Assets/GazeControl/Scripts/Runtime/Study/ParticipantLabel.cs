@@ -1,3 +1,4 @@
+using System;
 using System.Globalization;
 
 namespace GazeControl.Study
@@ -32,6 +33,13 @@ namespace GazeControl.Study
         /// participant.
         /// </summary>
         public const string First = "P01";
+
+        /// <summary>
+        /// Whether a label is the reserved debugging one. Case- and
+        /// whitespace-insensitive, because it is typed into an inspector field.
+        /// </summary>
+        public static bool IsDebugLabel(string label) =>
+            string.Equals(label?.Trim(), DebugLabel, StringComparison.OrdinalIgnoreCase);
 
         /// <summary>
         /// The label after <paramref name="current"/>: its trailing digits

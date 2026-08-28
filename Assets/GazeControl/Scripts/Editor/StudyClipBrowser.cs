@@ -335,63 +335,22 @@ namespace GazeControl.Editor
         }
 
         /// <summary>
-        /// Give each agent the albedo matching its own speaker's measured voice.
+        /// Give each agent the albedo matching its own speaker's measured voice,
+        /// as a persistent edit to the open scene.
         ///
-        /// There is exactly one stock albedo per sex, so a same-sex pair cannot
-        /// have both agents on stock: speaker 1 takes it and speaker 2 falls to
-        /// a SMPLitex texture, which carries the known face misregistration. A
-        /// mixed pair is the only case where both agents are stock.
+        /// The rule and the applying are <see cref="AgentAppearance"/>, the same
+        /// code a loading segment runs, so a preview here cannot come to differ
+        /// from what a take actually shows. Only the edit-mode bookkeeping —
+        /// Undo, and marking the scene dirty — is this button's own.
         /// </summary>
         void ApplyTextures(RecordedConversation conversation)
         {
-            var segment = _selected.Segment;
-            var voices = segment.agents.ToDictionary(a => a.speaker, a => a.voice ?? "unclear");
-            var mixed = voices.Values.Distinct().Count() > 1;
+            var applied = AgentAppearance.MatchToVoices(
+                _selected.Segment, conversation.Speakers, conversation,
+                renderer => Undo.RecordObject(renderer, "Match textures to voices"));
 
-            var applied = new List<string>();
-            foreach (var speaker in conversation.Speakers)
-            {
-                if (speaker.Participant == null)
-                    continue;
-
-                if (!voices.TryGetValue(speaker.SpeakerCode, out var voice) || voice == "unclear")
-                {
-                    Debug.LogWarning(
-                        $"Clip Browser: speaker {speaker.SpeakerCode} has no usable measured voice " +
-                        "('unclear' sits between the male and female bands) — decide it by ear and set the material by hand.",
-                        conversation);
-                    continue;
-                }
-
-                // Speaker 1 keeps the stock albedo in a same-sex pair; only the
-                // second agent needs a generated one to stay distinguishable.
-                var stock = mixed || speaker.SpeakerCode == 1;
-                var material = LoadMaterial(voice, stock);
-                if (material == null)
-                    continue;
-
-                var renderer = speaker.Participant.GetComponentInChildren<SkinnedMeshRenderer>();
-                if (renderer == null)
-                {
-                    Debug.LogWarning($"Clip Browser: {speaker.Participant.name} has no SkinnedMeshRenderer.", conversation);
-                    continue;
-                }
-
-                // Slot 1 is the mouth interior, split off by UV at import; only
-                // the body slot carries the agent's albedo.
-                var materials = renderer.sharedMaterials;
-                Undo.RecordObject(renderer, "Match textures to voices");
-                materials[0] = material;
-                renderer.sharedMaterials = materials;
-                EditorUtility.SetDirty(renderer);
-                applied.Add($"{speaker.Participant.name} → {material.name}");
-            }
-
-            if (applied.Count > 0)
-            {
+            if (applied > 0)
                 EditorSceneManager.MarkSceneDirty(conversation.gameObject.scene);
-                Debug.Log($"Clip Browser: {string.Join(", ", applied)}.", conversation);
-            }
         }
 
         /// <summary>
@@ -491,27 +450,6 @@ namespace GazeControl.Editor
                     "clip can be used. Baking plays the scene once per condition.",
                     MessageType.Info);
             }
-        }
-
-        static Material LoadMaterial(string voice, bool stock)
-        {
-            var name = (voice, stock) switch
-            {
-                ("female", true) => "SMPLX-Female-URP-AgentA",
-                ("female", false) => "SMPLX-Female-URP-AgentB",
-                ("male", true) => "SMPLX-Male-URP",
-                ("male", false) => "SMPLX-Male-URP-AgentB",
-                _ => null,
-            };
-
-            if (name == null)
-                return null;
-
-            var path = $"Assets/SMPLX/Materials/{name}.mat";
-            var material = AssetDatabase.LoadAssetAtPath<Material>(path);
-            if (material == null)
-                Debug.LogWarning($"Clip Browser: material not found at {path}.");
-            return material;
         }
 
         static void DrawTranscript(DemoSegment segment)

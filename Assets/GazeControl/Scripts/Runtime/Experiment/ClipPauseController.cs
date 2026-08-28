@@ -10,12 +10,14 @@ namespace GazeControl.Experiment
     /// Stops the scene when a clip ends so the participant can answer, and waits
     /// for the operator to move on.
     ///
-    /// <para>The questionnaire is not shown in the headset (user's call,
-    /// 2026-08-27, superseding the world-space canvas of
-    /// `questionnaire-ui-design.md` §3): the participant watches a clip, the
-    /// scene stops, they answer outside VR, and the operator advances. This is
-    /// the piece that makes that cycle exist; sequencing the fifteen runs sits on
-    /// top of it and is not here yet.</para>
+    /// <para>What fills the pause is <see cref="QuestionnaireSession"/>: the
+    /// participant reads the items on a world-space canvas and answers aloud,
+    /// and the operator enters the answers on the desktop panel
+    /// (`questionnaire-ui-design.md` §1, restored by the user 2026-08-27 after a
+    /// spell where nothing was shown at all). While a screen is unanswered this
+    /// controller yields its key — see <see cref="AdvanceHeld"/> — so the
+    /// questionnaire, not the keyboard, is what releases the next clip. With no
+    /// questionnaire in the scene the pause still works on its own.</para>
     ///
     /// <para><b>The agents are taken away while they answer</b>, which is a
     /// correctness point rather than presentation. The runner keeps ticking past
@@ -64,6 +66,22 @@ namespace GazeControl.Experiment
         public bool IsPaused => _schedule != null && _schedule.IsPaused;
 
         /// <summary>
+        /// While true the advance key does nothing, and the pause can only be
+        /// ended in code. <see cref="QuestionnaireSession"/> holds it from the
+        /// moment a clip ends until that clip's screen has been answered, so one
+        /// operator key cannot walk past an unanswered questionnaire screen.
+        /// </summary>
+        public bool AdvanceHeld { get; set; }
+
+        /// <summary>
+        /// True when the clip now paused on was skipped rather than played out.
+        /// The questionnaire refuses to record ratings of it: a rating of half a
+        /// clip is worse than a missing one, because nothing downstream can tell
+        /// them apart. Cleared when the next clip is released.
+        /// </summary>
+        public bool WasCutShort { get; private set; }
+
+        /// <summary>
         /// Raised once, when the clip has ended and the scene has stopped. The
         /// session sequencer will hang off this.
         /// </summary>
@@ -90,7 +108,10 @@ namespace GazeControl.Experiment
             if (before != ClipPhase.Paused && after == ClipPhase.Paused)
                 EnterPause();
 
-            if (!AdvanceKeyPressed())
+            // The whole key is yielded while held, the skip included: during a
+            // held pause the questionnaire panel owns the keyboard, and a stray
+            // press must not reach either branch.
+            if (AdvanceHeld || !AdvanceKeyPressed())
                 return;
 
             // One key for the whole session: it advances past a pause, and while
@@ -135,6 +156,7 @@ namespace GazeControl.Experiment
             if (!Conversation.SkipToEnd())
                 return;
 
+            WasCutShort = true;
             _schedule.SkipToPause();
             Debug.Log($"{name}: clip skipped at {Conversation.Elapsed:F1} s — not a usable take.", this);
             EnterPause();
@@ -150,13 +172,14 @@ namespace GazeControl.Experiment
                 return;
 
             _schedule.Resume();
-            SetHidden(false);
+            WasCutShort = false;
+            SetParticipantsHidden(false);
             Advanced?.Invoke();
         }
 
         void EnterPause()
         {
-            SetHidden(true);
+            SetParticipantsHidden(true);
 
             // The take is over the moment the scene stops, so its logs close
             // here rather than whenever play mode happens to end. Otherwise every
@@ -168,7 +191,13 @@ namespace GazeControl.Experiment
             ClipEnded?.Invoke();
         }
 
-        void SetHidden(bool hidden)
+        /// <summary>
+        /// Take the agents away, or bring them back. Public because the
+        /// questionnaire shows screens outside a pause too — the framing before
+        /// the first clip and the close after the last — and the participant
+        /// must not read either of them past two waiting agents.
+        /// </summary>
+        public void SetParticipantsHidden(bool hidden)
         {
             for (var i = 0; i < HideWhilePaused.Length; i++)
             {
