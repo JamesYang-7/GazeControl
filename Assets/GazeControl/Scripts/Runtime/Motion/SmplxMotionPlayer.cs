@@ -53,6 +53,7 @@ namespace GazeControl.Motion
 
         Transform[] _joints;
         Vector3 _pelvisBindLocalPosition;
+        bool _pelvisBindSampled;
         Vector3 _rootAnchor;
         float _time;
 
@@ -80,7 +81,24 @@ namespace GazeControl.Motion
                 return;
             }
 
-            _pelvisBindLocalPosition = _joints[0].localPosition;
+            // Sampled once for the life of the component and never again. A study
+            // session arms fifteen clips through this method without reloading the
+            // scene, and by then the pelvis is wherever the previous clip's last
+            // frame left it — taking that as the bind pose adds each clip's closing
+            // root displacement to the one after it, and the agents walk off their
+            // vertices by more than a metre over a session.
+            if (!_pelvisBindSampled)
+            {
+                _pelvisBindLocalPosition = _joints[0].localPosition;
+                _pelvisBindSampled = true;
+            }
+
+            // Back on its vertex as soon as it is armed rather than at the first
+            // ApplyFrame: a clip is armed several frames before its clock starts,
+            // and one that never plays would otherwise leave the agent standing
+            // where the previous clip ended.
+            _joints[0].localPosition = _pelvisBindLocalPosition;
+
             _time = 0f;
             Clip = SmplxMotionClip.Load(ClipPath);
 
