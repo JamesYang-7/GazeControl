@@ -18,10 +18,12 @@ namespace GazeControl.Experiment
     /// already produced one enumeration surprise. There is nothing here to point
     /// at, so there is nothing to go wrong in the headset.</para>
     ///
-    /// <para><b>It never shows an answer back.</b> The panel marks which item is
-    /// being asked, and stops there: reflecting the number the operator typed
-    /// would put the participant's own last answer in front of them while they
-    /// give the next one.</para>
+    /// <para><b>It never shows an answer back.</b> On a rating screen the panel
+    /// marks which item is being asked and stops there: reflecting the number the
+    /// operator typed would put the participant's own last answer in front of
+    /// them while they give the next one. The ranking screen marks nothing at all
+    /// — the participant names the versions in order rather than numbering them
+    /// one at a time, so there is no "current" version to point at.</para>
     ///
     /// <para>The panel is built in code rather than kept as a prefab so that the
     /// wording has exactly one source — <c>Resources/Questionnaire.json</c>, the
@@ -121,7 +123,7 @@ namespace GazeControl.Experiment
                     break;
 
                 case QuestionnaireSession.Phase.Ranking:
-                    Ranking(session, definition);
+                    Ranking(definition);
                     break;
 
                 case QuestionnaireSession.Phase.Comment:
@@ -177,23 +179,20 @@ namespace GazeControl.Experiment
             _footer.text = $"{ScaleLine(definition.scale)}\n{definition.spokenAnswerInstruction}";
         }
 
-        void Ranking(QuestionnaireSession session, QuestionnaireDefinition definition)
+        /// <summary>
+        /// The prompt alone — no version list and no cursor. The participant says
+        /// the three versions in order, most natural first, so there is no per-
+        /// version number for them to work out and nothing for a marker to point
+        /// at; listing the versions only invited them to convert their order into
+        /// ranks themselves. The operator's panel still walks the versions,
+        /// because that is where the ranks are entered.
+        /// </summary>
+        void Ranking(QuestionnaireDefinition definition)
         {
-            var ranking = definition.ranking;
-            var cursor = session.Entry != null ? session.Entry.Cursor : -1;
-            var versions = session.Entry != null ? session.Entry.SlotCount : 0;
-
-            var body = new StringBuilder();
-            for (var position = 1; position <= versions; position++)
-            {
-                body.Append(position - 1 == cursor ? ">   " : "    ");
-                body.AppendLine(ranking.LabelFor(position));
-            }
-
-            _body.alignment = TextAlignmentOptions.TopLeft;
-            _title.text = ranking.prompt;
-            _body.text = body.ToString().TrimEnd();
-            _footer.text = $"{ranking.instruction}\n{definition.spokenAnswerInstruction}";
+            _body.alignment = TextAlignmentOptions.Left;
+            _title.text = string.Empty;
+            _body.text = definition.ranking.prompt;
+            _footer.text = $"{definition.ranking.instruction}\n{definition.spokenAnswerInstruction}";
         }
 
         void Comment(QuestionnaireDefinition definition)
@@ -204,9 +203,21 @@ namespace GazeControl.Experiment
             _footer.text = $"{definition.comment.instruction}\n{definition.spokenAnswerInstruction}";
         }
 
-        static string ScaleLine(QuestionnaireDefinition.Scale scale) =>
-            $"{scale.min} = {scale.minLabel}     {(scale.min + scale.max) / 2} = {scale.midLabel}     " +
-            $"{scale.max} = {scale.maxLabel}";
+        /// <summary>
+        /// The range sentence over the three anchors. The anchors are led rather
+        /// than left to speak for themselves because three numbers each followed
+        /// by an "=" read as a three-option menu, and participants asked whether
+        /// they were choosing from 1, 4 and 7 or from the whole range.
+        /// </summary>
+        static string ScaleLine(QuestionnaireDefinition.Scale scale)
+        {
+            var anchors =
+                $"{scale.min} = {scale.minLabel}     {(scale.min + scale.max) / 2} = {scale.midLabel}     " +
+                $"{scale.max} = {scale.maxLabel}";
+
+            var range = scale.RangeHintText;
+            return range.Length == 0 ? anchors : $"{range}\n{anchors}";
+        }
 
         void SetVisible(bool visible)
         {

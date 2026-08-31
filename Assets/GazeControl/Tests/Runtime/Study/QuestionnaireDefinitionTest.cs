@@ -102,6 +102,38 @@ namespace GazeControl.Study
         }
 
         [Test]
+        public void RangeHintText_ComposedWithTheScaleBounds_NamesTheWholeRange()
+        {
+            var json = QuestionnaireFixture.JsonWith(
+                @"""min"": 1, ""max"": 7",
+                @"""min"": 1, ""max"": 7, ""rangeHint"": ""Any whole number from {0} to {1}.""");
+
+            var actual = QuestionnaireDefinition.Parse(json).scale;
+
+            Assert.That(actual.RangeHintText, Is.EqualTo("Any whole number from 1 to 7."));
+        }
+
+        [Test]
+        public void RangeHintText_OnAnInstrumentWithoutOne_IsEmpty()
+        {
+            var actual = QuestionnaireFixture.Definition().scale;
+
+            Assert.That(actual.RangeHintText, Is.Empty);
+        }
+
+        [Test]
+        public void Parse_WithAMalformedRangeHint_ThrowsInvalidDataException()
+        {
+            // A stray brace would otherwise throw while rendering the screen the
+            // participant is already looking at.
+            var json = QuestionnaireFixture.JsonWith(
+                @"""min"": 1, ""max"": 7",
+                @"""min"": 1, ""max"": 7, ""rangeHint"": ""From {0 to {1}.""");
+
+            Assert.That(() => QuestionnaireDefinition.Parse(json), Throws.TypeOf<InvalidDataException>());
+        }
+
+        [Test]
         public void Contains_ForAResponseOffTheScale_ReturnsFalse()
         {
             var sut = QuestionnaireFixture.Definition().scale;
@@ -126,6 +158,7 @@ namespace GazeControl.Study
             Assert.That(actual.FindItem("A1"), Is.Not.Null, "A1 mutual engagement");
             Assert.That(actual.FindItem("I1"), Is.Not.Null, "I1 inclusion");
             Assert.That(actual.scale.PointCount, Is.EqualTo(7), "7-point scale");
+            Assert.That(actual.scale.RangeHintText, Does.Contain("1").And.Contain("7"), "scale range named");
         }
     }
 }

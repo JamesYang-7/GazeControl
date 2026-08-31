@@ -4,13 +4,14 @@
   "scale": {
     "min": 1,
     "max": 7,
+    "rangeHint": "Rate from {0}-{1}",
     "minLabel": "strongly disagree",
     "midLabel": "neither agree nor disagree",
     "maxLabel": "strongly agree"
   },
   "framing": {
     "title": "Before we begin",
-    "body": "You will watch two people having a conversation. You are the third person in this conversation. Please pay attention to how the two characters use their eyes, rather than to what they are talking about. You will be asked some questions after each conversation."
+    "body": "You are the third person in this conversation. Please pay attention to the EYE MOVEMENT behavior of the characters, especially when the speaker changes. You will be asked some questions after each conversation. There are 5 groups * 3 versions."
   },
   "spokenAnswerInstruction": "Please say your answer out loud.",
   "perClipItems": [
@@ -38,7 +39,6 @@
   "ranking": {
     "code": "R1",
     "prompt": "Rank the three versions by how natural the characters' eye movements were.",
-    "instruction": "1 = most natural, 3 = least natural. No ties.",
     "versionLabelFormat": "Version {0}"
   },
   "comment": {

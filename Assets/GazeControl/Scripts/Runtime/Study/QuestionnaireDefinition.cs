@@ -98,6 +98,18 @@ namespace GazeControl.Study
             if (scale == null || scale.min >= scale.max)
                 throw new InvalidDataException("questionnaire has no usable response scale");
 
+            // Composed at render time, on the screen the participant is reading,
+            // so a stray brace would throw with the headset already on. Compose it
+            // once here instead, where the failure is a refused session.
+            try
+            {
+                _ = scale.RangeHintText;
+            }
+            catch (FormatException e)
+            {
+                throw new InvalidDataException($"scale rangeHint is not a usable format string: {e.Message}");
+            }
+
             RequirePassage(framing, nameof(framing));
             RequirePassage(closing, nameof(closing));
 
@@ -151,12 +163,28 @@ namespace GazeControl.Study
         {
             public int min;
             public int max;
+
+            /// <summary>
+            /// Leads the rating screen's scale line, composed with this scale's own
+            /// bounds so the sentence cannot drift from the scale it describes.
+            /// It exists because the anchors alone read as a three-option menu —
+            /// participants asked whether the choice was 1, 4 or 7 — and it lives
+            /// here rather than in <c>spokenAnswerInstruction</c>, which the ranking
+            /// and free-text screens share and where a "1 to 7" would be wrong.
+            /// Optional: an instrument without it shows the anchors alone.
+            /// </summary>
+            public string rangeHint;
+
             public string minLabel;
             public string midLabel;
             public string maxLabel;
 
             /// <summary>How many points the scale offers.</summary>
             public int PointCount => max - min + 1;
+
+            /// <summary>The range sentence, or empty when the instrument carries none.</summary>
+            public string RangeHintText =>
+                string.IsNullOrWhiteSpace(rangeHint) ? string.Empty : string.Format(rangeHint, min, max);
 
             public bool Contains(int response) => response >= min && response <= max;
         }
