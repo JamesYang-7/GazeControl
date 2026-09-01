@@ -312,7 +312,14 @@ namespace GazeControl.Experiment
                 _policyIndex = i;
                 _policies[i] = CreatePolicy();
                 _policies[i].Reset(_seeds[i]);
-                _targets[i] = GazeTarget.AtPerson(FindHuman().ParticipantId);
+
+                // Applied here rather than in Start: a session arms fourteen more
+                // takes after Start has run, and the agents are already un-hidden
+                // while the next segment loads, so a clip whose pre-roll gaze was
+                // only ever set once would spend it holding the previous take's
+                // last decision.
+                _targets[i] = PreRollGaze;
+                Apply(_agents[i], _targets[i]);
             }
 
             // One stamp for the take, so the agent log and the participant's
@@ -322,6 +329,25 @@ namespace GazeControl.Experiment
             if (LoggingEnabled)
                 OpenLog();
         }
+
+        /// <summary>
+        /// What the agents' eyes do before the conversation's clock starts.
+        ///
+        /// <para>A zero aversion is "eyes recentred in the head" — the same
+        /// neutral the proposed condition renders the prototypes' <c>None</c>
+        /// with — and it is a real <see cref="GazeTarget"/>, so the pre-roll
+        /// frames the log records still say what is on screen.</para>
+        ///
+        /// <para>It used to be the human participant, and the pre-roll is not
+        /// short: the segment load plus the audio engine's schedule lead, with
+        /// the agents already un-hidden by the questionnaire. Both agents
+        /// therefore stared at the participant before the clip had begun — read
+        /// as being looked at, and a gaze state no condition was ever baked to
+        /// produce. Nothing downstream re-derives this, so it leaves every baked
+        /// track valid; the opening second of a take is the track's own and can
+        /// only be changed by re-baking.</para>
+        /// </summary>
+        static GazeTarget PreRollGaze => GazeTarget.Away(Vector2.zero);
 
         /// <summary>
         /// Close the take in progress and arm the next one, on a new condition,
@@ -576,12 +602,12 @@ namespace GazeControl.Experiment
             // records is only known once every component's Awake has run.
             PrepareBake();
 
-            // No policy runs until the conversation's clock starts, so the gaze
-            // of the pre-roll is applied once here. Leaving it to the gaze
-            // layer's default would put the eyes somewhere the log does not say.
-            for (var i = 0; i < _agents.Length; i++)
-                Apply(_agents[i], _targets[i]);
-
+            // The pre-roll gaze is applied by ArmTake, not here. It was here,
+            // and in a study session it threw: the session clears ArmOnAwake, so
+            // no take is armed by the time Start runs and _targets is still null.
+            // The throw aborted Start before the line below, which is why every
+            // session take's twenty-column agent log was its header and nothing
+            // else while the participant's own file filled normally.
             _ = LogEveryFrameAsync(destroyCancellationToken);
         }
 
