@@ -7,15 +7,15 @@ using UnityEngine.InputSystem;
 namespace GazeControl.Experiment
 {
     /// <summary>
-    /// Runs a participant's whole session: the fifteen clips in their fixed
+    /// Runs a participant's whole session: the fifteen clips in their scheduled
     /// order, stopping after each one so the questionnaire can be answered, and
     /// moving on when the operator says so.
     ///
-    /// <para>The order comes from <see cref="StudySequence"/> and is the same for
-    /// every participant, so a log that goes missing is still identifiable by the
-    /// position it occupied. Method order varies between blocks, balanced so no
-    /// method is systematically first — see that class for what that buys and
-    /// what it gives up.</para>
+    /// <para>The order comes from <see cref="StudySequence"/>, which
+    /// counterbalances method order by participant while keeping conversation
+    /// order fixed. The schedule is a pure function of the participant label, so
+    /// a log that goes missing is still identifiable by the position it occupied
+    /// — see that class for the balance the rotation buys.</para>
     ///
     /// <para><b>One scene, no reloads.</b> Each clip re-arms the conversation and
     /// the gaze runner in place rather than reloading the scene, which would tear
@@ -81,8 +81,16 @@ namespace GazeControl.Experiment
         public bool StartHeld { get; set; }
 
         IReadOnlyList<StudyTrial> _trials;
+        int _scheduleOrdinal;
         int _index = -1;
         bool _busy;
+
+        /// <summary>
+        /// This participant's place in the counterbalancing schedule, which
+        /// decides the method order of every block. Recorded in the console
+        /// report so a session can be reconstructed from its label alone.
+        /// </summary>
+        public int ScheduleOrdinal => _scheduleOrdinal;
 
         /// <summary>The running order, built once at Awake.</summary>
         public IReadOnlyList<StudyTrial> Trials => _trials;
@@ -105,7 +113,20 @@ namespace GazeControl.Experiment
                 nameof(GazeConditionRunner.GazeCondition.Proposed),
             };
 
-            _trials = StudySequence.Build(Conversations, conditions);
+            // Safe to read the label here: NextParticipant refuses to step it
+            // while playing, so it is fixed for the whole session by the time
+            // Awake runs.
+            _scheduleOrdinal = ParticipantLabel.ScheduleOrdinal(Runner == null ? null : Runner.StudyParticipantId);
+            if (_scheduleOrdinal < 0)
+            {
+                // A pilot or debug label is outside the schedule. Fall back to
+                // ordinal 0 so a development run still has an order to play,
+                // rather than refusing here — the study guard is what stops a
+                // real session on such a label, and it gives a better message.
+                _scheduleOrdinal = 0;
+            }
+
+            _trials = StudySequence.Build(Conversations, conditions, _scheduleOrdinal);
 
             // Suppressed in Awake, which Unity guarantees runs before every
             // Start: otherwise the conversation plays whatever segment the
@@ -217,7 +238,7 @@ namespace GazeControl.Experiment
                     return;
                 }
 
-                Runner.BeginTake(condition, SeedOf(trial), trial.Conversation);
+                Runner.BeginTake(condition, SeedOf(trial), trial, _scheduleOrdinal);
 
                 if (!await Conversation.PlayLoadedAsync(destroyCancellationToken))
                     Debug.LogError($"{name}: could not start '{path}'; the session is stalled here.", this);
@@ -250,8 +271,11 @@ namespace GazeControl.Experiment
         /// </summary>
         void Report()
         {
+            var participant = Runner == null ? "(no runner)" : Runner.StudyParticipantId;
             var report = new System.Text.StringBuilder();
-            report.AppendLine($"{name}: session order ({_trials.Count} clips, identical for every participant)");
+            report.AppendLine(
+                $"{name}: session order for {participant} — {_trials.Count} clips, " +
+                $"counterbalancing schedule ordinal {_scheduleOrdinal}");
             for (var i = 0; i < _trials.Count; i++)
                 report.AppendLine("  " + _trials[i]);
 

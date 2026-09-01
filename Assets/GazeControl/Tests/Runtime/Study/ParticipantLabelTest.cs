@@ -87,12 +87,74 @@ namespace GazeControl.Study
         [Test]
         public void Next_ThirtyTimes_WalksAWholeStudy()
         {
-            // The real usage: N = 30, and every label along the way stays sortable.
+            // Well past the study's N = 18, because the padding has to survive
+            // beyond it: every label along the way stays two-wide and sortable.
             var label = "P00";
             for (var i = 0; i < 30; i++)
                 label = ParticipantLabel.Next(label);
 
             Assert.That(label, Is.EqualTo("P30"));
+        }
+
+        [Test]
+        public void ScheduleOrdinal_StartsAtZeroForTheFirstStudyParticipant()
+        {
+            // P05 is the first analysed participant, so it takes the schedule's
+            // first slot — the pilots are outside the schedule, not ahead of it.
+            Assert.That(ParticipantLabel.ScheduleOrdinal(ParticipantLabel.FirstStudyLabel), Is.EqualTo(0));
+        }
+
+        [Test]
+        public void ScheduleOrdinal_CountsUpOneParticipantAtATime()
+        {
+            Assert.That(ParticipantLabel.ScheduleOrdinal("P06"), Is.EqualTo(1));
+            Assert.That(ParticipantLabel.ScheduleOrdinal("P34"), Is.EqualTo(29));
+        }
+
+        [TestCase("P01")]
+        [TestCase("P04")]
+        public void ScheduleOrdinal_ForAPilot_IsRefused(string pilot)
+        {
+            // P01-P04 ran one common order before the schedule existed and are
+            // excluded from analysis. Mapping them into a slot would make the
+            // marginal balance depend on runs that are not in the sample.
+            Assert.That(ParticipantLabel.ScheduleOrdinal(pilot), Is.EqualTo(-1));
+        }
+
+        [Test]
+        public void ScheduleOrdinal_ForTheDebugLabel_IsRefused()
+        {
+            Assert.That(ParticipantLabel.ScheduleOrdinal(ParticipantLabel.DebugLabel), Is.EqualTo(-1));
+        }
+
+        [TestCase(null)]
+        [TestCase("")]
+        [TestCase("   ")]
+        [TestCase("P")]
+        public void ScheduleOrdinal_WithNoNumberToRead_IsRefused(string label)
+        {
+            Assert.That(ParticipantLabel.ScheduleOrdinal(label), Is.EqualTo(-1));
+        }
+
+        [Test]
+        public void ScheduleOrdinal_IgnoresSurroundingWhitespace()
+        {
+            // Same reason as Next: this is typed into an inspector field.
+            Assert.That(ParticipantLabel.ScheduleOrdinal(" P07 "), Is.EqualTo(2));
+        }
+
+        [Test]
+        public void ScheduleOrdinal_OverAWholeStudy_IsContiguousFromZero()
+        {
+            // The registered sample: 18 analysed participants, P05..P22, filling
+            // slots 0..17 with no gap — a gap would break the multiple-of-six
+            // balance silently.
+            var label = ParticipantLabel.FirstStudyLabel;
+            for (var expected = 0; expected < 18; expected++)
+            {
+                Assert.That(ParticipantLabel.ScheduleOrdinal(label), Is.EqualTo(expected));
+                label = ParticipantLabel.Next(label);
+            }
         }
     }
 }

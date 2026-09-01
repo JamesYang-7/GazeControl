@@ -25,6 +25,33 @@ about it. State this explicitly when reporting.
 
 ---
 
+## 0.1 Pilot exclusion — declared 2026-08-31, before any further participant
+
+**P01-P04 are pilots and are excluded from analysis. The analysed study begins at P05.**
+
+**Ground.** Those four ran under the single fixed method order of 2026-08-27, which every one of
+them received identically. That order was superseded on 2026-08-31 by the per-participant
+counterbalanced schedule of §1, so the four sit outside the schedule the analysed sample is drawn
+from. The exclusion is a property of *how their session was ordered*, decided before any of the
+remaining participants is run, and is not conditioned on anything they answered.
+
+**Disclosure, because it matters for how this reads.** The pilot responses had already been
+inspected when this was declared — condition means, per-participant rankings and the serial-position
+check are all in the 2026-08-31 discussion. The exclusion rule is nevertheless independent of them:
+it would apply identically whichever way those four had ranked the conditions, and it is stated
+here in full rather than left implicit. Their data stays in `Recordings/P01`-`P04` as a record; it
+is not analysed and does not enter any reported figure.
+
+**What is retained from them.** Nothing inferential. They confirmed the instrument and the session
+mechanics run end to end, and they showed that the eye tracker never produced a valid sample —
+which is why §7 is now scoped out (see that section).
+
+**Consequence for N.** The registered sample is **18 analysed participants, P05-P22**
+(`study-registration.md` §2). A multiple of six, so the counterbalancing marginals close exactly
+(§1); the pilots do not count toward it.
+
+---
+
 ## 1. Design
 
 **Within-subjects, fully crossed: 5 conversations × 3 methods = 15 clips per participant.**
@@ -47,16 +74,44 @@ Block k (k = 1..5):
 | Method (within) | Proposed, Baseline A (role-conditioned), Baseline B (speaker-following) |
 | Conversation (within) | 5 scene-1 segments |
 
-**Counterbalancing.** ~~Method order within a block has 6 permutations; each participant receives a
-different permutation per block, rotated across participants. Conversation order is randomised
-independently per participant.~~ **Superseded 2026-08-27 (user's call): every participant sees the
-same fixed order of all fifteen clips.** The reason is operational — with one known order, a log
-that goes missing or arrives misnamed is still identifiable by the position it occupied, which a
-per-participant shuffle makes impossible.
+**Counterbalancing.** ~~Every participant sees the same fixed order of all fifteen clips
+(2026-08-27).~~ **Superseded 2026-08-31: method order is counterbalanced per participant from a
+pre-generated schedule; conversation order stays fixed.**
 
-Method order still varies **between blocks**, and that is what keeps it sound. `StudySequence` picks
-the five permutations so each method sits in each serial position once or twice — as even as five
-blocks over three positions allows:
+The 2026-08-27 fixed order was adopted for an operational reason — with one known order, a log that
+goes missing or arrives misnamed is still identifiable by the position it occupied — and the
+objection it answered was to a *runtime shuffle*. A **pre-generated** schedule keeps that property
+in full: what any participant should have run is a pure function of their label, so it is recovered
+by looking it up rather than by knowing it by heart. The counterbalancing comes back at no cost to
+recoverability, which is why the fixed order was dropped.
+
+**The rule.** Block *b* of participant ordinal *i* takes permutation `(i + b) mod 6`, where the
+ordinal is `ParticipantLabel.ScheduleOrdinal` — P05 → 0, P06 → 1, and so on. That gives two
+properties at once:
+
+- **Within a participant**, the five blocks take five different permutations, so each method sits
+  in each serial position once or twice — as even as five blocks over three positions allows — and
+  nobody can learn that "the third one is always the proposed method".
+- **Across any six consecutive participants**, every block sees all six permutations, so each
+  method occupies each serial position *exactly* equally. The marginal balance is exact whenever
+  N is a multiple of six — which is why the registered N = 18 is one, and it restores the
+  multiple-of-six argument the fixed order had given up.
+
+Both are asserted in `StudySequenceTest`, the second at N = 6 and again at the registered N = 18.
+
+**N = 20 was considered and rejected**: 20 × 5 = 100 block-orders against 9 method × position cells
+gives an ideal of 33.33 per cell, so exact balance is impossible at that N under *any* scheme, not
+just this one. 18 and 24 both close; 18 was chosen (user's call, 2026-08-31).
+
+**Conversation order stays identical for every participant**, and deliberately so. It cannot enter
+the contrast between methods, which is made within a block against the same conversation, so
+randomising it buys nothing and would cost the block-identifiability above.
+
+Ordinal 0 — the schedule slot P05 occupies — happens to be the same permutation sequence the four
+pilots ran. That is a legitimate cell of the design, not a repeat of them: the pilots are excluded
+(§0.1) and are not in the sample the balance is computed over.
+
+The permutation sequence at ordinal 0 is:
 
 ```
 block 1  study_c1   B A P        B : pos1=2  pos2=1  pos3=2
@@ -66,14 +121,49 @@ block 4  study_c4   P A B
 block 5  study_c5   B P A
 ```
 
-Serial position is therefore balanced **within** each participant, which is where a novelty or
-fatigue effect would otherwise load onto one method; and a participant cannot learn that "the third
-one is always the proposed method", which back-to-back repetition would teach by block three.
+Ordinal 1 shifts every block one permutation on, and so on; the marginals close every sixth
+participant.
 
-**What this gives up, and must be reported as a limitation:** order effects no longer average across
-the sample as well as within it, and the N = 30 multiple-of-six argument no longer applies. Power for
-a 3-level within factor at f = 0.25, α = .05, power .80 is ≈28; run the formal calculation before
-committing.
+**Where the order is recorded, and when.** Four places, and the order survives losing any of them:
+
+| Where | What it holds | Written |
+|---|---|---|
+| `Recordings/<participant>/responses.csv` | `block`, `version_position`, `condition` per answer | header at session start; rows flushed as each screen is committed |
+| Take sidecar `<stem>.json` | `study_participant`, `case`, `condition`, **`block`, `version_position`, `schedule_ordinal`** | once per take, when it is armed |
+| Take filenames | `{participant}_{condition}_{timestamp}` | per take |
+| Console, via `StudySessionRunner.Report()` | the whole fifteen-clip order and the ordinal | once, at `Start()`, before the first clip |
+
+And it is recomputable from nothing but the label: `StudySequence.Build(conversations, conditions,
+ParticipantLabel.ScheduleOrdinal(label))` is pure, so P11's order regenerates on any machine with no
+files present at all.
+
+The three sidecar fields were added 2026-08-31 so that **a take places itself**. Before them the
+sidecar knew the participant and the condition but not the position, so an orphaned take had to be
+joined to `responses.csv` and the schedule recomputed. They are written **only** on a session take —
+a bake, a preview or a plain Play writes its sidecar from `Start()` and omits them, so their
+presence is itself the signal that the take belongs to a participant's session.
+
+**Power, and what N = 18 cannot resolve.** The multiple-of-six property makes N = 18 *close
+exactly*, but the sensitivity is what has to be reported. At N = 18 a paired test at α = .05
+two-sided has 80% power for **d_z ≥ 0.69**. Estimated from the four pilots (paired *d_z* on
+per-participant condition means, and pilot estimates at N = 4 are upward-biased, so these are
+optimistic):
+
+| contrast | *d_z* (pilot) | N for 80% power | resolvable at N = 18 |
+|---|---|---|---|
+| N1 Proposed vs A | 2.60 | ~2 | yes |
+| I1 Proposed vs B | 1.08 | ~9 | yes |
+| I1 Proposed vs A | 0.92 | ~11 | yes |
+| T2 Proposed vs A | 0.80 | ~14 | yes |
+| **T2 Proposed vs B** | 0.53 | **~30** | **no** |
+| **N1 Proposed vs B** | 0.51 | **~32** | **no** |
+
+**The Proposed-vs-B contrasts on N1 and T2 are the weak ones, and not because the gap is small** —
+it is +0.85 and +1.10 scale points. The paired SD is what kills them: one of the four pilots
+preferred B strongly on N1, T2 and A1 while rating it 1.4 on I1. This is **registered in advance**
+(`study-registration.md` §6.1): those two are reported with effect sizes and confidence intervals
+and read as *inconclusive* if they miss significance, never as evidence of no difference. The
+Proposed-vs-B case rests on the **ranking** and on **I1**, where the effects are large.
 
 Session length ≈35 min: 15 clips × ~25 s = ~6.5 min of stimulus, the rest instrument and setup.
 
@@ -94,7 +184,7 @@ animation.
 (decision 2026-08-21, extended to Proposed 2026-08-25). A fixed seed would let one draw stand in
 for a whole condition — an unlucky draw has already been observed in scene 2, where baseline A
 happened to avert 100% of a hold. Per-participant seeding samples each condition properly across
-the 30 participants, and the resulting variance is absorbed by the participant random effect.
+the analysed participants, and the resulting variance is absorbed by the participant random effect.
 Record every seed in the take's sidecar.
 
 **Proposed was called deterministic until 2026-08-25 and is not.** That was true when its substrate
@@ -365,7 +455,47 @@ merely wrong.
 
 ---
 
-## 7. Objective measures from captured user gaze
+## 7. Objective measures — participant gaze is out of scope (2026-08-31)
+
+**Participant eye tracking is not part of this study** (user's call, 2026-08-31). The reason is
+construct validity, not capability. §6.1 instructs the participant to attend to the characters'
+eye movements, and they can never take a turn — so what the tracker would record is *task-driven
+scanning under an instruction*, not the gaze of a third party in a conversation. Every measure
+below inherits that:
+
+- **Gaze allocation (face vs body)** would chiefly measure whether the instruction was followed.
+- **Mutual gaze proportion** is inflated by the same instruction in every condition.
+- **Gaze-return latency** is worse than confounded, it is *floored*: a participant already fixating
+  faces has no return to make, so the measure has no room to vary.
+
+The comparison to `ismar2024-agent-behavior-generation-user-study.md` §6.2 is the point — those
+participants were conversing freely and unprompted, so their allocation and mutual-gaze numbers
+mean what the authors say they mean. Ours would not. **Report this as a design decision with its
+reason**, not as a missing measure.
+
+**Confirmed empirically, and it made the decision cheap.** Across P01-P04 every one of ~97,500
+logged ticks reads `tracker=Invalid, calibrated=0, target_type=invalid` — the tracker never
+delivered a sample in sixty clips. Head pose *was* captured and is real (yaw spans roughly ±25°,
+participants do turn between the agents).
+
+**What replaces it: objective evidence about the stimulus rather than about the participant.** The
+20-column agent log plus its sidecar already characterise every baked track — target distribution
+by role, aversion fraction, shift timing relative to each EoT boundary — and
+`Research/corpora/gaze_events/gaze_events_md6.csv` is the human reference to score them against.
+That yields a **distributional-fidelity** result: how closely each policy reproduces measured human
+gaze statistics. It needs no participants, it is deterministic per seed, and it fits the thesis
+better than participant tracking did — *the gaze reproduces human statistics* and *people prefer
+it* are the two halves of one argument.
+
+**The capture stays built and keeps running.** `ParticipantGazeLogger`, `VarjoGazeSource` and
+`GazeSphereTargeting` are tested and cost nothing to leave in, and head pose may be worth an
+exploratory look later (baseline B drew 9.2 head switches/min against 7.0-7.1 for the other two
+across the four pilots — suggestive, nothing more, and not something to build on). Nothing here is
+promised as an analysis.
+
+---
+
+### 7.1 Superseded — the participant-gaze plan, kept for the record
 
 Eye tracking makes the human's gaze observable for the first time, which populates the
 `mutual_gaze_with_human` column that `baseline-spec.md` §6 has always reserved but could never fill.
@@ -395,10 +525,13 @@ real headset yet; see §9.2.
 
 ## 8. Analysis plan
 
-Fix before data collection; pre-register the primary comparisons.
+**Registered 2026-08-31 in `study-registration.md` §6**, by commit, before any analysed participant
+runs. That document is authoritative for what is tested; this section is the working detail behind
+it. There is **no external registry** (user's call), so the paper may say the analysis was *fixed in
+advance and recorded in the project repository* and must not say "pre-registered".
 
 **Primary — R1 rankings.** Per participant, average the 5 rankings per method into one mean rank.
-Friedman test across the three methods on 30 participants; Kendall's *W* for effect size; post-hoc
+Friedman test across the three methods on the 18 analysed participants; Kendall's *W* for effect size; post-hoc
 pairwise Wilcoxon signed-rank with Holm correction. Report mean rank per method.
 Secondary: a cumulative-link mixed model over all 150 trial-level rankings with random intercepts
 for participant and conversation.
@@ -524,6 +657,7 @@ Nothing below exists yet; all of it gates data collection.
 
 - Pilot the full session on 3–5 people before recruiting: session length, whether the framing reads
   naturally, whether the manipulation is perceived at all.
-- Formal power calculation to confirm N = 30.
+- ~~Formal power calculation to confirm N = 30.~~ Done 2026-08-31: N = 18 registered, sensitivity
+  d_z ≥ 0.69, and the two contrasts it cannot resolve are named in `study-registration.md` §6.1.
 - Whether Baseline A's per-participant seeding is reported as a strength (the condition is sampled,
   not exemplified) or additionally held constant for a secondary comparison.

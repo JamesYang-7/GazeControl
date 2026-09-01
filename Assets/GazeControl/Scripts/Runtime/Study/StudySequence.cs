@@ -38,40 +38,51 @@ namespace GazeControl.Study
     }
 
     /// <summary>
-    /// The fixed running order of a session: 5 conversations × 3 methods,
-    /// blocked by conversation.
+    /// The running order of a session: 5 conversations × 3 methods, blocked by
+    /// conversation, counterbalanced across participants.
     ///
-    /// <para><b>The same order for every participant</b> (user's call,
-    /// 2026-08-27, superseding the per-participant counterbalancing of
-    /// `user-study-design.md` §1). The reason is operational: with one known
-    /// order, a log file that goes missing or arrives misnamed can still be
-    /// identified by the position it occupied, which a per-participant shuffle
-    /// makes impossible.</para>
+    /// <para><b>Conversation order is identical for every participant</b> and
+    /// deliberately not randomised. It cannot enter the contrast between methods,
+    /// which is made within a block against the same conversation, so randomising
+    /// it buys nothing — and a fixed conversation order means a log that goes
+    /// missing or arrives misnamed is still identifiable by the block it sat
+    /// in.</para>
     ///
-    /// <para><b>Method order still varies between blocks</b>, and that is what
-    /// keeps the design sound. The permutations are chosen so that across the
-    /// five blocks each method sits in each serial position either once or twice
-    /// — as even as five blocks over three positions allows. Serial position is
-    /// therefore balanced <i>within</i> each participant, which is where a
-    /// novelty or fatigue effect would otherwise load onto one method. It also
-    /// means a participant cannot learn that "the third one is always the
-    /// proposed method", which back-to-back repetition would otherwise teach by
-    /// block three.</para>
+    /// <para><b>Method order within a block is counterbalanced by participant.</b>
+    /// Block <i>b</i> of participant ordinal <i>i</i> takes permutation
+    /// <c>(i + b) mod 6</c>, which gives two properties at once. Within one
+    /// participant the five blocks take five different permutations, so each
+    /// method sits in each serial position once or twice — as even as five blocks
+    /// over three positions allows — and nobody can learn that "the third one is
+    /// always the proposed method". Across any six consecutive participants each
+    /// block sees all six permutations, so each method occupies each serial
+    /// position exactly equally. The marginal balance is therefore exact whenever
+    /// N is a multiple of six, which is what the study's N = 30 rests on.</para>
     ///
-    /// <para>What is given up against §1: order effects no longer average across
-    /// the sample as well as within it, and the N = 30 multiple-of-six argument
-    /// no longer applies. Record it as a limitation rather than a property.</para>
+    /// <para><b>Pre-generated, not shuffled at run time</b> (2026-08-31,
+    /// superseding the single fixed order of 2026-08-27). The schedule is a pure
+    /// function of the participant ordinal, so what any participant should have
+    /// run is recoverable from their label alone — which is the property the
+    /// fixed order was protecting, kept while getting the counterbalancing back.
+    /// P01-P04 preceded this and ran one common order; they are declared pilots
+    /// and excluded (`user-study-design.md` §0.1), so the schedule covers the
+    /// analysed sample exactly.</para>
     /// </summary>
     public static class StudySequence
     {
         /// <summary>
         /// Build the running order. Pure and deterministic: the same inputs give
-        /// the same list, on any machine, for any participant.
+        /// the same list, on any machine.
         /// </summary>
         /// <param name="conversations">Conversation names, in the order their blocks run.</param>
         /// <param name="conditions">The methods, one block position each.</param>
+        /// <param name="participantOrdinal">
+        /// 0-based place in the counterbalancing schedule, from
+        /// <see cref="ParticipantLabel.ScheduleOrdinal"/>. Rotates which
+        /// permutation each block takes.
+        /// </param>
         public static IReadOnlyList<StudyTrial> Build(
-            IReadOnlyList<string> conversations, IReadOnlyList<string> conditions)
+            IReadOnlyList<string> conversations, IReadOnlyList<string> conditions, int participantOrdinal)
         {
             if (conversations == null || conversations.Count == 0)
                 throw new ArgumentException("a session needs at least one conversation", nameof(conversations));
@@ -84,9 +95,14 @@ namespace GazeControl.Study
 
             for (var block = 0; block < conversations.Count; block++)
             {
-                // Blocks cycle through the permutations in order. With three
-                // methods there are six, so five blocks never repeat one.
-                var order = permutations[block % permutations.Count];
+                // (ordinal + block) rather than block alone: blocks still cycle
+                // the permutations so five never repeat one, and the participant
+                // offset makes six consecutive participants cover all six
+                // permutations in every block. Floored modulo, because a caller
+                // that passes a negative ordinal should get a valid schedule
+                // rather than an IndexOutOfRange mid-session.
+                var rotation = participantOrdinal + block;
+                var order = permutations[((rotation % permutations.Count) + permutations.Count) % permutations.Count];
 
                 for (var position = 0; position < conditions.Count; position++)
                 {

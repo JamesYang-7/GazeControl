@@ -13,7 +13,14 @@ namespace GazeControl.Study
         static readonly string[] Conditions =
             { "SpeakerFollowing", "RoleConditioned", "Proposed" };
 
-        static IReadOnlyList<StudyTrial> Sut() => StudySequence.Build(Conversations, Conditions);
+        const int AnyOrdinal = 0;
+
+        static IReadOnlyList<StudyTrial> Sut(int participantOrdinal = AnyOrdinal) =>
+            StudySequence.Build(Conversations, Conditions, participantOrdinal);
+
+        /// <summary>How often each method sits at each 1-based serial position.</summary>
+        static int CountAt(IEnumerable<StudyTrial> trials, string condition, int position) =>
+            trials.Count(t => t.Condition == condition && t.VersionPosition == position);
 
         [Test]
         public void Build_ProducesTheFullyCrossedFifteen()
@@ -92,12 +99,81 @@ namespace GazeControl.Study
         [Test]
         public void Build_IsDeterministic()
         {
-            // Every participant gets this same list, and a missing log is
-            // identified by the position it occupied — both rest on this.
-            var first = Sut();
-            var second = Sut();
+            // A participant's order is recoverable from their label alone, which
+            // is what identifies a log that goes missing or arrives misnamed.
+            var first = Sut(7);
+            var second = Sut(7);
 
             Assert.That(first.Select(t => t.ToString()), Is.EqualTo(second.Select(t => t.ToString())));
+        }
+
+        [Test]
+        public void Build_GivesConsecutiveParticipantsDifferentMethodOrders()
+        {
+            // The counterbalancing itself: without this every participant would
+            // run one order and serial position could not be balanced across the
+            // sample.
+            var first = string.Join(",", Sut(0).Select(t => t.Condition));
+            var second = string.Join(",", Sut(1).Select(t => t.Condition));
+
+            Assert.That(second, Is.Not.EqualTo(first));
+        }
+
+        [Test]
+        public void Build_KeepsConversationOrderFixedAcrossParticipants()
+        {
+            // Conversation order is deliberately not counterbalanced: it cannot
+            // enter the within-block contrast between methods, and keeping it
+            // fixed is what makes a block identifiable.
+            var first = Sut(0).Select(t => t.Conversation);
+            var later = Sut(11).Select(t => t.Conversation);
+
+            Assert.That(later, Is.EqualTo(first));
+        }
+
+        [Test]
+        public void Build_OverSixParticipants_BalancesSerialPositionExactly()
+        {
+            // The claim the paper makes: across the sample each method occupies
+            // each serial position equally often. Six consecutive ordinals cover
+            // all six permutations in every block, so the marginals close exactly
+            // — which is why N is a multiple of six.
+            var sample = Enumerable.Range(0, 6).SelectMany(i => Sut(i)).ToList();
+            var expected = sample.Count / (Conditions.Length * 3);
+
+            foreach (var condition in Conditions)
+            {
+                for (var position = 1; position <= 3; position++)
+                    Assert.That(CountAt(sample, condition, position), Is.EqualTo(expected),
+                        $"{condition} at position {position} over six participants");
+            }
+        }
+
+        [Test]
+        public void Build_OverTheRegisteredSampleSize_BalancesSerialPositionExactly()
+        {
+            // The study's own N = 18 (study-registration.md §2). A multiple of
+            // six, so the same exactness holds — this is the assertion behind the
+            // paper's balance claim, so it names the registered N rather than an
+            // arbitrary large one.
+            var sample = Enumerable.Range(0, 18).SelectMany(i => Sut(i)).ToList();
+
+            foreach (var condition in Conditions)
+            {
+                for (var position = 1; position <= 3; position++)
+                    Assert.That(CountAt(sample, condition, position), Is.EqualTo(30),
+                        $"{condition} at position {position} over the registered eighteen");
+            }
+        }
+
+        [Test]
+        public void Build_WithNegativeOrdinal_StillProducesAValidOrder()
+        {
+            // ScheduleOrdinal returns -1 for a pilot or the debug label. The
+            // caller substitutes 0, but a negative must not index off the
+            // permutation table if one ever reaches here.
+            Assert.That(() => StudySequence.Build(Conversations, Conditions, -1), Throws.Nothing);
+            Assert.That(StudySequence.Build(Conversations, Conditions, -1).Count, Is.EqualTo(15));
         }
 
         [Test]
@@ -122,9 +198,9 @@ namespace GazeControl.Study
         [Test]
         public void Build_WithNothingToRun_IsRefused()
         {
-            Assert.That(() => StudySequence.Build(null, Conditions), Throws.ArgumentException);
-            Assert.That(() => StudySequence.Build(Conversations, null), Throws.ArgumentException);
-            Assert.That(() => StudySequence.Build(new string[0], Conditions), Throws.ArgumentException);
+            Assert.That(() => StudySequence.Build(null, Conditions, AnyOrdinal), Throws.ArgumentException);
+            Assert.That(() => StudySequence.Build(Conversations, null, AnyOrdinal), Throws.ArgumentException);
+            Assert.That(() => StudySequence.Build(new string[0], Conditions, AnyOrdinal), Throws.ArgumentException);
         }
 
         [Test]
@@ -134,7 +210,7 @@ namespace GazeControl.Study
             // first rather than fall off the table.
             var many = Enumerable.Range(1, 8).Select(i => "c" + i).ToArray();
 
-            var sut = StudySequence.Build(many, Conditions);
+            var sut = StudySequence.Build(many, Conditions, AnyOrdinal);
 
             Assert.That(sut.Count, Is.EqualTo(24));
             var first = sut.Where(t => t.BlockNumber == 1).OrderBy(t => t.VersionPosition).Select(t => t.Condition);

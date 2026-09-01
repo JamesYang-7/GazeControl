@@ -35,6 +35,37 @@ namespace GazeControl.Study
         public const string First = "P01";
 
         /// <summary>
+        /// How many participants ran before the counterbalanced schedule existed.
+        /// P01-P04 ran a single fixed method order — every one of them the same
+        /// one — and are declared pilots, excluded from analysis
+        /// (`user-study-design.md` §0.1, 2026-08-31).
+        /// </summary>
+        public const int PilotCount = 4;
+
+        /// <summary>
+        /// The first participant of the analysed study, and so the first one the
+        /// counterbalancing schedule covers.
+        /// </summary>
+        public const string FirstStudyLabel = "P05";
+
+        /// <summary>
+        /// This participant's 0-based place in the counterbalancing schedule, or
+        /// <c>-1</c> for a pilot, the debugging label, or anything unparseable.
+        ///
+        /// <para>The schedule covers the analysed participants only, so the
+        /// pilots are genuinely outside it rather than mapped into it — a pilot
+        /// that silently took a schedule slot would make the marginal balance
+        /// claim depend on runs that are not in the sample.</para>
+        /// </summary>
+        public static int ScheduleOrdinal(string label)
+        {
+            if (!TryTrailingNumber(label, out var number) || number <= PilotCount)
+                return -1;
+
+            return (int)(number - (PilotCount + 1));
+        }
+
+        /// <summary>
         /// Whether a label is the reserved debugging one. Case- and
         /// whitespace-insensitive, because it is typed into an inspector field.
         /// </summary>
@@ -56,28 +87,47 @@ namespace GazeControl.Study
 
             current = current.Trim();
 
-            // Walk back over the trailing digits; everything before them is a
-            // prefix to keep, so "P01" and "pilot_3" both work without the caller
-            // having to declare a format.
-            var end = current.Length;
-            var start = end;
-            while (start > 0 && char.IsDigit(current[start - 1]))
-                start--;
-
             // No trailing number to step: "P" becomes "P1" rather than being
             // refused, because refusing mid-session helps nobody.
-            if (start == end)
+            if (!TryTrailingNumber(current, out var number, out var start))
                 return current + "1";
 
             var digits = current.Substring(start);
-            if (!long.TryParse(digits, NumberStyles.None, CultureInfo.InvariantCulture, out var number))
-                return current + "1";
-
             var next = (number + 1).ToString(CultureInfo.InvariantCulture);
             if (next.Length < digits.Length)
                 next = next.PadLeft(digits.Length, '0');
 
             return current.Substring(0, start) + next;
+        }
+
+        static bool TryTrailingNumber(string label, out long number) =>
+            TryTrailingNumber(label, out number, out _);
+
+        /// <summary>
+        /// The label's trailing digits as a number, and where they start.
+        ///
+        /// <para>Walks back over the digits rather than matching a format, so
+        /// "P01" and "pilot_3" both work without the caller having to declare
+        /// one.</para>
+        /// </summary>
+        static bool TryTrailingNumber(string label, out long number, out int start)
+        {
+            number = 0;
+            start = 0;
+
+            if (string.IsNullOrWhiteSpace(label))
+                return false;
+
+            label = label.Trim();
+
+            var end = label.Length;
+            start = end;
+            while (start > 0 && char.IsDigit(label[start - 1]))
+                start--;
+
+            return start != end &&
+                   long.TryParse(label.Substring(start), NumberStyles.None,
+                       CultureInfo.InvariantCulture, out number);
         }
     }
 }

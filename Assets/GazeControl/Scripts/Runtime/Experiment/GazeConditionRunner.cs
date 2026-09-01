@@ -174,6 +174,15 @@ namespace GazeControl.Experiment
 
         const float VoiceReportInterval = 5f;
 
+        // Where this take sits in the session, for the sidecar. Only a
+        // study session sets them: a bake, a preview or a plain Play writes
+        // its sidecar from Start() with _inStudySession still false, and the
+        // three fields are then omitted rather than written as zeros that
+        // would read like a real position.
+        Study.StudyTrial _studyTrial;
+        int _studyScheduleOrdinal;
+        bool _inStudySession;
+
         AudioClipVoiceDetector[] _voiceDetectors;
         VoiceActivityTracker _voiceActivity;
         GazeParticipant[] _agents;
@@ -326,13 +335,31 @@ namespace GazeControl.Experiment
         /// starts, or the first ticks of the clip would be decided by the
         /// previous take's policies.
         /// </remarks>
-        public void BeginTake(GazeCondition condition, int baseSeed, string caseName)
+        /// <summary>
+        /// Arm the next take of a study session.
+        /// </summary>
+        /// <param name="condition">The gaze method this take plays.</param>
+        /// <param name="baseSeed">The conversation's baked-track seed.</param>
+        /// <param name="trial">
+        /// Where this take sits in the session. Recorded in the sidecar so that
+        /// a take is placeable on its own, without joining it to
+        /// <c>responses.csv</c> and recomputing the schedule.
+        /// </param>
+        /// <param name="scheduleOrdinal">
+        /// The participant's counterbalancing slot, from
+        /// <see cref="Study.ParticipantLabel.ScheduleOrdinal"/>.
+        /// </param>
+        public void BeginTake(GazeCondition condition, int baseSeed, Study.StudyTrial trial, int scheduleOrdinal)
         {
             EndTake();
 
             Condition = condition;
             BaseSeed = baseSeed;
-            CaseName = caseName;
+            CaseName = trial.Conversation;
+
+            _studyTrial = trial;
+            _studyScheduleOrdinal = scheduleOrdinal;
+            _inStudySession = true;
 
             _takeEnded = false;
             _participantLogStarted = false;
@@ -353,7 +380,9 @@ namespace GazeControl.Experiment
             _log?.WriteMetadata(BuildMetadataJson());
             PrepareBake();
 
-            Debug.Log($"{name}: take armed — {caseName} / {condition} / seed {baseSeed}.", this);
+            Debug.Log(
+                $"{name}: take armed — {CaseName} / {condition} / seed {baseSeed} " +
+                $"(block {trial.BlockNumber}, version {trial.VersionPosition}).", this);
         }
 
 
@@ -1312,6 +1341,16 @@ namespace GazeControl.Experiment
             json.Append($"  \"study_participant\": \"{StudyParticipantId}\",\n");
             json.Append($"  \"case\": \"{CaseName}\",\n");
             json.Append($"  \"condition\": \"{Condition}\",\n");
+
+            // Present only on a session take, and their presence is itself
+            // the signal that it was one. Named as responses.csv names them,
+            // so the two files join without a translation step.
+            if (_inStudySession)
+            {
+                json.Append($"  \"block\": {_studyTrial.BlockNumber.ToString(c)},\n");
+                json.Append($"  \"version_position\": {_studyTrial.VersionPosition.ToString(c)},\n");
+                json.Append($"  \"schedule_ordinal\": {_studyScheduleOrdinal.ToString(c)},\n");
+            }
             json.Append($"  \"base_seed\": {BaseSeed.ToString(c)},\n");
             json.Append($"  \"decision_hz\": {DecisionHz.ToString("0.##", c)},\n");
             json.Append($"  \"voice_rms_threshold\": {VoiceRmsThreshold.ToString("0.#####", c)},\n");
