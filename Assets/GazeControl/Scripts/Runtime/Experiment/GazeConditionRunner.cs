@@ -101,8 +101,8 @@ namespace GazeControl.Experiment
 
         [field: SerializeField]
         [field: Tooltip("Study participant (the human subject) identifier written to the log. " +
-                        "P00 is reserved for debugging; real participants start at P01 — " +
-                        "Alt+N, or the component's Next Participant menu item, steps it.")]
+                        "Set for you by GazeControl → Study → Start Session, which takes the next " +
+                        "free label from the recordings folder; P00 is reserved for debugging.")]
         public string StudyParticipantId { get; set; } = Study.ParticipantLabel.DebugLabel;
 
         [field: SerializeField]
@@ -142,11 +142,15 @@ namespace GazeControl.Experiment
 #if UNITY_EDITOR
         /// <summary>
         /// Step <see cref="StudyParticipantId"/> to the next label, from the
-        /// component's context menu (the gear icon) or its keyboard shortcut.
+        /// component's context menu (the gear icon).
         ///
-        /// <para>Saves retyping it between participants, which is the one field
-        /// that has to change for each of the thirty and the one whose default
-        /// would silently mislabel a whole session's files.</para>
+        /// <para>A correction path, not the procedure: GazeControl → Study →
+        /// Start Session derives the label from the recordings folder and sets it
+        /// itself, so nothing about a normal session comes through here. It had a
+        /// keyboard shortcut (Alt+N) while stepping by hand <i>was</i> the
+        /// procedure; that is gone, because a key that silently relabels the next
+        /// participant's whole session earns its place only if someone has to
+        /// press it.</para>
         ///
         /// <para>Refused while playing: a relabel mid-session would split one
         /// participant's fifteen takes across two names, and the logs already
@@ -422,65 +426,89 @@ namespace GazeControl.Experiment
         /// overlay names the very boundaries the questionnaire asks people to
         /// judge.
         /// </summary>
-        string StudySessionProblem()
+        string StudySessionProblem() =>
+            StudySession ? Study.StudySessionRules.FirstProblem(StudyState()) : null;
+
+        /// <summary>
+        /// What the study rules see from this scene, at this moment.
+        ///
+        /// <para>The rules themselves are pure and shared with the operator's
+        /// Start Session window, which evaluates the same state in Edit Mode.
+        /// That is the point of the split: this guard fires in <c>Awake</c>, with
+        /// the participant already wearing the headset, and by then the useful
+        /// moment to be told has passed. Both readers must nonetheless agree
+        /// exactly, or the window says ready and this then refuses.</para>
+        ///
+        /// <para>Only wiring is gathered here. Whether the headset is up and the
+        /// wearer's eye tracking is calibrated cannot be known at <c>Awake</c> —
+        /// the rig starts XR in <c>Start</c> and the operator calibrates after
+        /// donning — so those are reported by the logger during the take.</para>
+        /// </summary>
+        public Study.StudySessionState StudyState()
         {
-            if (!StudySession)
-                return null;
+            var participant = StudyParticipantId?.Trim();
+            var sessionRunner = FindAnyObjectByType<StudySessionRunner>(FindObjectsInactive.Include);
+            var rig = ParticipantGaze != null ? ParticipantGaze.Rig : null;
+            var folder = ParticipantFolderPath(participant);
 
-            // Checked first because it is about who the run is for. P00 is the
-            // committed default and the label every development run carries, so
-            // a participant run still on it would file fifteen takes under the
-            // same name as the debugging ones — recoverable only by timestamp,
-            // and only if someone noticed.
-            if (string.Equals(StudyParticipantId?.Trim(), Study.ParticipantLabel.DebugLabel,
-                    StringComparison.OrdinalIgnoreCase))
-                return $"the participant label is still {Study.ParticipantLabel.DebugLabel}, which is " +
-                       "reserved for debugging. Press Alt+N (or Next Participant on this component) to " +
-                       $"step it to {Study.ParticipantLabel.First}.";
-
-            if (string.IsNullOrWhiteSpace(StudyParticipantId))
-                return "the participant label is empty, so this participant's takes would be unattributable.";
-
-            if (Tracks != TrackMode.Replay)
-                return $"Tracks is {Tracks}, so gaze would be decided live and this participant " +
-                       "would see a different take from everyone else.";
-
-            if (_track == null || _track.agents.Length == 0)
-                return $"no baked track is loaded — expected one at {TrackPath()}.";
-
-            if (!LoggingEnabled)
-                return "logging is off, so the trial would leave no record.";
-
-            // Only the wiring is checked here. Whether the headset is up and the
-            // wearer's eye tracking is calibrated cannot be known at Awake — the
-            // rig starts XR in Start and the operator calibrates after donning —
-            // so those are reported by the logger during the take instead.
-            if (ParticipantGaze == null)
-                return "no ParticipantGazeLogger is wired, so the study's objective gaze measures " +
-                       "would not be recorded for this participant.";
-
-            if (ParticipantGaze.Rig == null || ParticipantGaze.Rig.HeadCamera == null)
-                return "the participant gaze logger has no rig or head camera, so it would record " +
-                       "neither head pose nor gaze.";
-
-            // Checked in the scene rather than through a field: this runner does
-            // not drive the questionnaire and should not hold a reference to it.
-            // Without one the fifteen takes still play and still log, and the
-            // participant is never asked anything — a session that looks complete
-            // and answers nothing the study is about.
-            if (FindAnyObjectByType<QuestionnaireSession>(FindObjectsInactive.Include) == null)
-                return "there is no QuestionnaireSession in the scene, so this participant would watch " +
-                       "all fifteen clips and never be asked a question. Run GazeControl → Set Up Questionnaire.";
-
+            string overlayOn = null;
             foreach (var overlay in FindObjectsByType<DeveloperOverlay>(
                          FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
                 if (overlay.Enabled)
-                    return $"the developer overlay on '{overlay.name}' is on, and it names the " +
-                           "end-of-turn boundaries the questionnaire asks about.";
+                {
+                    overlayOn = overlay.name;
+                    break;
+                }
             }
 
-            return null;
+            return new Study.StudySessionState
+            {
+                ParticipantLabel = participant,
+                ParticipantHasRun = folder != null && System.IO.Directory.Exists(folder),
+                ParticipantFolder = folder,
+                TrackMode = Tracks.ToString(),
+                ReplayingBakedTrack = Tracks == TrackMode.Replay,
+                TrackLoaded = _track != null && _track.agents.Length > 0,
+                TrackPath = TrackPath(),
+                LoggingEnabled = LoggingEnabled,
+                ParticipantGazeWired = ParticipantGaze != null,
+                ParticipantGazeRigWired = rig != null && rig.HeadCamera != null,
+
+                // Looked up in the scene rather than held as a field: this runner
+                // does not drive the questionnaire and should not own a reference
+                // to it. Without one the fifteen takes still play and still log,
+                // and nobody is ever asked anything.
+                QuestionnairePresent =
+                    FindAnyObjectByType<QuestionnaireSession>(FindObjectsInactive.Include) != null,
+                DeveloperOverlayOn = overlayOn,
+                SessionRunnerPresent = sessionRunner != null && sessionRunner.gameObject.activeInHierarchy,
+                SessionRunnerEnabled = sessionRunner != null && sessionRunner.enabled,
+                XrStartsOnPlay = ParticipantGaze != null && ParticipantGaze.Rig != null &&
+                                 ParticipantGaze.Rig.StartXrOnPlay,
+                XrLoader = Xr.XrLoaderStatus.LoaderName,
+
+                // Null, not empty: this runner sees one clip and cannot answer for
+                // the session's other fourteen. The window, which knows the whole
+                // running order, fills these in.
+                MissingSegments = null,
+                MissingTracks = null,
+            };
+        }
+
+        /// <summary>
+        /// Where this participant's folder would be, or null when the label
+        /// cannot name one. The debugging label is excluded on purpose: its
+        /// folder is timestamped, so it never collides and never counts as
+        /// already run.
+        /// </summary>
+        string ParticipantFolderPath(string participant)
+        {
+            if (string.IsNullOrEmpty(participant) || Study.ParticipantLabel.IsDebugLabel(participant))
+                return null;
+
+            return System.IO.Path.Combine(
+                Application.dataPath, "..", OutputDirectory, participant);
         }
 
         /// <summary>

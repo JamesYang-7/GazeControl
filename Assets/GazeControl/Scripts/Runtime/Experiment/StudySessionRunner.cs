@@ -1,6 +1,9 @@
+using System;
 using System.Collections.Generic;
+using System.IO;
 using GazeControl.Conversation;
 using GazeControl.Study;
+using GazeControl.Xr;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -84,6 +87,18 @@ namespace GazeControl.Experiment
         int _scheduleOrdinal;
         int _index = -1;
         bool _busy;
+        StudySessionRecord _record;
+
+        /// <summary>
+        /// This participant's own folder, once a real session has opened one;
+        /// empty on a development run.
+        ///
+        /// <para>The session owns it rather than each writer computing it, so the
+        /// session record and the questionnaire's answers cannot land in two
+        /// folders. They would for the debugging label, whose folder carries a
+        /// timestamp: two writers asking for it a second apart get two folders.</para>
+        /// </summary>
+        public string ParticipantDirectory { get; private set; } = string.Empty;
 
         /// <summary>
         /// This participant's place in the counterbalancing schedule, which
@@ -106,6 +121,10 @@ namespace GazeControl.Experiment
 
         void Awake()
         {
+#if UNITY_EDITOR
+            ApplyLaunchRequest();
+#endif
+
             var conditions = new[]
             {
                 nameof(GazeConditionRunner.GazeCondition.SpeakerFollowing),
@@ -147,12 +166,66 @@ namespace GazeControl.Experiment
                     "tracks were baked at, or the wrong take will play.", this);
         }
 
+#if UNITY_EDITOR
+        /// <summary>
+        /// Turn this play into the session the operator asked for, if they asked
+        /// for one from GazeControl → Study → Start Session.
+        ///
+        /// <para>Everything a participant run needs that is otherwise a field
+        /// somebody has to remember: the label, study mode, replayed tracks,
+        /// logging, this component, the headset and the developer overlay. Applied
+        /// here so they are play-session state and the committed scene keeps its
+        /// development defaults — see <see cref="StudyLaunchRequest"/>.</para>
+        ///
+        /// <para>Awake, not Start, and the whole point of this component's
+        /// execution order: the gaze runner reads every one of these in its own
+        /// <c>Awake</c>. The rig shares that order and so has no guaranteed
+        /// position against this — but it reads <c>StartXrOnPlay</c> in
+        /// <c>Start</c>, and every Awake runs before any Start, so the flag is in
+        /// place whichever way the two are ordered.</para>
+        /// </summary>
+        void ApplyLaunchRequest()
+        {
+            if (!StudyLaunchRequest.TryConsume(out var participant))
+                return;
+
+            // The scene's committed state has this off — it is how a bake, a demo
+            // recording and a preview each say they are not a participant run.
+            enabled = true;
+
+            if (Runner != null)
+            {
+                Runner.StudyParticipantId = participant;
+                Runner.StudySession = true;
+                Runner.Tracks = GazeConditionRunner.TrackMode.Replay;
+                Runner.LoggingEnabled = true;
+            }
+
+            var rig = FindAnyObjectByType<XrParticipantRig>(FindObjectsInactive.Include);
+            if (rig != null)
+                rig.StartXrOnPlay = true;
+
+            foreach (var overlay in FindObjectsByType<DeveloperOverlay>(
+                         FindObjectsInactive.Include, FindObjectsSortMode.None))
+                overlay.Enabled = false;
+
+            Debug.Log(
+                $"{name}: study launch for {participant} — study mode on, baked tracks replayed, logging " +
+                "on, headset starting, developer overlay off. These are play-session settings; the scene " +
+                "asset is untouched and reverts when play stops.", this);
+        }
+#endif
+
         void Start()
         {
             Report();
+            BeginRecord();
 
             if (Pause != null)
+            {
                 Pause.Advanced += Pause_Advanced;
+                Pause.ClipEnded += Pause_ClipEnded;
+            }
 
             // The scene's own first clip is whatever the inspector was left on,
             // which is almost never trial 1. Take it over immediately so the
@@ -164,7 +237,77 @@ namespace GazeControl.Experiment
         void OnDestroy()
         {
             if (Pause != null)
+            {
                 Pause.Advanced -= Pause_Advanced;
+                Pause.ClipEnded -= Pause_ClipEnded;
+            }
+        }
+
+        /// <summary>
+        /// Open this participant's folder and write the session record into it,
+        /// at the start of the session rather than at its end.
+        ///
+        /// <para>A session that stopped at clip nine otherwise looks exactly like
+        /// one that finished: the take logs are named per conversation, so a
+        /// missing one cannot be told from a clip nobody reached. Writing the
+        /// record first also puts the folder on disk immediately, which is what
+        /// keeps the next participant off this label even if this session ends
+        /// before a single question is answered.</para>
+        ///
+        /// <para>Only for a real session. A development run would otherwise leave
+        /// a timestamped folder behind on every press of Play.</para>
+        /// </summary>
+        void BeginRecord()
+        {
+            if (Runner == null || !Runner.StudySession)
+                return;
+
+            var participant = Runner.StudyParticipantId?.Trim();
+            if (string.IsNullOrEmpty(participant))
+                return;
+
+            var projectRoot = Path.Combine(Application.dataPath, "..");
+            ParticipantDirectory = Path.Combine(
+                projectRoot, Runner.OutputDirectory, ParticipantFolder.NameFor(participant, DateTime.Now));
+
+            _record = StudySessionRecord.Begin(
+                participant, _scheduleOrdinal, _trials, Application.unityVersion,
+                GitHead.Read(projectRoot), DateTime.UtcNow);
+
+            try
+            {
+                _record.Save(ParticipantDirectory);
+                Debug.Log($"{name}: session record opened at {StudySessionRecord.PathIn(ParticipantDirectory)}", this);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                // Reported, not fatal: the record is provenance, and refusing to
+                // run a participant over it would cost more than it saves.
+                Debug.LogError($"{name}: could not write the session record — {e.Message}", this);
+                _record = null;
+            }
+        }
+
+        /// <summary>Record how far the session got, as each clip finishes.</summary>
+        void Pause_ClipEnded()
+        {
+            if (_record == null)
+                return;
+
+            _record.clipsCompleted = _index + 1;
+
+            if (_index >= _trials.Count - 1)
+                _record.Complete(DateTime.UtcNow);
+
+            try
+            {
+                _record.Save(ParticipantDirectory);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                Debug.LogError($"{name}: could not update the session record — {e.Message}", this);
+                _record = null;
+            }
         }
 
         void Update()

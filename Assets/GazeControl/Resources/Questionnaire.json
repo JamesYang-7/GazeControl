@@ -11,7 +11,7 @@
   },
   "framing": {
     "title": "Before we begin",
-    "body": "You are the third person in this conversation. Please pay attention to the EYE MOVEMENT behavior of the characters, especially when the speaker changes. You will be asked some questions after each conversation. There are 5 groups * 3 versions."
+    "body": "You are the THIRD PERSON in this conversation.\nPlease pay attention to the EYE MOVEMENT behavior of the characters, especially when the speaker changes. You will be asked some questions after each conversation.\nThere are 5 groups * 3 versions."
   },
   "spokenAnswerInstruction": "Please say your answer out loud.",
   "perClipItems": [

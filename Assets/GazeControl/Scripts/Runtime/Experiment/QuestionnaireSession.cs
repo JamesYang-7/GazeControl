@@ -490,12 +490,15 @@ namespace GazeControl.Experiment
         /// </summary>
         string ResponseDirectory(string participant)
         {
-            var root = Path.Combine(Application.dataPath, "..", OutputDirectory);
-            var folder = ParticipantLabel.IsDebugLabel(participant)
-                ? $"{participant}_{DateTime.Now:yyyyMMdd_HHmmss}"
-                : participant;
+            // The session opens the participant's folder first and the answers
+            // belong beside its record, so its answer wins. Computing it again
+            // here would put them in two folders whenever the timestamped debug
+            // label was in play and the two calls fell in different seconds.
+            if (Session != null && !string.IsNullOrEmpty(Session.ParticipantDirectory))
+                return Session.ParticipantDirectory;
 
-            return Path.Combine(root, folder);
+            var root = Path.Combine(Application.dataPath, "..", OutputDirectory);
+            return Path.Combine(root, ParticipantFolder.NameFor(participant, DateTime.Now));
         }
 
         /// <summary>The trial that filled one slot of a block, for the conversation and condition a row needs.</summary>
