@@ -37,8 +37,30 @@ namespace GazeControl.Study
         public Scale scale;
         public Passage framing;
 
-        /// <summary>Shown on every rating screen, because the participant answers aloud (§5.5).</summary>
-        public string spokenAnswerInstruction;
+        /// <summary>
+        /// Heading over the four Likert items, so the participant can tell a
+        /// rating screen from the framing, the ranking and the close at a
+        /// glance. Optional: an instrument without it shows the items alone,
+        /// which is what every instrument did before 2026-09-02.
+        /// </summary>
+        public string ratingTitle;
+
+        /// <summary>
+        /// Heading over the ranking and free-text probe, which the participant
+        /// reads as one page of two numbered questions. Optional, like
+        /// <see cref="ratingTitle"/>.
+        /// </summary>
+        public string shortAnswerTitle;
+
+        /// <summary>
+        /// Foot of the short-answer page, composed with the 1-based group about
+        /// to be watched — "Next: group 3". It is the participant's only sense of
+        /// where they are in a session of five, and the page it sits on is the
+        /// one they read just before a group starts. Optional; nothing is shown
+        /// after the last group, which is followed by the closing passage rather
+        /// than by another one.
+        /// </summary>
+        public string nextGroupFormat;
 
         public Item[] perClipItems;
         public RankingQuestion ranking;
@@ -75,6 +97,12 @@ namespace GazeControl.Study
             return definition;
         }
 
+        /// <summary>The foot of the short-answer page, or empty when there is no group after this one.</summary>
+        public string NextGroupText(int groupNumber) =>
+            groupNumber <= 0 || string.IsNullOrWhiteSpace(nextGroupFormat)
+                ? string.Empty
+                : string.Format(nextGroupFormat, groupNumber);
+
         /// <summary>The item with this code, or null.</summary>
         public Item FindItem(string code)
         {
@@ -110,11 +138,17 @@ namespace GazeControl.Study
                 throw new InvalidDataException($"scale rangeHint is not a usable format string: {e.Message}");
             }
 
+            try
+            {
+                _ = NextGroupText(1);
+            }
+            catch (FormatException e)
+            {
+                throw new InvalidDataException($"nextGroupFormat is not a usable format string: {e.Message}");
+            }
+
             RequirePassage(framing, nameof(framing));
             RequirePassage(closing, nameof(closing));
-
-            if (string.IsNullOrWhiteSpace(spokenAnswerInstruction))
-                throw new InvalidDataException("questionnaire has no spoken-answer instruction");
 
             if (perClipItems == null || perClipItems.Length == 0)
                 throw new InvalidDataException("questionnaire has no per-clip items");
@@ -169,8 +203,8 @@ namespace GazeControl.Study
             /// bounds so the sentence cannot drift from the scale it describes.
             /// It exists because the anchors alone read as a three-option menu —
             /// participants asked whether the choice was 1, 4 or 7 — and it lives
-            /// here rather than in <c>spokenAnswerInstruction</c>, which the ranking
-            /// and free-text screens share and where a "1 to 7" would be wrong.
+            /// here rather than anywhere the ranking and free-text page could
+            /// reach, since a "1 to 7" would be wrong on it.
             /// Optional: an instrument without it shows the anchors alone.
             /// </summary>
             public string rangeHint;
@@ -231,8 +265,15 @@ namespace GazeControl.Study
         public sealed class CommentQuestion
         {
             public string code;
+
+            /// <summary>
+            /// Carries its own "(optional)" — there is no instruction line beside
+            /// it on either surface, because the participant's page shows prompts
+            /// alone and a second sentence saying the same thing was one more
+            /// line for the operator to read past.
+            /// </summary>
             public string prompt;
-            public string instruction;
+
             public bool optional;
         }
     }

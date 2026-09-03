@@ -11,14 +11,14 @@ namespace GazeControl.Study
             QuestionnaireScript.Build(QuestionnaireFixture.Definition(), blocks, versions);
 
         [Test]
-        public void BuildForStudy_ProducesTheTwentyTwoScreensTheDesignCountsOn()
+        public void BuildForStudy_ProducesTheTwentyFourScreensTheDesignCountsOn()
         {
             var sut = QuestionnaireScript.BuildForStudy(QuestionnaireFixture.Definition());
 
             // Screens.Count, not Has.Count: NUnit resolves Has.Count by
             // reflecting on the runtime type, which is the backing array and so
             // exposes Length rather than Count.
-            Assert.That(sut.Screens.Count, Is.EqualTo(22));
+            Assert.That(sut.Screens.Count, Is.EqualTo(24));
         }
 
         [Test]
@@ -40,6 +40,8 @@ namespace GazeControl.Study
             Assert.That(kinds, Is.EqualTo(new[]
             {
                 QuestionnaireScreenKind.Framing,
+                QuestionnaireScreenKind.RatingPreview,
+                QuestionnaireScreenKind.ShortAnswerPreview,
                 QuestionnaireScreenKind.Rating, QuestionnaireScreenKind.Rating, QuestionnaireScreenKind.Rating,
                 QuestionnaireScreenKind.Ranking,
                 QuestionnaireScreenKind.Rating, QuestionnaireScreenKind.Rating, QuestionnaireScreenKind.Rating,
@@ -77,7 +79,8 @@ namespace GazeControl.Study
             var sut = Sut();
 
             var passages = sut.Screens.Where(screen =>
-                screen.Kind is QuestionnaireScreenKind.Framing or QuestionnaireScreenKind.Closing);
+                screen.Kind is QuestionnaireScreenKind.Framing or QuestionnaireScreenKind.RatingPreview
+                    or QuestionnaireScreenKind.ShortAnswerPreview or QuestionnaireScreenKind.Closing);
 
             Assert.That(passages, Has.All.Matches<QuestionnaireScreen>(screen => screen.BlockNumber == 0));
         }

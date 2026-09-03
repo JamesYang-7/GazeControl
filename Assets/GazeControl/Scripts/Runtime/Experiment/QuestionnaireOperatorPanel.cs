@@ -103,6 +103,14 @@ namespace GazeControl.Experiment
                     GUILayout.Label(definition.framing.body, _label);
                     break;
 
+                case QuestionnaireSession.Phase.RatingPreview:
+                    DrawRatingPreview(definition);
+                    break;
+
+                case QuestionnaireSession.Phase.ShortAnswerPreview:
+                    DrawShortAnswerPreview(definition);
+                    break;
+
                 case QuestionnaireSession.Phase.Playing:
                     GUILayout.Label("Clip playing — nothing to enter.", _label);
                     break;
@@ -135,12 +143,46 @@ namespace GazeControl.Experiment
             }
         }
 
+        /// <summary>
+        /// The four rating items before the first clip: the participant is shown
+        /// them so they know what follows every version, and nothing is entered.
+        /// Read them aloud and move on.
+        /// </summary>
+        void DrawRatingPreview(QuestionnaireDefinition definition)
+        {
+            GUILayout.Label("Read to the participant — these come after every version:", _heading);
+
+            foreach (var item in definition.perClipItems)
+                GUILayout.Label(item.text, _label);
+
+            GUILayout.Space(6f);
+            GUILayout.Label(
+                $"Scale {definition.scale.min}-{definition.scale.max}: " +
+                $"{definition.scale.min} {definition.scale.minLabel}, {definition.scale.max} {definition.scale.maxLabel}",
+                _label);
+            GUILayout.Label("Nothing is answered here.", _label);
+        }
+
+        /// <summary>
+        /// The two short-answer questions before the first clip: the participant
+        /// is shown them so they know what a group ends with, and nothing is
+        /// entered. Read them aloud and move on.
+        /// </summary>
+        void DrawShortAnswerPreview(QuestionnaireDefinition definition)
+        {
+            GUILayout.Label("Read to the participant — these come after every conversation:", _heading);
+            GUILayout.Label(definition.ranking.prompt, _label);
+            GUILayout.Label(definition.ranking.instruction ?? string.Empty, _label);
+            GUILayout.Label(definition.comment.prompt, _label);
+            GUILayout.Space(6f);
+            GUILayout.Label("Nothing is answered here.", _label);
+        }
+
         void DrawRating(QuestionnaireDefinition definition)
         {
             var entry = Session.Entry;
             var items = definition.perClipItems;
 
-            GUILayout.Label("Read each item aloud; type what the participant says.", _heading);
             GUILayout.Label(
                 $"Scale {definition.scale.min}-{definition.scale.max}: " +
                 $"{definition.scale.min} {definition.scale.minLabel}, {definition.scale.max} {definition.scale.maxLabel}",
@@ -181,7 +223,6 @@ namespace GazeControl.Experiment
         {
             GUILayout.Label("Read aloud:", _heading);
             GUILayout.Label(definition.comment.prompt, _label);
-            GUILayout.Label(definition.comment.instruction, _label);
             GUILayout.Space(6f);
 
             GUI.SetNextControlName(k_CommentControl);
@@ -215,7 +256,9 @@ namespace GazeControl.Experiment
                     "[1-3] rank each version in turn   [Backspace] undo   [Enter] record",
                 QuestionnaireSession.Phase.Comment =>
                     "type the answer, or leave it empty   [Ctrl+Enter] record",
-                QuestionnaireSession.Phase.Framing => "[Enter] start the first clip",
+                QuestionnaireSession.Phase.Framing => "[Enter] show the four rating items",
+                QuestionnaireSession.Phase.RatingPreview => "[Enter] show the two end-of-group questions",
+                QuestionnaireSession.Phase.ShortAnswerPreview => "[Enter] start the first clip",
                 QuestionnaireSession.Phase.Closing => "[Enter] finish the session",
                 _ => string.Empty,
             };

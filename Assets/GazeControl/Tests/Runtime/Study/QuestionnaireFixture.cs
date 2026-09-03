@@ -16,7 +16,6 @@ namespace GazeControl.Study
   ""source"": ""fixture"",
   ""scale"": { ""min"": 1, ""max"": 7, ""minLabel"": ""low"", ""midLabel"": ""mid"", ""maxLabel"": ""high"" },
   ""framing"": { ""title"": ""Before"", ""body"": ""Framing body."" },
-  ""spokenAnswerInstruction"": ""Say your answer out loud."",
   ""perClipItems"": [
     { ""code"": ""N1"", ""text"": ""Item one."", ""construct"": ""One"" },
     { ""code"": ""T2"", ""text"": ""Item two."", ""construct"": ""Two"" }
@@ -27,7 +26,7 @@ namespace GazeControl.Study
     ""instruction"": ""No ties."",
     ""versionLabelFormat"": ""Version {0}""
   },
-  ""comment"": { ""code"": ""D1"", ""prompt"": ""Anything odd?"", ""instruction"": ""May skip."", ""optional"": true },
+  ""comment"": { ""code"": ""D1"", ""prompt"": ""Anything odd? (optional)"", ""optional"": true },
   ""closing"": { ""title"": ""Done"", ""body"": ""Closing body."" }
 }";
 

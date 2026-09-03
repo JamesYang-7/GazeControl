@@ -18,12 +18,15 @@ namespace GazeControl.Experiment
     /// already produced one enumeration surprise. There is nothing here to point
     /// at, so there is nothing to go wrong in the headset.</para>
     ///
-    /// <para><b>It never shows an answer back.</b> On a rating screen the panel
-    /// marks which item is being asked and stops there: reflecting the number the
-    /// operator typed would put the participant's own last answer in front of
-    /// them while they give the next one. The ranking screen marks nothing at all
-    /// — the participant names the versions in order rather than numbering them
-    /// one at a time, so there is no "current" version to point at.</para>
+    /// <para><b>A rating screen mirrors the operator's own list</b> (user's
+    /// call, 2026-09-02, replacing the marker-only list of 2026-08-27). Every
+    /// item is numbered and carries a box, the <c>&gt;</c> marks the one being
+    /// asked, and the number the operator types appears in that item's box, so
+    /// the participant can see their spoken answer land and say so when it was
+    /// heard wrong — which is the failure mode of answering aloud. The ranking
+    /// screen still marks nothing at all: the participant names the versions in
+    /// order rather than numbering them one at a time, so there is no "current"
+    /// version to point at.</para>
     ///
     /// <para>The panel is built in code rather than kept as a prefab so that the
     /// wording has exactly one source — <c>Resources/Questionnaire.json</c>, the
@@ -118,16 +121,15 @@ namespace GazeControl.Experiment
                     Passage(definition.framing);
                     break;
 
+                case QuestionnaireSession.Phase.RatingPreview:
                 case QuestionnaireSession.Phase.Rating:
                     Rating(session, definition);
                     break;
 
+                case QuestionnaireSession.Phase.ShortAnswerPreview:
                 case QuestionnaireSession.Phase.Ranking:
-                    Ranking(definition);
-                    break;
-
                 case QuestionnaireSession.Phase.Comment:
-                    Comment(definition);
+                    ShortAnswer(session, definition);
                     break;
 
                 case QuestionnaireSession.Phase.Closing:
@@ -157,10 +159,17 @@ namespace GazeControl.Experiment
             _footer.text = string.Empty;
         }
 
+        /// <summary>
+        /// The four items with their boxes. It doubles as the rating preview
+        /// shown before the first clip: there is no entry then, so every box is
+        /// blank and nothing carries the <c>&gt;</c> — which is exactly what a
+        /// page nobody is being asked to answer yet should look like.
+        /// </summary>
         void Rating(QuestionnaireSession session, QuestionnaireDefinition definition)
         {
             var items = definition.perClipItems;
-            var cursor = session.Entry != null ? session.Entry.Cursor : -1;
+            var entry = session.Entry;
+            var cursor = entry != null ? entry.Cursor : -1;
 
             var body = new StringBuilder();
             for (var i = 0; i < items.Length; i++)
@@ -168,39 +177,77 @@ namespace GazeControl.Experiment
                 // A plain '>' rather than a glyph like U+25B6: the panel runs on
                 // the LiberationSans SDF font that ships with TMP, and a
                 // character it has no glyph for renders as an empty box.
-                body.Append(i == cursor ? ">   " : "    ");
+                body.Append(i == cursor ? "> " : "  ");
+                body.Append($"[{AnswerBox(entry, i)}] {i + 1}. ");
                 body.AppendLine(items[i].text);
                 body.AppendLine();
             }
 
             _body.alignment = TextAlignmentOptions.TopLeft;
-            _title.text = string.Empty;
+            _title.text = definition.ratingTitle ?? string.Empty;
             _body.text = body.ToString().TrimEnd();
-            _footer.text = $"{ScaleLine(definition.scale)}\n{definition.spokenAnswerInstruction}";
+            _footer.text = ScaleLine(definition.scale);
         }
 
         /// <summary>
-        /// The prompt alone — no version list and no cursor. The participant says
-        /// the three versions in order, most natural first, so there is no per-
-        /// version number for them to work out and nothing for a marker to point
-        /// at; listing the versions only invited them to convert their order into
-        /// ranks themselves. The operator's panel still walks the versions,
-        /// because that is where the ranks are entered.
+        /// What goes in one item's box: the answer recorded for it, or a blank
+        /// slot. An underscore rather than a space, both because it is the
+        /// operator panel's own mark for a slot still waiting on an answer, and
+        /// because it is the width of a digit in this font — a space is not, and
+        /// the item text would step sideways as the boxes filled.
         /// </summary>
-        void Ranking(QuestionnaireDefinition definition)
+        static string AnswerBox(QuestionnaireEntry entry, int slot)
         {
-            _body.alignment = TextAlignmentOptions.Left;
-            _title.text = string.Empty;
-            _body.text = definition.ranking.prompt;
-            _footer.text = $"{definition.ranking.instruction}\n{definition.spokenAnswerInstruction}";
+            if (entry == null || slot >= entry.SlotCount)
+                return "_";
+
+            var value = entry[slot];
+            return value == QuestionnaireEntry.Unanswered ? "_" : value.ToString();
         }
 
-        void Comment(QuestionnaireDefinition definition)
+        /// <summary>
+        /// The ranking and the free-text probe on one page, numbered on from the
+        /// rating items, so a participant reads six questions about a
+        /// conversation rather than four and then two unnumbered ones (user's
+        /// call, 2026-09-02). The operator still enters them as two screens — the
+        /// ranks first, then the comment — because they are two records and the
+        /// ranking refuses a tie.
+        ///
+        /// <para><b>It is also shown once before the first clip</b> (user's call,
+        /// 2026-09-02): a participant who knows a group ends by ranking its three
+        /// versions watches the first one for what they will be asked about,
+        /// instead of meeting the question when it is too late to look. That
+        /// showing answers nothing — one press of the operator's key moves it
+        /// on.</para>
+        ///
+        /// <para>The foot names the group about to be watched, which is the only
+        /// sense the participant is given of where they are in a session of five.
+        /// After the last group there is none, and it says nothing.</para>
+        ///
+        /// <para><b>The prompts alone.</b> "You may skip this question" and "no
+        /// ties" are the operator's script, not the participant's reading: the
+        /// participant answers through the operator, who has both on their own
+        /// panel, and a rule the participant cannot break by speaking is one more
+        /// line to read before answering. Neither question is marked as the
+        /// current one either, and the ranking still lists no versions — the
+        /// participant names the three in order aloud, and listing them only
+        /// invited them to do the ranks-to-versions conversion themselves.</para>
+        /// </summary>
+        void ShortAnswer(QuestionnaireSession session, QuestionnaireDefinition definition)
         {
-            _body.alignment = TextAlignmentOptions.Left;
-            _title.text = string.Empty;
-            _body.text = definition.comment.prompt;
-            _footer.text = $"{definition.comment.instruction}\n{definition.spokenAnswerInstruction}";
+            // The first free number after the rating items, so an instrument that
+            // gains or loses one keeps the sequence the participant is reading.
+            var number = definition.perClipItems.Length + 1;
+
+            var body = new StringBuilder();
+            body.Append(number).Append(". ").AppendLine(definition.ranking.prompt);
+            body.AppendLine();
+            body.Append(number + 1).Append(". ").AppendLine(definition.comment.prompt);
+
+            _body.alignment = TextAlignmentOptions.TopLeft;
+            _title.text = definition.shortAnswerTitle ?? string.Empty;
+            _body.text = body.ToString().TrimEnd();
+            _footer.text = definition.NextGroupText(session.NextGroupNumber);
         }
 
         /// <summary>

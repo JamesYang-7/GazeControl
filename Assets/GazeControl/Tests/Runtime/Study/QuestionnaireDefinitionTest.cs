@@ -134,6 +134,48 @@ namespace GazeControl.Study
         }
 
         [Test]
+        public void NextGroupText_ComposedWithTheGroupNumber_NamesTheGroupAboutToPlay()
+        {
+            var json = QuestionnaireFixture.JsonWith(
+                @"""source"": ""fixture""",
+                @"""source"": ""fixture"", ""nextGroupFormat"": ""Next: group {0}""");
+
+            var actual = QuestionnaireDefinition.Parse(json);
+
+            Assert.That(actual.NextGroupText(3), Is.EqualTo("Next: group 3"));
+        }
+
+        [Test]
+        public void NextGroupText_AfterTheLastGroup_IsEmpty()
+        {
+            // Zero is how "no group follows this screen" reads, and the closing
+            // passage is what comes after the last one.
+            var json = QuestionnaireFixture.JsonWith(
+                @"""source"": ""fixture""",
+                @"""source"": ""fixture"", ""nextGroupFormat"": ""Next: group {0}""");
+
+            var actual = QuestionnaireDefinition.Parse(json);
+
+            Assert.That(actual.NextGroupText(0), Is.Empty);
+        }
+
+        [Test]
+        public void NextGroupText_OnAnInstrumentWithoutOne_IsEmpty()
+        {
+            Assert.That(QuestionnaireFixture.Definition().NextGroupText(1), Is.Empty);
+        }
+
+        [Test]
+        public void Parse_WithAMalformedNextGroupFormat_ThrowsInvalidDataException()
+        {
+            var json = QuestionnaireFixture.JsonWith(
+                @"""source"": ""fixture""",
+                @"""source"": ""fixture"", ""nextGroupFormat"": ""Next: group {0""");
+
+            Assert.That(() => QuestionnaireDefinition.Parse(json), Throws.TypeOf<InvalidDataException>());
+        }
+
+        [Test]
         public void Contains_ForAResponseOffTheScale_ReturnsFalse()
         {
             var sut = QuestionnaireFixture.Definition().scale;

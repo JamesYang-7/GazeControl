@@ -26,7 +26,7 @@ namespace GazeControl.Study
 
         public QuestionnaireScreenKind Kind { get; }
 
-        /// <summary>1-based position in the whole session, for "screen 7 of 22".</summary>
+        /// <summary>1-based position in the whole session, for "screen 7 of 24".</summary>
         public int Number { get; }
 
         /// <summary>1-based block, or 0 on the framing and closing screens.</summary>

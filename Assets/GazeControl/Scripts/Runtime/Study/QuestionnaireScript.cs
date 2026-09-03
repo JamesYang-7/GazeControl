@@ -8,7 +8,8 @@ namespace GazeControl.Study
     /// then every block's ratings and ranking, then the close.
     ///
     /// <para>For the study as designed (<c>user-study-design.md</c> §1) that is
-    /// 5 blocks × (3 ratings + 1 ranking) plus two passages — 22 screens.</para>
+    /// 5 blocks × (3 ratings + 1 ranking), two passages and the two preview
+    /// screens — 24 screens.</para>
     ///
     /// <para>It sequences <em>screens</em> and nothing else. Which conversation a
     /// block uses, which method each version position is, and the counterbalancing
@@ -73,7 +74,7 @@ namespace GazeControl.Study
                     nameof(versionsPerBlock), versionsPerBlock, "a block needs at least two versions to rank");
             }
 
-            var screens = new QuestionnaireScreen[2 + blockCount * (versionsPerBlock + 1)];
+            var screens = new QuestionnaireScreen[4 + blockCount * (versionsPerBlock + 1)];
             var index = 0;
 
             void Add(QuestionnaireScreenKind kind, int block, int versionPosition)
@@ -83,6 +84,14 @@ namespace GazeControl.Study
             }
 
             Add(QuestionnaireScreenKind.Framing, 0, 0);
+
+            // Both question screens are shown before the first clip, not only
+            // after one: a participant who knows they will rate four things and
+            // then rank the three versions watches the first group for what they
+            // will be asked about, rather than meeting the questions when it is
+            // too late to look.
+            Add(QuestionnaireScreenKind.RatingPreview, 0, 0);
+            Add(QuestionnaireScreenKind.ShortAnswerPreview, 0, 0);
 
             for (var block = 1; block <= blockCount; block++)
             {

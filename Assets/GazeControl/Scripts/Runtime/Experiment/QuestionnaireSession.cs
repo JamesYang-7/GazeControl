@@ -41,6 +41,20 @@ namespace GazeControl.Experiment
             /// <summary>The framing passage, before the first clip.</summary>
             Framing,
 
+            /// <summary>
+            /// The four rating items, shown once before the first clip so the
+            /// participant knows what follows every version. Nothing is entered
+            /// on it; one press of the operator's key moves it on.
+            /// </summary>
+            RatingPreview,
+
+            /// <summary>
+            /// The two short-answer questions, shown once after
+            /// <see cref="RatingPreview"/> so the participant knows what a group
+            /// ends with. Nothing is entered on it either.
+            /// </summary>
+            ShortAnswerPreview,
+
             /// <summary>A clip is playing; neither surface asks for anything.</summary>
             Playing,
 
@@ -101,8 +115,24 @@ namespace GazeControl.Experiment
                 ? _script.Screens[_screenIndex]
                 : default;
 
-        /// <summary>Screens in the whole run, for "screen 7 of 22".</summary>
+        /// <summary>Screens in the whole run, for "screen 7 of 24".</summary>
         public int ScreenCount => _script?.Screens.Count ?? 0;
+
+        /// <summary>Groups (blocks) in the whole run.</summary>
+        public int GroupCount => _script?.BlockCount ?? 0;
+
+        /// <summary>
+        /// The 1-based group the participant is about to watch, or 0 when no
+        /// group follows this screen. The short-answer page shows it, and it is
+        /// their only sense of where they are in a session of five; the last
+        /// group is followed by the closing passage, so it says nothing there.
+        /// </summary>
+        public int NextGroupNumber => CurrentPhase switch
+        {
+            Phase.ShortAnswerPreview => 1,
+            Phase.Ranking or Phase.Comment => Screen.BlockNumber < GroupCount ? Screen.BlockNumber + 1 : 0,
+            _ => 0,
+        };
 
         /// <summary>What the operator is typing into, or null on a screen with no answer.</summary>
         public QuestionnaireEntry Entry { get; private set; }
@@ -219,6 +249,14 @@ namespace GazeControl.Experiment
                     CommitFraming();
                     break;
 
+                case Phase.RatingPreview:
+                    CommitRatingPreview();
+                    break;
+
+                case Phase.ShortAnswerPreview:
+                    CommitShortAnswerPreview();
+                    break;
+
                 case Phase.Rating:
                     CommitRating();
                     break;
@@ -238,6 +276,29 @@ namespace GazeControl.Experiment
         }
 
         void CommitFraming()
+        {
+            _screenIndex++;
+            CurrentPhase = Phase.RatingPreview;
+            Show();
+        }
+
+        /// <summary>
+        /// The rating items have been read; the short-answer questions follow.
+        /// Both previews record nothing — they are the pages the participant will
+        /// answer later, shown once so they know what they are watching for.
+        /// </summary>
+        void CommitRatingPreview()
+        {
+            _screenIndex++;
+            CurrentPhase = Phase.ShortAnswerPreview;
+            Show();
+        }
+
+        /// <summary>
+        /// Both previews are read and the first clip may start, so committing
+        /// this one is the release the framing screen used to do.
+        /// </summary>
+        void CommitShortAnswerPreview()
         {
             CurrentPhase = Phase.Playing;
             _screenIndex++;

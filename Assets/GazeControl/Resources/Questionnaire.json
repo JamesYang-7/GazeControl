@@ -4,16 +4,18 @@
   "scale": {
     "min": 1,
     "max": 7,
-    "rangeHint": "Rate from {0}-{1}",
+    "rangeHint": "For each question, give a rating of any number between {0} and {1}",
     "minLabel": "strongly disagree",
     "midLabel": "neither agree nor disagree",
     "maxLabel": "strongly agree"
   },
   "framing": {
     "title": "Before we begin",
-    "body": "You are the THIRD PERSON in this conversation.\nPlease pay attention to the EYE MOVEMENT behavior of the characters, especially when the speaker changes. You will be asked some questions after each conversation.\nThere are 5 groups * 3 versions."
+    "body": "You are the THIRD PERSON in this conversation.\nPlease pay attention to the EYE MOVEMENT behavior of the characters, especially when the speaker changes. You will be asked some questions after each conversation, please say your answer out loud.\nThere are 5 groups * 3 versions.\n\nNext: questions preview."
   },
-  "spokenAnswerInstruction": "Please say your answer out loud.",
+  "ratingTitle": "Rating",
+  "shortAnswerTitle": "Short Answer",
+  "nextGroupFormat": "Next: group {0}",
   "perClipItems": [
     {
       "code": "N1",
@@ -43,8 +45,7 @@
   },
   "comment": {
     "code": "D1",
-    "prompt": "Did any version feel uncomfortable or unsettling to watch? Which, and why?",
-    "instruction": "You may skip this question.",
+    "prompt": "Did any version feel uncomfortable or unsettling to watch? Which, and why? (optional)",
     "optional": true
   },
   "closing": {
