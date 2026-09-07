@@ -185,9 +185,19 @@ Only two example clips are committed (via LFS); other `.npz` files under `Assets
 
 `PROGRESS.md` at the repo root is the project's working memory: nested checkbox task list, decisions log, and open questions. Keep it current via the `progress-board` skill — update it whenever a task starts/finishes, a decision is made, or before committing. `progress.html` is auto-generated from it by the pre-commit hook in `.githooks/` (enabled per clone with `git config core.hooksPath .githooks`) — never hand-edit the HTML.
 
+## The paper — `{PAPER_ROOT}`
+
+**The CHI 2027 paper is a separate git repository, outside this one.** `{PAPER_ROOT}` stands for it, currently `F:\Research\CHI_2027___Explainable_Gaze_Patterns_for_Turn_Taking`. It moved out of this repository's git-ignored `Research/` tree on 2026-09-06 so that it could have version control of its own; do not look for it under `Research/`, which now holds only corpora, reference PDFs and notes.
+
+Write `{PAPER_ROOT}/...` rather than a bare path when referring to something over there, and expect the same symbol pointing back: inside the paper, `{UNITY_PROJECT_ROOT}/...` means this repository. `figures/` and `README.md` name real things in both places, so an unqualified path is ambiguous rather than merely terse.
+
+- **`{PAPER_ROOT}/style_guidlines.md` is the entry point for anything paper-facing** — voice, length, structure, and an index of the documents it defers to. `{PAPER_ROOT}/todo.md` is the running handoff: what is unfinished and what must not be undone.
+- **`Tools/build_study_figures.py` lives here and writes there.** It draws the user study figures into `{PAPER_ROOT}/figures/`, taking that location from the `GAZECONTROL_PAPER_DIR` environment variable or `--out` rather than hard-coding it. Its specification is `Assets/Docs/study-figures.md`, which stays on this side because it documents a generator that lives on this side.
+- **Numbers in the paper's prose come from that script and nowhere else.** If a figure and a sentence disagree, regenerate rather than retype.
+
 ## Working in this repo
 
 - This is a Unity project: every asset file has a paired `.meta` file. When adding, moving, or deleting assets outside the Unity Editor, keep `.meta` files consistent (let the Editor generate them where possible, and always commit them together with their asset).
 - Scenes, prefabs, and most `.asset` files are Unity YAML (see `.gitattributes`); binary media (models, textures, audio) go through **Git LFS**.
 - Tests use the Unity Test Framework and run inside the Unity Editor (Test Runner window, or via the JetBrains Unity test tooling when available).
-- **`Research/` holds local-only material** — raw gaze corpora (`corpora/`), reference PDFs (`papers/`), working notes (`notes/`). Everything there is git-ignored except its `README.md`. It sits outside `Assets/` deliberately: Unity imports every file under `Assets/` regardless of `.gitignore`, generating `.meta` files and Library entries for data that is never a runtime asset. Put reference material there, not under `Assets/Docs/`.
+- **`Research/` holds local-only material** — raw gaze corpora (`corpora/`), reference PDFs (`papers/`), working notes (`notes/`). Everything there is git-ignored except its `README.md`. It sits outside `Assets/` deliberately: Unity imports every file under `Assets/` regardless of `.gitignore`, generating `.meta` files and Library entries for data that is never a runtime asset. Put reference material there, not under `Assets/Docs/`. **The paper is no longer among it** — see `{PAPER_ROOT}` above.
