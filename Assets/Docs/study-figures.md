@@ -33,7 +33,7 @@ rather than silently falling back to raw cell means if it is missing.
 
 ## 0. The reference paper, and what transfers from it
 
-The house model is `Research/papers/2024-ISMAR-AgentBehaviorGeneration.pdf` (Yang et al.,
+The house model is `Research/papers/2024-ISMAR-AgentBehaviorGeneration.pdf` (Gunawardhana et al.,
 *Toward User-Aware Interactive Virtual Agents*, ISMAR 2024), the same paper
 `style_guidlines.md` §9 makes the model for the section's prose. Its figure scheme is:
 
@@ -174,29 +174,35 @@ same way, and the point of (b) is that they do not.
 a picket fence of dots, and unlike the summary panel the comparison being made is local
 (within one participant's triple) rather than across the whole scale.
 
-## 3. Figure 3 — generated-gaze fidelity (not yet built)
+## 3. Figure 3 — generated-gaze fidelity (dropped 2026-09-06)
 
-Blocked on the stimulus-fidelity analysis, which has not been run. When it is, three panels
-against the human corpus as a reference column:
+Planned as three panels scoring each policy against the human corpus as a reference column
+(role-conditioned target proportions, dwell CDFs, shift timing around each EoT event), the
+analogue of ISMAR Figs 10, 11 and 13. **Dropped, by the user's call**, and the paper's §6 no
+longer promises it. The reference would have been `Research/corpora/gaze_events/gaze_events_md6.csv`,
+which is the corpus our method *replays* (holding stretches between boundaries, prototypes
+at them) and baseline A is *fitted to*, so the match was by construction for two of the three
+policies. A figure showing that a policy sampled from a corpus resembles that corpus does not
+make the method more convincing; it invites the objection instead of answering it. Only
+baseline B could have been far from the reference, and its two telling numbers (no aversion,
+almost no gaze at the human) are already in §6's hypotheses paragraph.
 
-1. **Role-conditioned target proportions** — three policies plus the measured human
-   distribution, per role (speaker, addressee, side participant) and target (aversion,
-   partner, other).
-2. **Dwell-duration distributions** — CDFs, three policies against the human one.
-3. **Shift timing relative to each annotated EoT event** — the important panel, because it
-   is where the prototypes act and where H_bnd was won against baseline B.
+Two things learned while assessing it, kept because they outlive the figure:
 
-This is the analogue of ISMAR Figs 10, 11 and 13, and it is a stronger figure than any of
-them for one reason they could not exploit: a **ground-truth human distribution exists to
-plot beside the three policies**. Their objective measures had nothing to be right or wrong
-against, only a baseline to beat.
-
-Data source: the per-frame agent logs in `Recordings/study_c*/`, scored against
-`Research/corpora/gaze_events/gaze_events_md6.csv`. **The logs exist for ten of the eighteen
-participants only** — P05-P08 wrote header-only files (the `ArmTake` null read, fixed
-2026-09-01) and P19-P22 wrote none at all. That is sufficient for a descriptive
-stimulus-side measure, which involves no participant-level inference, but the figure's
-caption should say what it was computed over.
+- **Every participant saw the same fifteen tracks.** One arbitrary base seed per clip
+  (`user-study-design.md`, clip table), baked once on 2026-08-27 to
+  `Assets/DemoSegments/study_c*/gazetrack_<Condition>_seed<N>.json` and replayed to all
+  eighteen; verified on the logs, P09 and P10 have identical gaze-target transition sequences
+  on `study_c1` in all three conditions. Any stimulus-side measure is therefore computed
+  over those fifteen tracks, on the decision grid, and the "logs exist for ten of eighteen
+  participants" caveat never applies to it (P05-P08 wrote header-only agent logs from the
+  `ArmTake` null read fixed 2026-09-01, P19-P22 none; that affects only analyses of the
+  rendered frames).
+- **If a stimulus description is ever wanted**, it is one sentence or a small table of
+  per-policy aversion fraction and gaze-at-human fraction from the baked tracks, presented as
+  what each version looked like, not as evidence. A genuine fidelity test would need a
+  held-out group (the corpus's date-prefix `group` key, one per triad) with baseline A refitted
+  and the holding bank rebuilt without it; that changes the stimulus and is a separate study.
 
 ---
 
