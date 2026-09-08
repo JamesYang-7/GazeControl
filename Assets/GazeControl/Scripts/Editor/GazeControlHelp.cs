@@ -171,6 +171,16 @@ namespace GazeControl.Editor
                     "GazeControl/Study 2/Preview Session"),
             }),
 
+            ("When something is wrong", "", new[]
+            {
+                new Entry("Reset Audio",
+                    "Re-initialises the editor's audio engine on Windows' current default output. Use it " +
+                    "when the agents move and nothing is heard, or a clip never starts: after a headset is " +
+                    "unplugged the engine stays bound to the device that has gone, even though Windows shows " +
+                    "Unity playing on the monitor. Then start the clip again.",
+                    "GazeControl/Reset Audio"),
+            }),
+
             ("Asset repair", "One-off, on an imported asset. Not part of running anything.", new[]
             {
                 new Entry("Textures → Composite SMPLitex Eye Disc",
