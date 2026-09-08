@@ -83,6 +83,15 @@ namespace GazeControl.Experiment
         /// </summary>
         public bool StartHeld { get; set; }
 
+        /// <summary>
+        /// True when this play is a preview (<see cref="StudyLaunchRequest.SetPreview"/>):
+        /// the session's order with the baked tracks replayed, but no
+        /// questionnaire, no logs and no pause — a clip's end, or the skip key
+        /// during it, goes straight to the next clip. The questionnaire reads
+        /// it to stay out of the way; nothing shown in a preview is a take.
+        /// </summary>
+        public bool Preview { get; private set; }
+
         IReadOnlyList<StudyTrial> _trials;
         int _scheduleOrdinal;
         int _index = -1;
@@ -195,6 +204,12 @@ namespace GazeControl.Experiment
         /// </summary>
         void ApplyLaunchRequest()
         {
+            if (StudyLaunchRequest.TryConsumePreview())
+            {
+                ApplyPreview();
+                return;
+            }
+
             if (!StudyLaunchRequest.TryConsume(out var participant))
                 return;
 
@@ -222,6 +237,34 @@ namespace GazeControl.Experiment
                 $"{name}: study launch for {participant} — study mode on, baked tracks replayed, logging " +
                 "on, headset starting, developer overlay off. These are play-session settings; the scene " +
                 "asset is untouched and reverts when play stops.", this);
+        }
+
+        /// <summary>
+        /// Turn this play into a preview of the bakes: replayed tracks so what
+        /// plays is exactly what a participant would see, the session order so
+        /// each conversation's three versions come one after another, and no
+        /// questionnaire, log or headset. Play-session values, like a launch.
+        /// </summary>
+        void ApplyPreview()
+        {
+            enabled = true;
+            Preview = true;
+            StartOnPlay = true;
+
+            if (Runner != null)
+            {
+                Runner.StudySession = false;
+                Runner.Tracks = GazeConditionRunner.TrackMode.Replay;
+                Runner.LoggingEnabled = false;
+            }
+
+            foreach (var overlay in FindObjectsByType<DeveloperOverlay>(
+                         FindObjectsInactive.Include, FindObjectsSortMode.None))
+                overlay.Enabled = true;
+
+            Debug.Log(
+                $"{name}: PREVIEW — baked tracks replayed in session order, no questionnaire, no logs. " +
+                $"{AdvanceKey} skips to the next clip. Nothing here is a take.", this);
         }
 #endif
 
@@ -300,6 +343,20 @@ namespace GazeControl.Experiment
         /// <summary>Record how far the session got, as each clip finishes.</summary>
         void Pause_ClipEnded()
         {
+            // A preview has nothing to ask, so the pause ends the moment it
+            // begins and the next clip is armed; after the last one the scene
+            // simply stops. The advance goes through the pause controller so the
+            // agents are shown again by the same code that hid them.
+            if (Preview)
+            {
+                if (_index >= _trials.Count - 1)
+                    Debug.Log($"{name}: preview complete — all {_trials.Count} clips shown.", this);
+                else if (Pause != null)
+                    Pause.Advance();
+
+                return;
+            }
+
             if (_record == null)
                 return;
 

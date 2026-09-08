@@ -26,6 +26,7 @@ namespace GazeControl.Experiment
     public static class StudyLaunchRequest
     {
         const string k_ParticipantKey = "GazeControl.StudyLaunch.Participant";
+        const string k_PreviewKey = "GazeControl.StudyLaunch.Preview";
 
         /// <summary>The participant a launch is pending for, or empty when none is.</summary>
         public static string Pending => SessionState.GetString(k_ParticipantKey, string.Empty);
@@ -47,6 +48,24 @@ namespace GazeControl.Experiment
                 return false;
 
             Clear();
+            return true;
+        }
+
+        /// <summary>
+        /// Ask for the next play to be a <b>preview</b>: the session's clip order
+        /// with the baked tracks replayed, no questionnaire, no logging, the
+        /// developer overlay on, and each clip running straight into the next.
+        /// For checking bakes by eye; nothing it shows is a take.
+        /// </summary>
+        public static void SetPreview() => SessionState.SetBool(k_PreviewKey, true);
+
+        /// <summary>Take a pending preview request, leaving none behind.</summary>
+        public static bool TryConsumePreview()
+        {
+            if (!SessionState.GetBool(k_PreviewKey, false))
+                return false;
+
+            SessionState.EraseBool(k_PreviewKey);
             return true;
         }
     }

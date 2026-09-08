@@ -137,6 +137,32 @@ namespace GazeControl.Editor
                     "GazeControl/3People/Session Browser"),
             }),
 
+            ("Study 2 (3People clips)", "The seven 3People-2022 windows played through study 1's pipeline. " +
+                                        "The scene moves the recorded room onto the participant's fixed viewpoint " +
+                                        "per clip; everything else is study 1's.", new[]
+            {
+                new Entry("Study 2 → Set Up Scene",
+                    "Builds (or repairs) Assets/Scenes/Study2Scene.unity as a copy of TriadScene whose two " +
+                    "agents sit under a Room object placed by each clip: the listener's measured seat lands on " +
+                    "the User vertex facing its forward axis. Lists study2_c1-c7 on the session runner.\n\n" +
+                    "Export the clips first: uv run python Tools/export_3people_segments.py.",
+                    "GazeControl/Study 2/Set Up Scene"),
+
+                new Entry("Study 2 → Bake Seeds 1-12",
+                    "Every condition at seeds 1-12 for every conversation the session runner lists — 252 " +
+                    "play sessions for seven clips, about two hours. Each track is checked as its play ends " +
+                    "and re-baked if short; a report lands in output/. Choose one seed per clip from what " +
+                    "exists (Tools/summarize_gaze_tracks.py tabulates them) and set it on the session runner.",
+                    "GazeControl/Study 2/Bake Seeds 1-12"),
+
+                new Entry("Study → Preview Session",
+                    "Plays the session's clip order with the baked tracks replayed and nothing else: no " +
+                    "questionnaire, no logs, no headset, developer overlay on with the condition and seed. " +
+                    "Each clip runs straight into the next, and Space skips the current one. For checking " +
+                    "bakes by eye; nothing it shows is a take. Works in either study scene.",
+                    "GazeControl/Study/Preview Session"),
+            }),
+
             ("Asset repair", "One-off, on an imported asset. Not part of running anything.", new[]
             {
                 new Entry("Textures → Composite SMPLitex Eye Disc",

@@ -582,7 +582,7 @@ namespace GazeControl.Experiment
         /// participant run.
         /// </summary>
         bool IsRunnable() =>
-            isActiveAndEnabled && Session != null && Session.isActiveAndEnabled &&
+            isActiveAndEnabled && Session != null && Session.isActiveAndEnabled && !Session.Preview &&
             Pause != null && Runner != null;
 
         void Refuse(string reason)

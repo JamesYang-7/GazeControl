@@ -34,7 +34,7 @@ namespace GazeControl.Study
         public bool IsLastOfBlock => VersionPosition == 3;
 
         public override string ToString() =>
-            $"{Index + 1}/15  block {BlockNumber} version {VersionPosition}: {Conversation} / {Condition}";
+            $"{Index + 1}  block {BlockNumber} version {VersionPosition}: {Conversation} / {Condition}";
     }
 
     /// <summary>

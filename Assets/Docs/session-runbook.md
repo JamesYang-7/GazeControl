@@ -19,6 +19,8 @@ The procedure below is the same; only the scene and the clip list differ.
   Tools/summarize_gaze_tracks.py` tabulates what exists and what each agent did.
   Save the scene.
 - The questionnaire's group count follows the clip list; its items are study 1's.
+- To check the bakes by eye, **GazeControl → Study → Preview Session**: the clip order
+  with the tracks replayed, no questionnaire, Space skips to the next clip.
 
 ## Before the participant arrives
 

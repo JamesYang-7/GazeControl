@@ -92,7 +92,9 @@ namespace GazeControl.Experiment
             var body = new StringBuilder();
             body.AppendLine($"<b>DEVELOPER MODE</b>   t = {Mathf.Max(elapsed, 0f):F2} s / {segment.durationSeconds:F2} s");
             body.AppendLine($"{segment.name}   {segment.stem}" +
-                            (Runner != null ? $"   condition: <b>{Runner.Condition}</b>" : string.Empty));
+                            (Runner != null
+                                ? $"   condition: <b>{Runner.Condition}</b>   seed: <b>{Runner.BaseSeed}</b>   tracks: {Runner.Tracks}"
+                                : string.Empty));
             body.AppendLine();
 
             foreach (var e in segment.events)
