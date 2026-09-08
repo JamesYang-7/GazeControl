@@ -1,9 +1,15 @@
-# Study 2 — prototype retrieval driven by the participant's gaze
+# Study 2 — the triadic prototypes played in a triad
 
-Status: **design settled, nothing built** (2026-09-08). This is the handoff for the
-implementation session. It supersedes `user-study-design.md`, which describes the
-three-condition, fifteen-clip design of study 1; that study ran and is written up in
-`{ICMI_ROOT}`, and nothing here undoes it.
+Status: **design settled, nothing built** (2026-09-08; revised the same day). This is the
+handoff for the implementation session. It supersedes `user-study-design.md`, which
+describes the three-condition, fifteen-clip design of study 1; that study ran and is
+written up in `{ICMI_ROOT}`, and nothing here undoes it.
+
+**Revision, 2026-09-08.** The first version of this document settled on *retrieval*: the
+participant's tracked gaze would select which prototype the agents play at each end-of-turn.
+That was replaced by **baked, open-loop playback with the participant's gaze measured as an
+outcome** once the prototypes themselves were checked (§2). The retrieval design is kept in
+§2 as the rejected alternative, with the measurement that rejected it.
 
 ---
 
@@ -17,8 +23,9 @@ the prototypes' **listener column was played by nobody**: the frames in which an
 looks at the listener pointed at someone who had no role in the recorded exchange.
 
 Study 2 puts a person in that column. The participant stands in the seat of a real side
-participant of a **3People-2022** conversation, their gaze is tracked, and the agents'
-gaze at each end-of-turn is selected at run time from what the participant is doing.
+participant of a **3People-2022** conversation, the agents play the prototypes' current- and
+next-speaker columns *at* that person where the prototype says so, and the participant's own
+gaze is tracked and measured.
 
 The corpus makes this tight. `Research/corpora/gaze_events/gaze_events_md6.csv` — the
 corpus the prototypes were mined from — is 38 sessions over two campaigns, and its 2022
@@ -29,35 +36,56 @@ came out of.** See §7 for what that does and does not license.
 
 ---
 
-## 2. The decision: retrieval
+## 2. The decision: baked playback, gaze as an outcome
 
-**The participant's observed gaze selects which prototype the agents play.** At each
-annotated end-of-turn event, the participant's own gaze track is scored against the
-listener column of each candidate prototype, and the agents play the speaker and
-next-speaker columns of the best match.
+**The agents play a prototype drawn open-loop, exactly as in study 1, and the participant's
+gaze is an outcome measure rather than an input.** Each event draws a prototype from the
+pool matching its own class with the study-1 seeded draw, the track is baked, and every
+participant sees the identical stimulus frame for frame. What is new is the seat: the
+listener column now has an occupant, so the agents' listener-directed frames land on a real
+person, and whether that person looks back — and how fast — is measured.
 
-The agents therefore always play a **literal, unmodified prototype**; nothing is
-interpolated or synthesised. The only thing the participant's gaze does is choose which
-one — which is a retrieval in exactly the space the prototypes live in, and which stays
-explainable in one sentence: *we played the pattern whose side participant was behaving
-like you.*
+**Retrieval, considered and rejected (2026-09-08).** The first design had the participant's
+gaze over a fixed lead coded into the prototypes' three-symbol alphabet and scored by DTW
+against each candidate's listener column, the agents playing the best match. It is
+attractive because the agents still play a literal, unmodified prototype and the selection
+is explainable in one sentence. It was rejected because the only part of a retrieval a
+participant could ever perceive is the gaze the agents direct at them, and the prototypes
+barely contain any:
 
-**What was considered and rejected** (2026-09-08), recorded so it is not re-litigated:
+| prototype | listener column | agent frames aimed at the listener |
+| --- | --- | --- |
+| Fig6a | watches the current speaker | 10 (current speaker) |
+| Fig6b | averts | 18 (current speaker) |
+| Fig7c | averts | 13 (next speaker) |
+| Fig8c | averts | 19 (current speaker) |
+| the other eleven | mixed | 0 |
 
-- **Online re-matching** — re-score every decision tick and switch mid-window. Switching
-  produces a track that is no prototype, needs hysteresis to stay coherent, and gives up
-  the explainability the whole approach rests on.
-- **Role assignment from gaze** — let the participant's gaze decide which agent occupies
-  the next-speaker role. Attractive, because resolving next-speaker selection is exactly
-  what gaze does in a triad, but the replay has already fixed who speaks next: it would
-  contradict the audio.
+Only 4 of 15 prototypes look at the listener at all, **60 frames of 450**, the longest run
+0.3 s. And the contingency runs the wrong way: a participant who *averts* retrieves the
+three prototypes with the most gaze toward them, while one who watches the speaker gets at
+most 167 ms. So retrieval cannot produce the effect a reader expects ("I looked, it looked
+back"), and whatever it does produce is below what a participant can notice. An experiment
+whose manipulation is invisible to its subjects has no hypothesis to state — and it would
+have needed an open-loop control differing from it only by which near-indistinguishable
+prototype plays, across seven events per condition, with reproducibility resting on a
+decision log and replay harness that do not exist. Baking keeps the identical stimulus,
+frame-for-frame reproducibility and the study-1 tooling, and the claim study 2 needs (§7)
+is made by the seat, not by the selection.
+
+**Also considered and rejected earlier the same day**, recorded so none is re-litigated:
+
+- **Online re-matching** — re-score every decision tick and switch mid-window. Produces a
+  track that is no prototype and needs hysteresis to stay coherent.
+- **Role assignment from gaze** — let the participant's gaze decide which agent takes the
+  next turn. The replay has already fixed who speaks next; it would contradict the audio.
 - **Contingent completion** — branch on whether the participant returns an agent's gaze.
-  The strongest behavioural manipulation, but the branch is not in the data (the corpus has
-  the real listener's gaze and no counterfactual), so the fallback would be authored.
-  **Deferred, not dropped** — it composes with retrieval and is the obvious study 3.
-- **Conditional sampling** from the corpus's transition and dwell statistics instead of the
-  prototypes. Naturally online, but it is baseline A with an extra conditioning variable
-  and throws away the interpretable-prototype claim.
+  The strongest behavioural manipulation, and the one a participant would actually feel;
+  but the branch is not in the data (the corpus has the real listener's gaze and no
+  counterfactual), so the fallback would be authored. **Deferred, not dropped** — it is the
+  obvious study 3, and this study's gaze-return measurements are its pilot data.
+- **Conditional sampling** from the corpus's transition and dwell statistics. Baseline A
+  with an extra conditioning variable; throws away the interpretable-prototype claim.
 
 ---
 
@@ -67,8 +95,7 @@ Each prototype is a `(K, 3)` kernel: one column per role, one value per frame at
 K ∈ {20, 30, 40} (Figures 6, 7, 8 respectively). Values are `0` aversion, `1` at the
 current speaker, `2` at the next speaker, `3` at the listener.
 
-**No role ever gazes at itself**, which is what makes the participant able to play the
-listener column at all. Over all fifteen printed prototypes (450 frames each):
+**No role ever gazes at itself.** Over all fifteen printed prototypes (450 frames each):
 
 | column | values used | frame counts |
 | --- | --- | --- |
@@ -76,12 +103,15 @@ listener column at all. Over all fifteen printed prototypes (450 frames each):
 | next speaker | aversion, current speaker, listener | 265 / 172 / 13 |
 | **listener** | **aversion, current speaker, next speaker** | **271 / 164 / 15** |
 
-So the participant's track only has to be coded into three symbols — *averting*, *at the
-agent holding the floor*, *at the agent about to take it* — and `GazeSphereTargeting`
-already resolves which agent is being looked at.
+Two things follow for this study. The participant's tracked gaze codes into the same three
+symbols the listener column uses — *averting*, *at the floor-holder*, *at the taker* — and
+`GazeSphereTargeting` already resolves which agent is being looked at, so the participant's
+track and the corpus listener's track are directly comparable (§7.2). And the agents direct
+**60 of 900 frames** at the listener (47 + 13), all of them in the four prototypes tabled in
+§2: that is the entire stimulus the seat adds, and it should be known before a pilot rather
+than discovered in one.
 
-The listener columns are discriminative rather than all alike, which is what makes
-retrieval worth doing:
+The listener columns of the fifteen, for the comparison in §7.2:
 
 | listener column | prototypes |
 | --- | --- |
@@ -89,85 +119,79 @@ retrieval worth doing:
 | steady aversion | Fig6b, Fig7b, Fig7c |
 | shifting | Fig6c, Fig7a, Fig7d, Fig7e, Fig8b, Fig8c, Fig8d |
 
-A participant who watches the speaker throughout retrieves a different pattern from one who
-looks away, and that difference is legible to a reader without any model.
-
 ---
 
 ## 4. Mechanism
 
-At each annotated event in a clip:
+Per clip, the study-1 pipeline in the 3People replay scene:
 
-1. **Candidate pool.** Open: the prototypes of the event's own class (the study-1 rule), or
-   all fifteen. Retrieval may make class-matching redundant — the ICMI classification result
-   was that gaze separates EoT from non-EoT but *not* the EoT types from each other, which
-   is an argument for pooling all fifteen and letting the participant's track do the
-   selecting. Decide this before writing the policy; it changes what the condition means.
-2. **Observation.** The participant's gaze targets over a fixed lead ending at the decision
-   instant, coded into `{aversion, current speaker, next speaker}` on the 60 Hz decision
-   grid.
-3. **Score.** DTW over the categorical sequence, against each candidate's listener column.
-   DTW because it is what the prototypes were mined with (`dtw_dist` is in the archives'
-   `manifest.csv`) and because it is length-agnostic, which matters — the observation is a
-   fixed lead and the columns are 20, 30 or 40 frames.
-4. **Commit** before the pattern's first frame, and do not revisit it inside the window.
-5. **Play** the winner's speaker and next-speaker columns on the two agents, positioned in
-   the pre-turn window by its `subseq_start_idx`, exactly as `ProposedGazePolicy` does now.
+1. **Seat.** The participant stands where the clip's listener stood, at the seat
+   `ThreePartyViewpoint` measures off the recording (mean eye position over the window,
+   opening yaw toward the two speakers' midpoint), with the listener's body hidden. Rotation
+   tracked, translation not, as in study 1.
+2. **Roles.** The two takers are the agents: the event's floor-holder is the current
+   speaker, its taker the next speaker, and the participant is the listener. Speaker codes
+   are true PC numbers.
+3. **Draw.** At each annotated event, one prototype from the pool of its own class, by the
+   seeded `FNV-1a(BaseSeed, eventIndex)` draw; the mapping goes into the log's sidecar
+   before the first boundary. Whether the pool should be class-matched or all fifteen is
+   still the §6 question it was, and it now only affects which prototype plays, not what the
+   condition means.
+4. **Play** the winner's current- and next-speaker columns on the two agents, positioned in
+   the pre-turn window by `subseq_start_idx`, over the holding-replay substrate — `Proposed`
+   as it stands. The listener column is not played by anyone; it is what the participant is
+   compared against.
+5. **Bake** the track once per clip and condition, verify it against the loaded segment at
+   arm time, as now.
+6. **Measure.** `ParticipantGazeLogger` on the decision grid, unchanged, plus the §7
+   derived measures — gaze-return latency above all, which needs `agents_looking_at_user` and
+   the per-tick resolved target and nothing else.
 
-**The matching window is the one real design question.** Three resolutions, in increasing
-order of principle and of cost:
-
-- **(c) Match the observed lead directly against the listener column.** Implementable today
-  from `GazePatterns.g.cs` alone. Comparing a fixed-length observation against a shorter
-  column is what DTW absorbs. **Start here.**
-- **(b) Match the prefix that precedes the pattern**, against the corresponding stretch of
-  each prototype's source windows.
-- **(a) Match against the prototype's full 1 s pre-turn window.** The principled version:
-  the prototypes were mined from 60-frame windows and each archive carries
-  `sample_index_global` for its four matched samples, so a representative full-window
-  listener track can be recovered per prototype. Needs the `{GAZETURN}` dataset ordering to
-  resolve those indices — see §7.
-
-Neither (a) nor (b) changes the policy's shape, only the vector it matches against, so
-starting at (c) does not paint anything into a corner.
+Nothing here reads the participant's gaze during the take.
 
 ---
 
 ## 5. What already exists
 
-Reusable unchanged:
+Reusable unchanged, and now including the baking path:
 
-- **The XR rig and the fixed viewpoint** (`XrParticipantRig`, `ViewRecentring`), and now
+- **The XR rig and the fixed viewpoint** (`XrParticipantRig`, `ViewRecentring`), and
   `ThreePartyViewpoint`, which measures the listener's seat off each clip.
+- **`GazeTrackBaker` + `BakedGazePolicy`** and the track guard — the reproducibility
+  argument of study 1 carries over whole.
+- **`ProposedGazePolicy`** and the holding-replay substrate; the class-matched seeded draw.
 - **`VarjoGazeSource` + `ParticipantGazeLogger`** — built, tested, and **never yet fed by
   real hardware**. Making them produce a real gaze target on the decision grid is the first
-  implementation milestone and the one with unknown risk.
-- **`GazeSphereTargeting`** resolves which agent the participant is looking at; it is the
-  coder for step 2 above.
+  implementation milestone and the one with unknown risk; in this design it gates the
+  outcome measure rather than the stimulus, so a failure degrades the study to ratings
+  instead of breaking it.
+- **`GazeSphereTargeting`** resolves which agent the participant is looking at — the coder
+  for the §7.2 comparison.
 - **`GazeControl → 3People → Set Up Replay Scene` / `Session Browser`**, the seven chosen
   clips, and `ThreePartyReplay`'s one-clock playback.
 - **`GazeController`**, unchanged — the shared animation layer, or the study measures
   animation instead of gaze policy.
 - The questionnaire machinery and `StudySessionRunner`'s in-place re-arming.
 
-**What does not transfer: `GazeTrackBaker` and `BakedGazePolicy`.** A policy that reads
-live gaze cannot be baked, so the frame-for-frame reproducibility that study 1 rested on is
-gone. The replacement is decision logging plus offline replay (the §7.6 replay harness),
-and it should be built *with* the policy rather than after it — a take whose decisions were
-not logged is not analysable.
+**What has to be built** is the join between the 3People replay and the study pipeline:
+a segment export for 3People windows (the `segment.json` contract with true PC speaker
+codes and the listener as the user), `RecordedConversation`/`ConversationDirector` running
+off a three-body clip with two agents and a hidden third, the seat applied to the study rig,
+and the §7 derived measures computed somewhere.
 
 ---
 
 ## 6. Open questions the implementation must settle
 
-- **Pool: class-matched or all fifteen** (§4.1). Decide first; it defines the condition.
-- **Lead length** for the observation, and the **commit instant** relative to the pattern.
-- **Comparison conditions.** The natural control is *the same prototypes played open-loop*,
-  drawn by class as in study 1 — that isolates the retrieval, rather than re-running
-  "data-driven beats heuristic". Whether baselines A and B return at all is open.
-- **Seven clips carry one event each**, so a retrieval fires seven times per condition.
-  That is thin for a within-subjects behavioural measure. Either admit multi-event windows
-  from the finder, take more clips, or accept it and lean on the ratings.
+- **Pool: class-matched or all fifteen.** Class-matched is the study-1 rule and needs no
+  argument; the ICMI result that gaze does not separate EoT types is the case for pooling.
+- **Comparison conditions.** Baseline B (voice-following, never averts, and it *does* look
+  at whoever speaks) and baseline A can both return, since the seat changes nothing about
+  how they run. Whether to keep all three or run Proposed against one of them is open.
+- **Seven clips carry one event each**, so a prototype fires seven times per condition, and
+  only four prototypes ever look at the participant. Either admit multi-event windows from
+  the finder, take more clips, or accept it and lean on the ratings for the condition
+  effect while the behavioural measure serves study 3.
 - **What the participant is told.** They are now a party to the conversation rather than an
   observer, and being told they can speak — when the replay cannot answer — would be a
   false affordance.
@@ -183,8 +207,9 @@ The argument, in the order a reviewer will want it:
    listener column had no occupant.
 2. **Study 2 returns the prototypes to their own corpus** — same recording campaign, same
    room geometry, same annotated boundaries, and the participant stands where a real side
-   participant stood, with that person's own gaze on record as a reference for what a side
-   participant did there.
+   participant stood, with that person's own gaze on record. The participant's coded track
+   against the prototype's listener column is the same comparison the corpus listener would
+   get, which is the cleanest statement available of "the prototype applies here".
 3. **Triads are where gaze is directional** (the paper's own §2). An agent that can address
    the participant is the only configuration in which that claim is testable behaviourally.
 4. **From judgement to behaviour.** Study 1 asked people to rate. This one can measure
@@ -196,17 +221,18 @@ The argument, in the order a reviewer will want it:
 **Threats to name rather than hide:**
 
 - **Replay is not interaction.** The turn is offered and cannot be taken; the recorded audio
-  continues regardless. Either scope the claim to uptake *signals*, or build a real turn
-  slot.
+  continues regardless. Scope the claim to uptake *signals*.
+- **The listener-directed stimulus is small** (§3): 60 frames across four prototypes. Say
+  so, and treat the gaze-return result as a pilot for the contingent study rather than the
+  headline.
 - **In-sample clips.** The study clips are drawn from sessions that contributed to the
   prototype mining. That is either "the prototypes demonstrably apply here" or "in-sample",
   depending on framing, and a reviewer may choose the second. Cheap mitigation: check
   whether any of the seven windows' events are among the 60 matched samples in
   `manifest.csv` — almost certainly not, 60 samples out of 28,318 — and say so.
-- **Reactive policies are not reproducible** without decision logs (§5).
 - **Coherence risk.** An agent may offer the floor to a participant whose response the
-  recorded audio then contradicts. This is the largest design risk in the whole study and
-  should be faced explicitly, not discovered in a pilot.
+  recorded audio then contradicts. Smaller under baked playback than under retrieval, since
+  the offers are the corpus's own and rare, but it should be faced in the briefing.
 
 **Provenance, and what is still unverified.** The prototype archives moved to `{ICMI_ROOT}`
 = `F:\Research\ICMI_2026___Explainable_Gaze_Patterns_for_Turn_Taking\raw_prototypes`
