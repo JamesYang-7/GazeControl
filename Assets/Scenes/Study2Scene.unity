@@ -991,6 +991,7 @@ MonoBehaviour:
   - study2_c7
   <Seeds>k__BackingField: 01000000040000000a0000000500000007000000
   <SegmentRoot>k__BackingField: Assets/DemoSegments
+  <RecentreAtBlockStart>k__BackingField: 1
   <Conversation>k__BackingField: {fileID: 644306069}
   <Runner>k__BackingField: {fileID: 696636974}
   <Pause>k__BackingField: {fileID: 696636977}
