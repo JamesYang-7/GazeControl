@@ -27,8 +27,11 @@ namespace GazeControl.Conversation
         /// <summary>Export folder name, e.g. <c>case1_seg01</c>.</summary>
         public string name;
 
-        /// <summary>Source conversation, e.g. <c>trn_2023_v0_038</c>.</summary>
+        /// <summary>Source conversation, e.g. <c>trn_2023_v0_038</c>, or a 3People session id.</summary>
         public string stem;
+
+        /// <summary>Which corpus the segment is cut from; empty in a schema/1 or /2 file, which is TalkingWithHands.</summary>
+        public string corpus;
 
         public float sourceStartSeconds;
         public float sourceEndSeconds;
@@ -51,6 +54,16 @@ namespace GazeControl.Conversation
 
         /// <summary>Seconds the recorder holds after the voices stop; 0 means its default.</summary>
         public float tailSeconds;
+
+        /// <summary>
+        /// Schema/3 (3People-2022): the listener's seat, measured from the
+        /// recording, that the participant takes. Null or invalid in a
+        /// TalkingWithHands file, whose agents are placed by the scene's vertices.
+        /// </summary>
+        public DemoSegmentSeat seat;
+
+        /// <summary>True when the clips place the bodies and the scene must move the room onto the rig.</summary>
+        public bool PlacesParticipant => seat != null && seat.valid;
 
         public DemoSegmentAgent[] agents;
         public DemoSegmentTurn[] turns;
@@ -127,6 +140,30 @@ namespace GazeControl.Conversation
 
         /// <summary>"male", "female" or "unclear", derived from <see cref="voicePitchHz"/>.</summary>
         public string voice;
+
+        /// <summary>3People-2022 only: the true PC number behind the remapped speaker code; 0 otherwise.</summary>
+        public int pc;
+
+        /// <summary>3People-2022 only: the recorded person's name.</summary>
+        public string subject;
+    }
+
+    /// <summary>
+    /// Where the listener of a three-party clip sat and which way they faced
+    /// when the window opens, in Unity's frame of the recorded room: the mean
+    /// eye position over the window, and the yaw towards the midpoint of the two
+    /// takers' eyes at the first frame (<c>Tools/export_3people_segments.py</c>).
+    /// </summary>
+    [Serializable]
+    public sealed class DemoSegmentSeat
+    {
+        public bool valid;
+        public float x;
+        public float y;
+        public float z;
+
+        /// <summary>Degrees clockwise from +Z, seen from above.</summary>
+        public float yawDegrees;
     }
 
     /// <summary>

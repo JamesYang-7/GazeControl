@@ -173,11 +173,22 @@ Reusable unchanged, and now including the baking path:
   animation instead of gaze policy.
 - The questionnaire machinery and `StudySessionRunner`'s in-place re-arming.
 
-**What has to be built** is the join between the 3People replay and the study pipeline:
-a segment export for 3People windows (the `segment.json` contract with true PC speaker
-codes and the listener as the user), `RecordedConversation`/`ConversationDirector` running
-off a three-body clip with two agents and a hidden third, the seat applied to the study rig,
-and the §7 derived measures computed somewhere.
+**Built 2026-09-08, the same day** — the join between the 3People replay and the study
+pipeline, on the principle that study 2 replaces study 1's corpus and nothing else:
+
+- `Tools/export_3people_segments.py` writes the seven windows as `study2_c1`…`c7` under
+  `Assets/DemoSegments/`, remapping the takers onto speaker codes 1 and 2 and the listener
+  onto 0, with the listener's seat (mean eye position, opening yaw) computed by forward
+  kinematics and written in Unity's frame.
+- `Assets/Scenes/Study2Scene.unity` (`GazeControl → Study 2 → Set Up Scene`) is TriadScene
+  with the agents under a `Room` transform that `RecordedRoomPlacement` turns and slides
+  per clip so the seat lands on the User vertex and faces its forward axis
+  (`RoomPlacement`). The participant never moves; the room does. Everything else in the
+  scene — runner, conditions, baker, questionnaire, XR rig — is study 1's.
+- The pool is class-matched (user's decision).
+
+Still open: seeds (all 1, unscanned), the bakes, the questionnaire instrument's wording,
+and the §7 derived measures.
 
 ---
 

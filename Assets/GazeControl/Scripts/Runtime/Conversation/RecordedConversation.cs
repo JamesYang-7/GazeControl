@@ -61,6 +61,11 @@ namespace GazeControl.Conversation
         public ConversationDirector Director { get; set; }
 
         [field: SerializeField]
+        [field: Tooltip("Study 2: moves the recorded room onto the rig for a clip whose bodies are placed by the "
+                        + "recording. Leave empty in a scene whose agents stand on authored vertices.")]
+        public RecordedRoomPlacement Placement { get; set; }
+
+        [field: SerializeField]
         [field: Tooltip("Play the inspector's segment when the scene starts. A study session clears this, "
                         + "because the first clip is the session's to choose, not the inspector's.")]
         public bool AutoplayOnStart { get; set; } = true;
@@ -247,6 +252,35 @@ namespace GazeControl.Conversation
                 return false;
             }
 
+            // Before the players are armed: a placed clip runs them in raw
+            // root-translation mode under the moved room, and a vertex-placed
+            // clip must not meet a room at all. Either mismatch is refused
+            // outright — played through, both agents would stand at the wrong
+            // place and bearing on every frame a participant rates.
+            if (Segment.PlacesParticipant)
+            {
+                if (Placement == null)
+                {
+                    Debug.LogError(
+                        $"{name}: '{SegmentPath}' places the bodies by the recording, but this scene has no " +
+                        "RecordedRoomPlacement to move the room onto the rig. Open the study 2 scene.", this);
+                    return false;
+                }
+
+                if (!Placement.Apply(Segment, Speakers, out var problem))
+                {
+                    Debug.LogError($"{name}: could not place the room for '{SegmentPath}': {problem}.", this);
+                    return false;
+                }
+            }
+            else if (Placement != null)
+            {
+                Debug.LogError(
+                    $"{name}: '{SegmentPath}' carries no seat, but this scene places its agents by the clip. " +
+                    "Open TriadScene for a TalkingWithHands segment.", this);
+                return false;
+            }
+
             foreach (var speaker in Speakers)
             {
                 if (!TryPrepare(speaker))
@@ -260,9 +294,12 @@ namespace GazeControl.Conversation
             // women in a male-male recording for its whole length.
             AgentAppearance.MatchToVoices(Segment, Speakers, this);
 
+            var placed = Segment.PlacesParticipant
+                ? $"; room moved to ({Placement.LastPose.X:F2}, {Placement.LastPose.Z:F2}) yaw {Placement.LastPose.YawDegrees:F1}°"
+                : string.Empty;
             Debug.Log(
                 $"{name}: {Segment.name} — {Segment.stem} {Segment.sourceStartSeconds:F2}-{Segment.sourceEndSeconds:F2} s " +
-                $"({Segment.durationSeconds:F2} s, {Segment.events.Length} end-of-turn events)", this);
+                $"({Segment.durationSeconds:F2} s, {Segment.events.Length} end-of-turn events{placed})", this);
 
             return true;
         }
@@ -343,6 +380,14 @@ namespace GazeControl.Conversation
         async Awaitable PlayAsync(System.Threading.CancellationToken cancellationToken)
         {
             await WaitForRecorderAsync(cancellationToken);
+
+            // Pose the bodies at the clip's first frame while the audio lead
+            // elapses. Under a placed room an armed-but-unplayed player holds the
+            // bind pose at the room origin, so both agents would otherwise stand
+            // inside each other for the lead; on a vertex-placed clip the bind
+            // pose is the vertex and this changes nothing visible.
+            foreach (var speaker in Speakers)
+                speaker.Motion.Seek(0f);
 
             // Both voices start on one DSP instant. Calling Play() twice would
             // start them a frame apart, and the two sides of a conversation
