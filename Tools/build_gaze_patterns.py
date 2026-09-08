@@ -48,7 +48,7 @@ import zipfile
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-PROTOTYPES = Path(r"F:\aF\My_Papers\ICMI_2026___Explainable_Gaze_Patterns_for_Turn_Taking\raw_prototypes")
+PROTOTYPES = Path(r"F:\Research\ICMI_2026___Explainable_Gaze_Patterns_for_Turn_Taking\raw_prototypes")
 OUTPUT = REPO / "Assets" / "GazeControl" / "Scripts" / "Runtime" / "Gaze" / "Policy" / "GazePatterns.g.cs"
 
 # The fifteen prototypes the paper prints, in figure order. Figure 6 is the
