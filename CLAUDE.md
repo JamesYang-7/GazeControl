@@ -181,6 +181,23 @@ TalkingWithHands clips come in pairs from the same recorded take: one `interloct
 
 Only two example clips are committed (via LFS); other `.npz` files under `Assets/MotionData/` are git-ignored, and the demo reads its motion straight from the corpus.
 
+## 3People-2022 → SMPL-X (in progress)
+
+A second corpus is being converted to SMPL-X: **3People-2022**, a three-party (not dyadic) conversation capture with speech, motion and gaze. It is unrelated to TalkingWithHands and shares none of its conventions. **`Assets/Docs/3people-motion-sources.md` is the entry point** — the four source roots, the file formats, the conversion plan and the traps. Read it before touching this work; the summary below is only enough to know when it applies.
+
+Four roots, all outside this repository, written with symbols the way `{PAPER_ROOT}` is:
+
+- `{TPC_CODE}` = `F:\Code\Multi-TPC` — the dataset's own processing repo and documentation.
+- `{TPC_DATA}` = `D:\3People-2022` — the processed exports (motion txt, gaze, audio, captions, annotations).
+- `{TPC_VICON}` = `D:\3People-2024\3Party-Conversation-2022` — the original Vicon project: C3D markers and per-participant VSK skeleton templates. Upstream of everything in `{TPC_DATA}/mocap`.
+- `{TPC_VIEWER}` = `F:\Code\Conversation_Demo` — the C++/OpenGL reference viewer; the authority on how the motion export is interpreted.
+
+Three things that will otherwise cost a session:
+
+- **`Separate/..._PC_<N>_...` is mislabelled.** The `N` is an alphabetical position, not a participant number, and it is wrong in 16 of 21 slots. Gaze, audio and `raw_data/` carry true PC numbers; the processed motion does not. Join on the subject name via `mocap/<date>/Notes.xlsx`, which is the participant register **and** the per-stream sync sheet.
+- **The two reference readers in `{TPC_VIEWER}` use different Euler orders** (`Data/main.cpp` XYZ, `Demo/main.cpp` XZY) and the export cannot settle which is right. Decision: **XYZ**, kept behind one named constant so it can be flipped in a single edit. Marker-based fitting from `{TPC_VICON}` would avoid Euler decoding altogether and is the better long-term answer, but **angle retargeting is the chosen first route** (user, 2026-09-07).
+- **The source has 19 joints against SMPL-X's 55** — no neck, no spine subdivision, no fingers. Jaw and eyes must stay zero in the clip: LipSync and `IGazePolicy` drive them at runtime.
+
 ## Progress board
 
 `PROGRESS.md` at the repo root is the project's working memory: nested checkbox task list, decisions log, and open questions. Keep it current via the `progress-board` skill — update it whenever a task starts/finishes, a decision is made, or before committing. `progress.html` is auto-generated from it by the pre-commit hook in `.githooks/` (enabled per clone with `git config core.hooksPath .githooks`) — never hand-edit the HTML.
