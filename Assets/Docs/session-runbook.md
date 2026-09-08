@@ -4,6 +4,22 @@ The operator's procedure, start to finish. Everything the software can check for
 itself is checked by **GazeControl → Study → Start Session**; what is left here is
 what only a person in the room can do.
 
+## Study 2 (3People clips)
+
+The procedure below is the same; only the scene and the clip list differ.
+
+- Open **`Assets/Scenes/Study2Scene.unity`**, not TriadScene. Its agents stand where
+  the recording puts them, moved onto the participant's fixed viewpoint per clip.
+- On the `GazeCondition` object, `StudySessionRunner.Conversations` lists the seven
+  exported clips `study2_c1`…`c7` and `Seeds` one seed per clip. **Choose the clips
+  and the seeds before starting**: delete the conversations you are not using
+  (keep `Seeds` the same length and order), and set each seed to one whose three
+  tracks exist. Tracks are baked for seeds 1-12 on every clip
+  (`GazeControl → Study 2 → Bake Seeds 1-12`); `uv run python
+  Tools/summarize_gaze_tracks.py` tabulates what exists and what each agent did.
+  Save the scene.
+- The questionnaire's group count follows the clip list; its items are study 1's.
+
 ## Before the participant arrives
 
 1. Open the study scene and open **GazeControl → Study → Start Session**.
