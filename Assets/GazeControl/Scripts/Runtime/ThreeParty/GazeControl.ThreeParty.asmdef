@@ -1,0 +1,17 @@
+{
+    "name": "GazeControl.ThreeParty",
+    "rootNamespace": "GazeControl.ThreeParty",
+    "references": [
+        "GazeControl.Motion",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

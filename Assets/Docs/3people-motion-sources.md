@@ -7,7 +7,7 @@ capture into SMPL-X skeleton animation. This document records *where things are*
 Surveyed 2026-09-07. All four roots are **outside this Unity repository** and are not
 versioned by it.
 
-## The four roots
+## The roots
 
 | Symbol | Path | What it is |
 | --- | --- | --- |
@@ -15,6 +15,8 @@ versioned by it.
 | `{TPC_DATA}` | `D:\3People-2022` | The **processed** data — mocap exports, gaze, audio, captions, annotations. ~13 GB plus zips. |
 | `{TPC_VICON}` | `D:\3People-2024\3Party-Conversation-2022` | The **original Vicon project** — C3D markers, per-participant VSK skeleton templates, raw camera data. Upstream of everything in `{TPC_DATA}/mocap`. |
 | `{TPC_VIEWER}` | `F:\Code\Conversation_Demo` | C++/OpenGL visualizer for the original (non-SMPL-X) skeleton. The reference implementation of how the motion files are interpreted. |
+| `{TPC_EOT}` | `F:\Data\GazePattern\EoT_2022` | The **end-of-turn event tables**, one CSV per session (23 sessions, 6 columns). Ours, not the dataset's — see [End-of-turn events](#end-of-turn-events). |
+| `{GAZETURN}` | `F:\Code\scnpro\prototype\prototype\gazeturn` | The `gazeturn` package that built `{TPC_EOT}` (and the gaze corpus in `Research/corpora`). The 2022 loader is `gazeturn/labeling/eot_events_2022.py`, the detector `gazeturn/labeling/eot_detect.py`. |
 
 Write `{TPC_DATA}/mocap/...` rather than a bare path when referring to something over
 there — the same convention `{PAPER_ROOT}` uses in `CLAUDE.md`.
@@ -438,6 +440,207 @@ Final 12-column annotation (`Processing/Annotation/README.md`):
 2 backchannel, gaze 0 neither / 1 left / 2 right, gestures binary.
 
 ---
+
+## End-of-turn events
+
+`{TPC_EOT}/<date>_Session_<S>_eot.csv` — 23 files, 6,953 events in total (155-731 per
+session). Columns:
+
+```
+eot_type,first_speaker,second_speaker,turn_time,eot_start,eot_end
+3,1,2,2700,2200,2700
+```
+
+`eot_type` 1 interruption / 2 overlapping / 3 turn-taking; `first_speaker` holds the
+floor going into the boundary, `second_speaker` takes it; times in **milliseconds**.
+`eot_start` is `turn_time − 500 ms`, clipped to the utterance it belongs to; `eot_end`
+is the first speaker's utterance end for an interruption and `turn_time` otherwise.
+
+**Provenance.** Built by `{GAZETURN}/gazeturn/labeling/eot_events_2022.py` (the loader:
+timestamps, backchannel removal, file → session grouping) driving
+`gazeturn/labeling/eot_detect.py` (the corpus-agnostic detector). The source transcripts
+are `{TPC_DATA}/mocap/<date>/Caption/Session_<S>_PC_<N>_sentence.csv` — **`Caption/`,
+not `Caption_SentenceBased/`**; the two disagree substantially and the loader pins
+`Caption/` because that is what every published table matches. An utterance whose
+every word is in `yeah, oh, um, okay, cool, right, uh` is dropped before detection, so a
+backchannel never makes an event. The three speakers are the `PC_<N>` of the caption
+files, numbered `j+1` in sorted file order — and these **are** true participant numbers
+(unlike `Mocap/Separate/`), confirmed on 12-15-2021 Session 1 where event 1 ends
+exactly on PC 1 Crystal's "hi".
+
+**Time base.** Event and caption times run from the trimmed wav's first sample
+(`{TPC_DATA}/audio_text/<date>/Session_<S>_PC_<N>_audio.wav`, 48 kHz stereo), and the
+converted npz's frame 0 is that same instant to within a second on all 23 sessions
+(wav length vs npz frames/60 checked 2026-09-08). `Notes.xlsx`'s "Offset (frames)" is
+the 0-8 frame *length* difference between a PC's stream and the mocap over ten
+minutes, not a start shift. On 03-04-2022 the motion is 6-15 s shorter than the audio.
+
+**Caption caveats.** They are automatic transcripts: the recogniser writes `[Music]`
+(275 rows over 55 files), `[Laughter]` and `[Applause]` as utterances, and microphone
+bleed puts a few phantom lines on the wrong track (12-15-2021 Session 1 has PC 2
+"saying" "I'm Justice" at 2.7 s). Each phantom row is a phantom event.
+
+**Consumer.** `Tools/find_3people_segments.py` reads these tables to pick 10-30 s
+windows with an event inside and one participant who never takes a turn, and
+`ThreePartyReplay` reads them to mark those boundaries on screen.
+
+## Replaying a session in Unity
+
+`GazeControl → 3People → Set Up Replay Scene` builds `Assets/Scenes/ThreePartyReplay.unity`
+and `GazeControl → 3People → Session Browser` drives it. Both are viewing tools: no gaze
+policy runs, no track is baked and nothing is written. They exist so that the question
+this corpus is stuck on — which participant becomes an agent, which is hidden, which
+becomes the seat the study participant occupies — is answered by watching whole original
+sessions rather than by reading a ranking.
+
+**Four inputs, joined on the true PC number** (`ThreePartySources`):
+
+| What | Where |
+| --- | --- |
+| Motion | `F:\Data\3People-2022-SMPLX\<date>\Session_<S>_pc<N>_<Name>.npz` |
+| Audio | `{TPC_DATA}/audio_text/<date>/Session_<S>_PC_<N>_audio.wav` |
+| Captions | `{TPC_DATA}/mocap/<date>/Caption/Session_<S>_PC_<N>_sentence.csv` |
+| Events | `{TPC_EOT}/<date>_Session_<S>_eot.csv` |
+
+That join is only safe for these four. The audio, the captions and the event tables carry
+real participant numbers, and the converter resolved the motion through `Notes.xlsx`
+before naming its output; `Mocap/Separate/..._PC_<N>_...` does not and is never read.
+
+**Things that were decided rather than defaulted:**
+
+- **The clips place the bodies.** The motion players run with
+  `SmplxMotionPlayer.RootTranslationRelative` off, so each participant's real position in
+  the capture room is used directly and the three land in the triangle they stood in. The
+  seats' own transforms must stay identity — anything on them is added to the room
+  position. (`GazeControl → Set Up Gaze Conditions` does the opposite for the study,
+  where each agent is anchored on an authored vertex.)
+- **The window's audio is read, not the session's.** `WavSegment` walks the RIFF chunks
+  and reads exactly the requested range. A ten-minute 48 kHz stereo track decodes to
+  ~230 MB per participant, so handing whole files to Unity would cost 700 MB to watch
+  thirty seconds. 16-bit PCM only, refused loudly otherwise.
+- **One DSP instant for all three voices**, and the frame clock starts when it arrives —
+  the same arrangement as `RecordedConversation`, for the same reason: three microphone
+  tracks of one room drifting a frame apart is audible on every overlap.
+- **Its own scene.** The study scene's viewpoint is fixed because it is a controlled
+  variable; this camera orbits, because the three participants face each other and a fixed
+  camera always has someone's back to it.
+- **The transcript is read before anything plays.** The browser lists the finder's ranking
+  from `output/3people_segments.csv`, but a row's own captions and events are printed in
+  time order next to the Play button — the editor-side `--inspect`. The microphone bleed
+  above can be caught no other way, and a phantom caption is a phantom event.
+
+The rigid hands, the unarticulated neck and the leg-fit glitches are all visible. They are
+properties of the capture and of the retarget, not of the replay.
+
+### The listener's seat — where the study participant stands
+
+**The participant replaces the listener** (user's call, 2026-09-08): the one of the three
+whom no end-of-turn event in the window names. `ThreePartyReplay` derives that person from
+the events rather than storing it, so any window can be watched from the seat, and
+`ListenerPc` overrides it. Press **V** in the replay to stand there; the listener's body is
+hidden, because in the study the person standing there is the participant.
+
+`ThreePartyViewpoint` (pure, unit-tested) measures the seat off the recording:
+
+- **Position — the mean eye position over the whole window.** A single frame would put the
+  participant wherever that person happened to be leaning; the mean is the seat they
+  occupied. Eyes, not the head bone, because the head bone is inside the skull and a
+  viewpoint 6 cm behind the eyes reads as standing further back — the same two joints
+  (`left/right_eye_smplhf`) the study rig measures its eye height from.
+- **Facing — towards the midpoint of the two speakers' eyes at the first frame**, so the
+  clip opens with both of them in view whatever the room layout was.
+- **Yaw only.** Pitch and roll are reported against gravity by the headset and are already
+  correct; turning them would tilt the virtual horizon away from the real one. Same rule as
+  `ViewRecentring` in the study scene.
+- Refused rather than guessed when there is nothing to average, or when the seat sits on
+  the speakers' midpoint — a facing is undefined there.
+
+Measured once while the clip is armed, by posing the three skeletons through the window at
+10 Hz; never per frame.
+
+#### The seat is the converted body's head, not the recorded person's
+
+**Nothing scales the body to the participant.** The converter writes `betas` as sixteen
+zeros and `gender` as `male` for all 69 clips — the women included — and poses that default
+body at the participant's real room position, grounded so its own feet reach the floor. So
+the seat's horizontal position is the recorded person's and its **height is the
+template's**.
+
+`ground_offset_m` in each npz is exactly that discrepancy, measured at the pelvis: how far
+the clip had to be lifted to stand the default body up. Across the participants of the
+seven chosen clips it runs from −1 cm to +17 cm.
+
+| Participant | `ground_offset_m` | Real pelvis | Default-body pelvis |
+| --- | --- | --- | --- |
+| Clayton | −0.000 | 1.019 | 1.019 |
+| Benjamin | −0.007 | 0.988 | 0.981 |
+| Karthik | +0.030 | 0.968 | 0.999 |
+| Justice | +0.041 | 0.948 | 0.989 |
+| Fatima | +0.083 | 0.904 | 0.987 |
+| Joseph | +0.092 | 0.927 | 1.019 |
+| Crystal | +0.097 | 0.918 | 1.015 |
+| Maryum | +0.111 | 0.925 | 1.037 |
+| May | +0.165 | 0.858 | 1.023 |
+
+Scaled to her own stature, Crystal's eyes were about **1.54 m**; the seat measures
+**1.71 m**.
+
+**Kept, and the real heights are not recovered** (user's call, 2026-09-08). The reason is
+that **the gaze is derived by target, not by absolute angle**. Every gaze decision in this
+system names a target rather than a direction: the prototypes are role-coded sequences over
+targets, `GazeController` aims at the target's `LookAtAnchor` in whatever geometry is
+rendered, and the participant's own gaze is resolved by a 0.15 m sphere on an agent's head.
+Flattening the height differences changes the rendered angle — about 7-9° of elevation at a
+metre, comfortably inside `GazeController`'s ±25° pitch clamp — but not which target
+anything names, and not which target a participant is scored as looking at.
+
+Two things follow that are worth keeping in view:
+
+- The flattening is **identical for every participant**, so it is a constant of the
+  apparatus rather than a per-participant confound.
+- The participant looks at what is *rendered*, and the two speakers are raised by their own
+  ground offsets in the same way. Seating the participant at the real person's height under
+  default-bodied speakers would have *opened* a gap the recording did not have — the same
+  argument `ParticipantEyeHeight.SmplxEyeHeight` makes in the study scene, where the
+  participant sits on the agents' own eye line rather than 8.5 cm below it.
+
+Per-participant shape stays available if fidelity ever matters more: the VSK carries
+anthropometrics for all 28 subject-days, and the marker route recovers betas properly.
+Either would correct the seat for free, because `ThreePartyViewpoint` measures the posed
+skeleton rather than storing a constant.
+
+### Root translation, and a trap it hid
+
+The replay is the first consumer of `SmplxMotionPlayer.RootTranslationRelative = false`,
+and it exposed a bug in that path. SMPL-X's `trans` places the pelvis at
+`template_J[0] + trans`, with the floor at zero — which is exactly what the converter's
+grounding produces. The player used to write `trans` straight into the pelvis's
+`localPosition`, which drops `template_J[0]` **and** inherits the FBX's `root` node, a
+bone sitting **1.36 m** up so that the rest body stands on the floor. Every body floated by
+that much. It now sets the pelvis's position in the player's own frame to
+`bind pose + trans`; a grounded clip puts its toe joints at 0.02 m, which is what the
+converter grounded them to. The study path was never affected: relative mode subtracts an
+anchor, and the constant cancels.
+
+### The seven chosen clips
+
+Chosen by the user on 2026-09-08 after watching, out of the finder's 28 de-overlapped
+windows. Recorded as windows rather than ranks, because a rerun of the finder renumbers
+the ranking.
+
+| Date | Session | Window (s) | Length | Event | Speakers | Listener |
+| --- | --- | --- | --- | --- | --- | --- |
+| 12-15-2021 | 2 | 36.97-55.52 | 18.6 s | turn-taking | PC 2, PC 3 | PC 1 Crystal |
+| 12-15-2021 | 2 | 491.40-506.42 | 15.0 s | turn-taking | PC 2, PC 3 | PC 1 Crystal |
+| 12-15-2021 | 4 | 534.37-552.87 | 18.5 s | **interruption** | PC 2, PC 3 | PC 1 Crystal (one backchannel, 0.6 s) |
+| 01-28-2022 | 1 | 199.38-212.42 | 13.0 s | turn-taking | PC 1, PC 3 | PC 2 Karthik |
+| 01-28-2022 | 2 | 427.27-438.13 | 10.9 s | turn-taking | PC 1, PC 2 | PC 3 Benjamin |
+| 01-28-2022 | 2 | 525.20-536.18 | 11.0 s | turn-taking | PC 1, PC 3 | PC 2 Karthik |
+| 03-04-2022 | 2 | 680.70-691.58 | 10.9 s | turn-taking | PC 2, PC 3 | PC 1 Joseph |
+
+Each carries exactly one annotated boundary, and in six of the seven the listener is silent
+throughout. Three of the seven are the same listener (Crystal) and two more are Karthik, so
+whatever a clip's identity contributes is not independent across the set.
 
 ## Is this enough to build the SMPL-X converter?
 

@@ -59,7 +59,11 @@ namespace GazeControl.Motion
 
         void Start()
         {
-            if (Clip == null)
+            // Not when no clip is set. A player whose clip is assigned at load
+            // rather than in the inspector — the three-party replay does that —
+            // would otherwise try to open the project folder as an archive and
+            // report a path-access error that says nothing about what is wrong.
+            if (Clip == null && !string.IsNullOrEmpty(ClipPath))
                 Initialize();
         }
 
@@ -74,6 +78,12 @@ namespace GazeControl.Motion
         /// <summary>Load the clip and bind the skeleton. Safe to call again after changing <see cref="ClipPath"/>.</summary>
         public void Initialize()
         {
+            if (string.IsNullOrEmpty(ClipPath))
+            {
+                Debug.LogError($"{name}: no clip path to load.", this);
+                return;
+            }
+
             _joints = new Transform[SmplxAnimUtils.JointCount];
             if (!SmplxAnimUtils.BindJoints(transform, _joints))
             {
@@ -143,12 +153,23 @@ namespace GazeControl.Motion
 
             if (!ApplyRootTranslation) return;
             var trans = SmplxAnimUtils.PositionToUnity(Clip.GetTranslation(frame));
+
             // Relative mode keeps the agent at its authored scene position (the triad
             // vertex) and adds only the motion since the segment started; raw dataset
             // positions would teleport it to wherever the capture happened.
-            _joints[0].localPosition = RootTranslationRelative
-                ? _pelvisBindLocalPosition + trans - _rootAnchor
-                : trans;
+            if (RootTranslationRelative)
+            {
+                _joints[0].localPosition = _pelvisBindLocalPosition + trans - _rootAnchor;
+                return;
+            }
+
+            // Raw mode puts the body where the capture did, and `trans` is SMPL-X's
+            // own quantity for that: the pelvis sits at template_J[0] + trans with
+            // the floor at zero, and this rig's bind pose *is* template_J[0]. What
+            // it is not is a local position. The pelvis's parent in the FBX (`root`)
+            // sits 1.36 m up so that the rest body stands on the floor, so assigning
+            // localPosition would add that offset again and float every body by it.
+            _joints[0].position = transform.TransformPoint(_pelvisBindLocalPosition + trans);
         }
     }
 }

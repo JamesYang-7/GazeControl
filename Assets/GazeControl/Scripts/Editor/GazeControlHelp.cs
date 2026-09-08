@@ -7,7 +7,7 @@ namespace GazeControl.Editor
     /// GazeControl → Help: what every command on this menu does, and which of
     /// them a participant session actually needs.
     ///
-    /// <para>The menu had grown to eleven commands across three submenus, some of
+    /// <para>The menu had grown to thirteen commands across four submenus, some of
     /// which are one-off asset repairs and one of which starts a recording with a
     /// real person in a headset. Nothing on it said which was which, and the
     /// answers were spread across CLAUDE.md, four design documents and the
@@ -110,6 +110,31 @@ namespace GazeControl.Editor
                     "Builds both questionnaire surfaces: the display-only canvas on the participant's own " +
                     "vertex, and the operator's entry panel. A study session refuses to start without one.",
                     "GazeControl/Set Up Questionnaire"),
+            }),
+
+            ("Looking at source material", "A different corpus and a different purpose: nothing here is " +
+                                           "measured, recorded or shown to a participant.", new[]
+            {
+                new Entry("3People → Set Up Replay Scene",
+                    "Builds Assets/Scenes/ThreePartyReplay.unity, where a whole 3People-2022 session plays " +
+                    "with all three participants at once — their converted SMPL-X motion on the capture's " +
+                    "own room frame, their own microphone tracks and their own transcripts.\n\n" +
+                    "Drag to turn the camera, scroll to close in, middle-drag to slide the pivot. The " +
+                    "overlay names each body, shows what they are saying and marks the annotated " +
+                    "end-of-turn events.\n\n" +
+                    "Its own scene on purpose: this camera orbits, and the study's is fixed because it is " +
+                    "a controlled variable.",
+                    "GazeControl/3People/Set Up Replay Scene"),
+
+                new Entry("3People → Session Browser",
+                    "Picks the session and the stretch of it to watch, and reads it out as a transcript " +
+                    "with the end-of-turn events marked before anything is played — which is what makes a " +
+                    "candidate window judgeable rather than merely watchable, and the only way to catch " +
+                    "the microphone bleed that puts a phantom line, and so a phantom event, on the wrong " +
+                    "participant's track.\n\n" +
+                    "The ranking written by Tools/find_3people_segments.py is listed as a starting point; " +
+                    "Play whole session ignores it, which is what watching the originals means.",
+                    "GazeControl/3People/Session Browser"),
             }),
 
             ("Asset repair", "One-off, on an imported asset. Not part of running anything.", new[]

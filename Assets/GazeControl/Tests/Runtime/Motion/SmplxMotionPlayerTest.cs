@@ -104,6 +104,9 @@ namespace GazeControl.Motion
         [Test]
         public void ApplyFrame_WithRootTranslationRelativeCleared_UsesTheRawDatasetPosition()
         {
+            // SMPL-X's `trans` places the pelvis at template_J[0] + trans, and the
+            // rig's bind pose is template_J[0] — so the raw position is the bind
+            // pose plus the clip's translation, not the translation alone.
             var sut = CreateSystemUnderTest();
             sut.StartFrame = SecondSegmentStart;
             sut.RootTranslationRelative = false;
@@ -111,9 +114,33 @@ namespace GazeControl.Motion
 
             sut.ApplyFrame(SecondSegmentStart);
 
-            Assert.That(_pelvis.localPosition,
-                Is.EqualTo(SmplxAnimUtils.PositionToUnity(sut.Clip.GetTranslation(SecondSegmentStart)))
-                    .Using(new Vector3EqualityComparer(1e-4f)));
+            var trans = SmplxAnimUtils.PositionToUnity(sut.Clip.GetTranslation(SecondSegmentStart));
+            Assert.That(_pelvis.position,
+                Is.EqualTo(ScenePosition + trans).Using(new Vector3EqualityComparer(1e-4f)));
+        }
+
+        [Test]
+        public void ApplyFrame_RawPosition_IgnoresAnOffsetBetweenTheAgentAndThePelvisParent()
+        {
+            // The SMPL-X FBX hangs the pelvis off a `root` node 1.36 m up so that
+            // the rest body stands on the floor. The clip's translation is already
+            // measured from the floor, so writing it as a local position would add
+            // that offset a second time and float every body by it.
+            var sut = CreateSystemUnderTest();
+            var rig = new GameObject("rig");
+            rig.transform.SetParent(_agent.transform, worldPositionStays: false);
+            rig.transform.localPosition = new Vector3(0f, 1.36f, 0f);
+            _pelvis.SetParent(rig.transform, worldPositionStays: false);
+
+            sut.StartFrame = SecondSegmentStart;
+            sut.RootTranslationRelative = false;
+            sut.Initialize();
+
+            sut.ApplyFrame(SecondSegmentStart);
+
+            var trans = SmplxAnimUtils.PositionToUnity(sut.Clip.GetTranslation(SecondSegmentStart));
+            Assert.That(_pelvis.position,
+                Is.EqualTo(ScenePosition + trans).Using(new Vector3EqualityComparer(1e-4f)));
         }
 
         [Test]
