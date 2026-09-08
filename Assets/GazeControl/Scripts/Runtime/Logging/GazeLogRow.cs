@@ -6,7 +6,12 @@ namespace GazeControl.Logging
     /// </summary>
     public struct GazeLogRow
     {
-        /// <summary>Seconds since the session started.</summary>
+        /// <summary>
+        /// Conversation time in seconds — the segment's clock, shared with the
+        /// participant log's <c>t</c>. Rows written before the clock starts
+        /// (the audio lead) carry -1; only a scene with no conversation falls
+        /// back to seconds since the session started.
+        /// </summary>
         public float Time { get; set; }
 
         /// <summary>Study participant (the human subject), not a triad member.</summary>

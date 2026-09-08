@@ -225,6 +225,9 @@ namespace GazeControl.Experiment
         /// <summary>Shared by the agent log and the participant's, so a take's two files pair by name.</summary>
         string _logStem;
         bool _participantLogStarted;
+        // Sampled at end of frame, off the rendered eye bones, and read on the
+        // next decision tick — see SampleAgentsLookingAtUser for why not live.
+        int _agentsLookingAtUser;
         bool _takeEnded;
         DecisionClock _decisions;
         float _sessionTime;
@@ -947,6 +950,7 @@ namespace GazeControl.Experiment
                     // order between them is not guaranteed. Logging here records
                     // the pose that was actually rendered.
                     await Awaitable.EndOfFrameAsync(cancellationToken);
+                    SampleAgentsLookingAtUser();
                     RecordFrame();
                 }
             }
@@ -975,7 +979,11 @@ namespace GazeControl.Experiment
 
                 var row = new GazeLogRow
                 {
-                    Time = _sessionTime,
+                    // The conversation's clock, not the session's: the participant
+                    // log is stamped on the same clock, and a study session runs
+                    // several takes without leaving play, so a session-time stamp
+                    // put every take after the first at an offset recorded nowhere.
+                    Time = DecisionTime(),
                     ParticipantId = StudyParticipantId,
                     Condition = Condition.ToString(),
                     AgentId = agent.DisplayName,
@@ -1026,26 +1034,39 @@ namespace GazeControl.Experiment
                     Condition.ToString(), CaseName, _agents);
             }
 
-            ParticipantGaze.Sample(conversationTime, tick, AgentsLookingAtUser());
+            ParticipantGaze.Sample(conversationTime, tick, _agentsLookingAtUser);
         }
 
         /// <summary>
-        /// Bit set over agent ids of the agents currently looking at the human,
-        /// by the same geometric criterion the agent log's
-        /// <c>mutual_gaze_with_human</c> uses.
+        /// Sample which agents are looking at the human, as a bit set over agent
+        /// ids, by the same geometric criterion the agent log's
+        /// <c>mutual_gaze_with_human</c> uses. Called at end of frame; the
+        /// decision tick reads the stored value.
         ///
-        /// <para>Read from the rendered eye bones, so on a decision tick it is
-        /// the pose of the last completed frame — up to one frame stale, ~11 ms
-        /// at the headset's 90 Hz. That is well under the gaze-return latencies
-        /// §7.4 measures, and the alternative (reading the commanded target) is
-        /// forbidden: seeing that someone is looking at you is perception, not
-        /// shared policy state (§5.1).</para>
+        /// <para><b>Not read live on the tick.</b> The tick runs in
+        /// <c>Update</c>, after the conversation has seeked the motion players,
+        /// and <c>SmplxAnimUtils.SetPose</c> writes the clip's zero rotation into
+        /// the eye joints every frame — the gaze controllers re-aim them only in
+        /// <c>LateUpdate</c>. Read on the tick, the eye bones therefore point
+        /// straight out of the mocap head, and the column came out identical in
+        /// all three conditions of a clip (P01, 2026-09-08). Sampled here, at end
+        /// of frame, it is the rendered pose of the last completed frame — up to
+        /// one frame stale, ~11 ms at the headset's 90 Hz, well under the
+        /// gaze-return latencies §7.4 measures. Reading the commanded target
+        /// instead is forbidden: seeing that someone is looking at you is
+        /// perception, not shared policy state (§5.1).</para>
         /// </summary>
-        int AgentsLookingAtUser()
+        void SampleAgentsLookingAtUser()
         {
+            if (_agents == null)
+                return;
+
             var human = FindHuman();
             if (human == null)
-                return 0;
+            {
+                _agentsLookingAtUser = 0;
+                return;
+            }
 
             var mask = 0;
             for (var i = 0; i < _agents.Length; i++)
@@ -1054,7 +1075,7 @@ namespace GazeControl.Experiment
                     mask |= 1 << _agents[i].Id;
             }
 
-            return mask;
+            _agentsLookingAtUser = mask;
         }
 
         float AngularSpeed(Vector3 previous, Vector3 current) =>
@@ -1374,6 +1395,12 @@ namespace GazeControl.Experiment
             json.Append($"    \"log\": \"{_logStem}_user.csv\",\n");
             json.Append($"    \"sample_rate_hz\": {DecisionHz.ToString("0.##", c)},\n");
             json.Append($"    \"head_sphere_radius_m\": {ParticipantGaze.HeadSphereRadius.ToString("0.###", c)},\n");
+            json.Append(
+                "    \"clock_note\": \"t in both files is the conversation clock (segment time, 0 at the first motion frame); " +
+                "the agent log runs once per rendered frame and starts during the audio lead, where the clock is not yet running and t is -1\",\n");
+            json.Append(
+                "    \"agents_looking_at_user_note\": \"sampled off the rendered eye bones at the end of the previous frame, so " +
+                "it lags the agent log's mutual_gaze_with_human by at most one frame\",\n");
             json.Append("    \"source\": \"VarjoEyeTracking (com.varjo.xr); OpenXR eye gaze never produced a device on this headset\",\n");
             json.Append("    \"frame\": \"gaze and head columns are world space; the tracker reports head-relative and the head pose columns invert it\",\n");
             json.Append(

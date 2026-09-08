@@ -27,6 +27,7 @@ namespace GazeControl.Experiment
     {
         const string k_ParticipantKey = "GazeControl.StudyLaunch.Participant";
         const string k_PreviewKey = "GazeControl.StudyLaunch.Preview";
+        const string k_PreviewHeadsetKey = "GazeControl.StudyLaunch.PreviewHeadset";
 
         /// <summary>The participant a launch is pending for, or empty when none is.</summary>
         public static string Pending => SessionState.GetString(k_ParticipantKey, string.Empty);
@@ -57,15 +58,28 @@ namespace GazeControl.Experiment
         /// developer overlay on, and each clip running straight into the next.
         /// For checking bakes by eye; nothing it shows is a take.
         /// </summary>
-        public static void SetPreview() => SessionState.SetBool(k_PreviewKey, true);
+        /// <param name="inHeadset">
+        /// Start the headset for the preview, to watch the bakes from the seat.
+        /// Off by default: a desktop preview is what a bake check needs, and the
+        /// Varjo runtime up with nobody wearing it stalls the frame clock.
+        /// </param>
+        public static void SetPreview(bool inHeadset = false)
+        {
+            SessionState.SetBool(k_PreviewKey, true);
+            SessionState.SetBool(k_PreviewHeadsetKey, inHeadset);
+        }
 
         /// <summary>Take a pending preview request, leaving none behind.</summary>
-        public static bool TryConsumePreview()
+        /// <param name="inHeadset">Whether the preview asked for the headset.</param>
+        public static bool TryConsumePreview(out bool inHeadset)
         {
+            inHeadset = false;
             if (!SessionState.GetBool(k_PreviewKey, false))
                 return false;
 
+            inHeadset = SessionState.GetBool(k_PreviewHeadsetKey, false);
             SessionState.EraseBool(k_PreviewKey);
+            SessionState.EraseBool(k_PreviewHeadsetKey);
             return true;
         }
     }

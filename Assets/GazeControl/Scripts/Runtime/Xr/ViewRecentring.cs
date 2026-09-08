@@ -3,13 +3,17 @@ using UnityEngine;
 namespace GazeControl.Xr
 {
     /// <summary>
-    /// Which way to turn the play area so that the participant's "straight
-    /// ahead" points between the two agents.
+    /// Where to put the play area so that the participant's head, as the headset
+    /// reports it right now, sits on the rig's origin at the study's eye height
+    /// with its "straight ahead" pointing between the two agents.
     ///
-    /// <para>The headset's yaw origin comes from the room's tracking setup, not
-    /// from where the participant happens to be standing, so without this a
-    /// session can start with the triad off to one side or behind them. The
-    /// operator says "look straight ahead" and recentres.</para>
+    /// <para>The headset's tracking origin comes from the room's setup, not from
+    /// where the participant happens to be standing, so without this a session
+    /// can start with the triad off to one side, behind them, or a metre away.
+    /// The operator says "stand on the mark and look straight ahead" and
+    /// recentres; after that both head rotation and head translation track
+    /// freely, so the participant has full positional parallax and the seat is
+    /// only where they started.</para>
     ///
     /// <para><b>Yaw only, deliberately.</b> Pitch and roll are reported against
     /// gravity and are therefore already correct; rotating them would tilt the
@@ -38,9 +42,10 @@ namespace GazeControl.Xr
         /// <summary>What one recentring sample yielded.</summary>
         public readonly struct Result
         {
-            public Result(float yawOffsetDegrees, bool accepted, string reason)
+            public Result(float yawOffsetDegrees, Vector3 positionOffset, bool accepted, string reason)
             {
                 YawOffsetDegrees = yawOffsetDegrees;
+                PositionOffset = positionOffset;
                 Accepted = accepted;
                 Reason = reason;
             }
@@ -51,6 +56,14 @@ namespace GazeControl.Xr
             /// </summary>
             public float YawOffsetDegrees { get; }
 
+            /// <summary>
+            /// Where to put the play area in the rig's own frame, so that the
+            /// sampled head lands on the rig's origin at the requested eye height
+            /// once the area has been turned by <see cref="YawOffsetDegrees"/>.
+            /// Zero when the sample was rejected.
+            /// </summary>
+            public Vector3 PositionOffset { get; }
+
             /// <summary>False when the head pose cannot give a meaningful yaw.</summary>
             public bool Accepted { get; }
 
@@ -59,8 +72,8 @@ namespace GazeControl.Xr
         }
 
         /// <summary>
-        /// The play-area yaw that puts <paramref name="headRotation"/>'s forward
-        /// on the rig's own forward axis.
+        /// The play-area pose that puts the sampled head on the rig's origin at
+        /// <paramref name="eyeHeight"/>, facing along the rig's forward axis.
         /// </summary>
         /// <param name="headRotation">
         /// The headset's rotation as the runtime reports it, in tracking space —
@@ -68,7 +81,15 @@ namespace GazeControl.Xr
         /// what makes a second recentring re-measure the participant rather than
         /// compound the first one.
         /// </param>
-        public static Result Measure(Quaternion headRotation)
+        /// <param name="headPosition">
+        /// The headset's position in the same tracking space, floor-relative.
+        /// </param>
+        /// <param name="eyeHeight">
+        /// Height above the rig's origin the head is placed at. The participant's
+        /// own height is not kept: every participant starts on the agents' shared
+        /// eye line, and only their movement from there is theirs.
+        /// </param>
+        public static Result Measure(Quaternion headRotation, Vector3 headPosition, float eyeHeight)
         {
             var forward = headRotation * Vector3.forward;
 
@@ -78,11 +99,12 @@ namespace GazeControl.Xr
             // recentring that is wrong by tens of degrees for a participant who
             // happened to tilt their head.
             var horizontal = new Vector2(forward.x, forward.z);
-            if (float.IsNaN(horizontal.x) || float.IsNaN(horizontal.y))
-                return new Result(0f, false, "no tracking data yet — the headset reported no pose.");
+            if (float.IsNaN(horizontal.x) || float.IsNaN(horizontal.y) ||
+                float.IsNaN(headPosition.x) || float.IsNaN(headPosition.y) || float.IsNaN(headPosition.z))
+                return new Result(0f, Vector3.zero, false, "no tracking data yet — the headset reported no pose.");
 
             if (horizontal.magnitude < MinHorizontalForward)
-                return new Result(0f, false,
+                return new Result(0f, Vector3.zero, false,
                     "the head is pointing too near straight up or down for its facing to be read — " +
                     "ask the participant to look level at the room and recentre again.");
 
@@ -91,7 +113,16 @@ namespace GazeControl.Xr
             // DeltaAngle against zero normalises into (-180, 180]: turning the
             // play area -350 degrees and +10 land in the same place, and the
             // small number is the one worth logging and reading.
-            return new Result(Mathf.DeltaAngle(headYaw, 0f), true, string.Empty);
+            var yawOffset = Mathf.DeltaAngle(headYaw, 0f);
+
+            // The camera sits at offset + turn * head in the rig's frame, so the
+            // offset that lands it on (0, eyeHeight, 0) is that point minus the
+            // turned head position. Turned first: the play area is rotated about
+            // its own origin, and the head is somewhere off that origin.
+            var turned = Quaternion.Euler(0f, yawOffset, 0f) * headPosition;
+            var positionOffset = new Vector3(0f, eyeHeight, 0f) - turned;
+
+            return new Result(yawOffset, positionOffset, true, string.Empty);
         }
     }
 }

@@ -21,17 +21,36 @@ namespace GazeControl.Editor
         public static void PreviewStudy1()
         {
             if (StudyScenes.EnsureOpen(StudyScenes.Study1ScenePath, "Study 1 → Preview Session"))
-                Preview();
+                Preview(inHeadset: false);
+        }
+
+        [MenuItem("GazeControl/Study 1/Preview Session in Headset")]
+        public static void PreviewStudy1InHeadset()
+        {
+            if (StudyScenes.EnsureOpen(StudyScenes.Study1ScenePath, "Study 1 → Preview Session in Headset"))
+                Preview(inHeadset: true);
         }
 
         [MenuItem("GazeControl/Study 2/Preview Session")]
         public static void PreviewStudy2()
         {
             if (StudyScenes.EnsureOpen(StudyScenes.Study2ScenePath, "Study 2 → Preview Session"))
-                Preview();
+                Preview(inHeadset: false);
         }
 
-        static void Preview()
+        /// <summary>
+        /// The same preview with the headset started, to watch the bakes from
+        /// the participant's seat. Put the headset on before pressing it: the
+        /// frame clock waits on the compositor while nobody is wearing it.
+        /// </summary>
+        [MenuItem("GazeControl/Study 2/Preview Session in Headset")]
+        public static void PreviewStudy2InHeadset()
+        {
+            if (StudyScenes.EnsureOpen(StudyScenes.Study2ScenePath, "Study 2 → Preview Session in Headset"))
+                Preview(inHeadset: true);
+        }
+
+        static void Preview(bool inHeadset)
         {
             if (EditorApplication.isPlaying)
             {
@@ -54,7 +73,7 @@ namespace GazeControl.Editor
                 return;
             }
 
-            StudyLaunchRequest.SetPreview();
+            StudyLaunchRequest.SetPreview(inHeadset);
             EditorApplication.isPlaying = true;
         }
     }

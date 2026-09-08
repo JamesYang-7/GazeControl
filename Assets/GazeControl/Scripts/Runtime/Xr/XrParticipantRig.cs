@@ -18,32 +18,24 @@ namespace GazeControl.Xr
     /// participant's real head — which is the whole point of running the study
     /// live rather than on video (`user-study-design.md` §4).</para>
     ///
-    /// <para><b>The viewpoint is a fixed point in the room: head rotation
-    /// tracks, head translation does not.</b> The camera sits at the triad vertex
-    /// at <see cref="EyeHeight"/> and stays there, so every participant sees the
-    /// two agents from the identical position, at the identical distance, on the
-    /// identical eye line — height, build and where someone happens to stand all
-    /// stop being uncontrolled between-participant variables. There is no
-    /// calibration step to run, forget, or take mid-movement.</para>
+    /// <para><b>The head is placed once and then tracks freely, position and
+    /// rotation both</b> (user's call, 2026-09-08, replacing the fixed viewpoint
+    /// of 2026-08-27). Recentring puts the headset's current pose on the triad
+    /// vertex at <see cref="EyeHeight"/>, facing between the agents, by moving
+    /// and turning <see cref="CameraOffset"/>; from then on the camera follows
+    /// the head wherever it goes. Every participant therefore <i>starts</i> from
+    /// the identical point on the agents' shared eye line, and only their own
+    /// movement from there differs — which is what full positional parallax
+    /// costs, and it is what the fixed viewpoint could not give: leaning and
+    /// swaying moved nothing, and turning the head pivoted the world about the
+    /// eyes rather than the neck.</para>
     ///
-    /// <para>It also makes the agents' rendered gaze deterministic. They aim at
-    /// the human's <c>LookAtAnchor</c>, which is this camera; with the camera
-    /// fixed, that aim is the same for every participant and the same as in a
-    /// desktop preview. With positional tracking it varied with whoever was
-    /// wearing the headset and how they had drifted.</para>
-    ///
-    /// <para>The trade is deliberate and it is a real one: <b>no positional
-    /// parallax</b>. Swaying or leaning does not move the view, and because the
-    /// rotation is applied at the eyes rather than about the neck, turning the
-    /// head pivots the world slightly more than a body expects. This is ordinary
-    /// 3DOF viewing, tolerated for short passive content, and the task here is to
-    /// stand still and watch for 20-30 s. Two consequences worth holding on to:
-    /// the pilot should check comfort explicitly, and a participant who walks
-    /// gets no visual feedback that they have — so the operator stays in the
-    /// room. If parallax is ever wanted back, a neck-pivot model (rotate the eyes
-    /// about a point below and behind them) restores most of it while keeping the
-    /// geometry identical across participants, since it depends only on head
-    /// rotation and not on the body wearing the headset.</para>
+    /// <para>The agents aim at the human's <c>LookAtAnchor</c>, which is this
+    /// camera, so their rendered gaze follows the participant's real head. The
+    /// baked gaze tracks are unaffected — a policy names a target, never an
+    /// angle — but the rendered angle now differs between participants by
+    /// however far they moved, and the participant log's head pose columns are
+    /// what records it.</para>
     ///
     /// <para><b>XR is opt-in, and off by default.</b> "Initialize XR on Startup"
     /// is deliberately unchecked in XR Plug-in Management: baking gaze tracks,
@@ -69,9 +61,9 @@ namespace GazeControl.Xr
         public Camera HeadCamera { get; set; }
 
         [field: SerializeField]
-        [field: Tooltip("Height the participant's view is held at, metres above the floor. " +
-                        "Defaults to the SMPL-X agents' own eye line; their heads bob a few cm under mocap, " +
-                        "so tune this if you would rather sit on the mean of that motion.")]
+        [field: Tooltip("Height the participant's head is placed at when the view is recentred, metres above the floor; " +
+                        "it tracks freely from there. Defaults to the SMPL-X agents' own eye line; their heads bob a few cm " +
+                        "under mocap, so tune this if you would rather sit on the mean of that motion.")]
         public float EyeHeight { get; set; } = ParticipantEyeHeight.SmplxEyeHeight;
 
         [field: SerializeField]
@@ -79,9 +71,9 @@ namespace GazeControl.Xr
         public bool StartXrOnPlay { get; set; }
 
         [field: SerializeField]
-        [field: Tooltip("Turn the play area so the participant's facing points between the two agents, " +
-                        "as soon as the headset reports a pose. Recentre again by hand if they were not " +
-                        "looking ahead at that moment.")]
+        [field: Tooltip("Move and turn the play area so the participant's head sits on the vertex at EyeHeight facing " +
+                        "between the two agents, as soon as the headset reports a pose. Recentre again by hand if they " +
+                        "were not on the mark looking ahead at that moment.")]
         public bool RecentreOnXrStart { get; set; } = true;
 
         [field: SerializeField]
@@ -106,9 +98,9 @@ namespace GazeControl.Xr
         /// <summary>
         /// The participant's own standing eye height as last measured, metres, or
         /// 0 before the first accepted sample. Nothing in the scene depends on it
-        /// — the view is held at <see cref="EyeHeight"/> regardless — but it is
-        /// the one thing the rig knows about the participant's body, and it
-        /// belongs in their record.
+        /// — recentring puts every head at <see cref="EyeHeight"/> regardless —
+        /// but it is the one thing the rig knows about the participant's body,
+        /// and it belongs in their record.
         /// </summary>
         public float MeasuredEyeHeight { get; private set; }
 
@@ -121,6 +113,12 @@ namespace GazeControl.Xr
         /// means they were set up facing well off the rig's forward.
         /// </summary>
         public float ViewYawOffset { get; private set; }
+
+        /// <summary>
+        /// Where the play area was moved to, in the rig's frame, so that the
+        /// participant's head landed on the vertex at <see cref="EyeHeight"/>.
+        /// </summary>
+        public Vector3 ViewPositionOffset { get; private set; }
 
         /// <summary>True once the automatic recentring has found a head pose to use.</summary>
         public bool HasRecentred { get; private set; }
@@ -260,26 +258,29 @@ namespace GazeControl.Xr
                 return default;
             }
 
-            if (!TryReadHeadRotation(out var rotation))
+            if (!TryReadHeadPose(out var rotation, out var position))
             {
                 Debug.LogWarning($"{name}: no head pose to recentre from - is the headset being worn?", this);
                 return default;
             }
 
-            var result = ViewRecentring.Measure(rotation);
+            var result = ViewRecentring.Measure(rotation, position, EyeHeight);
             if (!result.Accepted)
             {
-                Debug.LogWarning($"{name}: view not recentred - {result.Reason} The play area has not turned.", this);
+                Debug.LogWarning($"{name}: view not recentred - {result.Reason} The play area has not moved.", this);
                 return result;
             }
 
             CameraOffset.localRotation = Quaternion.Euler(0f, result.YawOffsetDegrees, 0f);
+            CameraOffset.localPosition = result.PositionOffset;
             ViewYawOffset = result.YawOffsetDegrees;
+            ViewPositionOffset = result.PositionOffset;
             HasRecentred = true;
 
             Debug.Log(
-                $"{name}: view recentred - play area turned {result.YawOffsetDegrees:+0.0;-0.0} deg so the " +
-                "participant faces between the agents.", this);
+                $"{name}: view recentred - play area turned {result.YawOffsetDegrees:+0.0;-0.0} deg and moved " +
+                $"{result.PositionOffset} so the participant's head sits on the vertex at {EyeHeight:F3} m " +
+                "facing between the agents; it tracks freely from here.", this);
 
             return result;
         }
@@ -288,15 +289,17 @@ namespace GazeControl.Xr
         /// Record the participant's own standing eye height, read from the
         /// headset device rather than from the camera.
         ///
-        /// <para>It has to come from the device now: the camera no longer follows
-        /// the head positionally, so its transform says nothing about how tall
-        /// anyone is. The tracking origin is floor-relative, so the device's
-        /// height <i>is</i> the height above the floor.</para>
+        /// <para>Off the device, not the camera: the camera's height is the
+        /// device's plus whatever recentring shifted the play area by, so only
+        /// the device says how tall anyone is. The tracking origin is
+        /// floor-relative, so the device's height <i>is</i> the height above the
+        /// floor.</para>
         ///
-        /// <para>Nothing in the stimulus depends on this - the viewpoint is fixed
-        /// whatever it reads. It is kept because it is the one fact the rig knows
-        /// about the participant's body, and `user-study-design.md` section 4
-        /// wants it on record as a possible covariate.</para>
+        /// <para>Nothing in the stimulus depends on this - recentring puts every
+        /// head at EyeHeight whatever it reads. It is kept because it is the one
+        /// fact the rig knows about the participant's body, and
+        /// `user-study-design.md` section 4 wants it on record as a possible
+        /// covariate.</para>
         /// </summary>
         void SampleParticipantHeight()
         {
@@ -347,11 +350,12 @@ namespace GazeControl.Xr
                 Debug.LogWarning(
                     $"{name}: gave up recentring the view automatically after {RecentreWindowSeconds:0}s - the " +
                     "headset never reported a usable pose. Recentre by hand (right-click the component, " +
-                    "Recentre View) with the participant looking straight ahead.", this);
+                    "Recentre View) with the participant on the mark looking straight ahead.", this);
                 return;
             }
 
-            if (!TryReadHeadRotation(out var rotation) || !ViewRecentring.Measure(rotation).Accepted)
+            if (!TryReadHeadPose(out var rotation, out var position) ||
+                !ViewRecentring.Measure(rotation, position, EyeHeight).Accepted)
                 return;
 
             _recentrePending = false;
@@ -359,21 +363,25 @@ namespace GazeControl.Xr
         }
 
         /// <summary>
-        /// The headset's rotation in tracking space, straight from the device.
-        /// Read here rather than off the camera because the camera's rotation
-        /// already carries the play-area turn, and recentring from that would
-        /// stack turn on turn.
+        /// The headset's pose in tracking space, straight from the device. Read
+        /// here rather than off the camera because the camera already carries
+        /// the play-area turn and shift, and recentring from that would stack
+        /// them on themselves.
         /// </summary>
-        bool TryReadHeadRotation(out Quaternion rotation)
+        bool TryReadHeadPose(out Quaternion rotation, out Vector3 position)
         {
             rotation = Quaternion.identity;
+            position = Vector3.zero;
 
             var head = InputDevices.GetDeviceAtXRNode(XRNode.CenterEye);
             if (!head.isValid)
                 return false;
 
-            return head.TryGetFeatureValue(CommonUsages.centerEyeRotation, out rotation) ||
-                   head.TryGetFeatureValue(CommonUsages.deviceRotation, out rotation);
+            var hasRotation = head.TryGetFeatureValue(CommonUsages.centerEyeRotation, out rotation) ||
+                              head.TryGetFeatureValue(CommonUsages.deviceRotation, out rotation);
+            var hasPosition = head.TryGetFeatureValue(CommonUsages.centerEyePosition, out position) ||
+                              head.TryGetFeatureValue(CommonUsages.devicePosition, out position);
+            return hasRotation && hasPosition;
         }
 
         void Update()

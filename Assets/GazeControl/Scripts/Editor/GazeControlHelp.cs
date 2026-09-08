@@ -141,7 +141,7 @@ namespace GazeControl.Editor
             }),
 
             ("Study 2 (3People clips)", "The seven 3People-2022 windows played through study 1's pipeline. " +
-                                        "The scene moves the recorded room onto the participant's fixed viewpoint " +
+                                        "The scene moves the recorded room onto the participant's starting viewpoint " +
                                         "per clip; everything else is study 1's.", new[]
             {
                 new Entry("Study 2 → Set Up Scene",
@@ -154,9 +154,16 @@ namespace GazeControl.Editor
                 new Entry("Study 2 → Bake Seeds 1-12",
                     "Every condition at seeds 1-12 for every conversation the session runner lists — 252 " +
                     "play sessions for seven clips, about two hours. Each track is checked as its play ends " +
-                    "and re-baked if short; a report lands in output/. Choose one seed per clip from what " +
-                    "exists (Tools/summarize_gaze_tracks.py tabulates them) and set it on the session runner.",
+                    "and re-baked if short; a report lands in output/. Then choose one seed per clip: " +
+                    "uv run python Tools/choose_study2_seeds.py applies the rule (each turn-taking prototype " +
+                    "once, non-degenerate bakes) and writes output/study2_seeds.json.",
                     "GazeControl/Study 2/Bake Seeds 1-12"),
+
+                new Entry("Study 2 → Apply Chosen Seeds",
+                    "Writes the clip order and seeds from output/study2_seeds.json onto the session runner " +
+                    "and saves Study2Scene. Transcribes the script's choice rather than typing seven numbers " +
+                    "into the inspector, so the scene never carries a seed whose reason is not on disk.",
+                    "GazeControl/Study 2/Apply Chosen Seeds"),
 
                 new Entry("Study 2 → Start Session",
                     "The Start Session window with Study2Scene open. Same window, same rules; the roster " +
@@ -169,6 +176,12 @@ namespace GazeControl.Editor
                     "Each clip runs straight into the next, and Space skips the current one. For checking " +
                     "bakes by eye on the desktop; nothing it shows is a take.",
                     "GazeControl/Study 2/Preview Session"),
+
+                new Entry("Study 2 → Preview Session in Headset  (Study 1 → Preview Session in Headset)",
+                    "The same preview with the headset started, to watch the bakes from the participant's " +
+                    "seat. Put the headset on before pressing it: with the runtime up and nobody wearing it, " +
+                    "the frame clock waits on the compositor. Audio stays on the desktop output.",
+                    "GazeControl/Study 2/Preview Session in Headset"),
             }),
 
             ("When something is wrong", "", new[]

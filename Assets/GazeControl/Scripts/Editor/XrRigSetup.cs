@@ -20,9 +20,9 @@ namespace GazeControl.Editor
     /// YAML, so it can be reviewed and re-run.
     ///
     /// The camera sits on the vertex at
-    /// <see cref="ParticipantEyeHeight.SmplxEyeHeight"/> and the pose driver is
-    /// set to rotation only, so that is where the viewpoint stays in a headset
-    /// too and a desktop preview frames the triad exactly as a worn take does.
+    /// <see cref="ParticipantEyeHeight.SmplxEyeHeight"/>, which is where a
+    /// desktop preview frames the triad from and where recentring puts a worn
+    /// headset before it tracks freely (position and rotation, since 2026-09-08).
     /// The height moved up 8.5 cm on 2026-08-27, from a generic 1.60 m to the
     /// agents' own eye line; no baked gaze track is affected, because no policy
     /// reads scene geometry (the one field that did, `MutualGazeActive`, has gone
@@ -104,10 +104,9 @@ namespace GazeControl.Editor
             EditorSceneManager.MarkSceneDirty(user.scene);
 
             Debug.Log(
-                $"Set Up XR Rig: '{UserObjectName}' is a fixed viewpoint on the triad vertex at " +
-                $"{ParticipantEyeHeight.SmplxEyeHeight:F3} m — head rotation tracks, head translation does not, so " +
-                "every participant sees the agents from the identical position. XR starts only when asked " +
-                "(XrParticipantRig.StartXrOnPlay).", rig);
+                $"Set Up XR Rig: '{UserObjectName}' places the participant's head on the triad vertex at " +
+                $"{ParticipantEyeHeight.SmplxEyeHeight:F3} m when the view is recentred, and the head tracks freely " +
+                "from there, position and rotation both. XR starts only when asked (XrParticipantRig.StartXrOnPlay).", rig);
         }
 
         /// <summary>
@@ -213,20 +212,17 @@ namespace GazeControl.Editor
 
             Undo.RecordObject(driver, "Configure tracked pose driver");
 
-            // Rotation only: the participant's viewpoint is a fixed point in the
-            // room (see XrParticipantRig). Locking translation here rather than
-            // correcting it afterwards means the driver simply never writes a
-            // position, so nothing has to run after it to undo one.
-            driver.trackingType = TrackedPoseDriver.TrackingType.RotationOnly;
+            // Position and rotation: the head is placed on the vertex once, by
+            // recentring, and tracks freely after that (see XrParticipantRig).
+            // Was RotationOnly from 2026-08-27 to 2026-09-08, when the viewpoint
+            // was a fixed point; the user chose parallax over the fixed geometry.
+            driver.trackingType = TrackedPoseDriver.TrackingType.RotationAndPosition;
 
             // Before-render as well as per-frame: a head pose sampled only in
             // Update is one frame stale by the time the eyes are rendered, which
             // is the difference between a stable room and a swimming one.
             driver.updateType = TrackedPoseDriver.UpdateType.UpdateAndBeforeRender;
 
-            // Still bound although RotationOnly ignores it: the binding costs
-            // nothing, and switching the driver back to RotationAndPosition (to
-            // restore parallax) is then a one-field change rather than a rebuild.
             driver.positionInput = new InputActionProperty(new InputAction(
                 "XR Head Position", InputActionType.Value, "<XRHMD>/centerEyePosition", expectedControlType: "Vector3"));
             driver.rotationInput = new InputActionProperty(new InputAction(

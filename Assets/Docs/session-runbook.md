@@ -9,7 +9,7 @@ what only a person in the room can do.
 The procedure below is the same; only the scene and the clip list differ.
 
 - Open **`Assets/Scenes/Study2Scene.unity`**, not TriadScene. Its agents stand where
-  the recording puts them, moved onto the participant's fixed viewpoint per clip.
+  the recording puts them, moved onto the participant's starting viewpoint per clip.
 - On the `GazeCondition` object, `StudySessionRunner.Conversations` lists the seven
   exported clips `study2_c1`…`c7` and `Seeds` one seed per clip. **Choose the clips
   and the seeds before starting**: delete the conversations you are not using
@@ -48,15 +48,19 @@ The procedure below is the same; only the scene and the clip list differ.
    (`XrParticipantRig.CalibrateEyeTracking()`, or from Varjo Base). The window's
    **Headset** section says when the tracker is available and calibrated —
    wait for it to say so.
-8. With the participant looking straight ahead, confirm the view is centred
-   between the two agents. It recentres itself on the first tracked frame; repeat
-   it from `XrParticipantRig`'s context menu if they were not facing forward then.
+8. With the participant standing on the mark and looking straight ahead, confirm
+   the view is centred between the two agents at eye level. Recentring places
+   their head on the vertex at the agents' eye height, facing between them, and
+   the head tracks freely from there. It happens on the first tracked frame;
+   repeat it from `XrParticipantRig`'s context menu if they were not on the mark
+   facing forward then.
 9. Press **Space** to begin. From here Space is the only key: it advances past the
    framing screen, and after each clip it commits the questionnaire screen and
    releases the next clip. The participant answers aloud and you type what they
    say into the operator panel on the desktop window.
-10. Stay in the room. The viewpoint is fixed, so a participant who walks gets no
-    feedback that they have.
+10. Stay in the room. The head tracks, so a participant who walks sees the agents
+    move; ask them to stay on the mark, and recentre if they have drifted between
+    clips.
 
 ## Afterwards
 

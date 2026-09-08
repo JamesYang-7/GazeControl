@@ -517,6 +517,7 @@ MonoBehaviour:
   <EyeHeight>k__BackingField: 1.6846
   <StartXrOnPlay>k__BackingField: 1
   <RecentreOnXrStart>k__BackingField: 1
+  <KeepSystemAudioOutput>k__BackingField: 1
 --- !u!114 &184681078
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -987,10 +988,8 @@ MonoBehaviour:
   - study2_c2
   - study2_c3
   - study2_c4
-  - study2_c5
-  - study2_c6
   - study2_c7
-  <Seeds>k__BackingField: 01000000010000000100000001000000010000000100000001000000
+  <Seeds>k__BackingField: 01000000040000000a0000000500000007000000
   <SegmentRoot>k__BackingField: Assets/DemoSegments
   <Conversation>k__BackingField: {fileID: 644306069}
   <Runner>k__BackingField: {fileID: 696636974}
@@ -1539,7 +1538,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c2fadf230d1919748a9aa21d40f74619, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.InputSystem::UnityEngine.InputSystem.XR.TrackedPoseDriver
-  m_TrackingType: 1
+  m_TrackingType: 0
   m_UpdateType: 0
   m_IgnoreTrackingState: 0
   m_PositionInput:
