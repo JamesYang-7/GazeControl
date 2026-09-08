@@ -14,7 +14,7 @@ script that draws the figure. Regenerate with:
 python Tools/build_study_figures.py
 ```
 
-It reads `Recordings/P05..P22/responses.csv` and writes into `{PAPER_ROOT}/figures/`.
+It reads `Recordings/Study_01/P05..P22/responses.csv` and writes into `{PAPER_ROOT}/figures/`.
 
 **Two repositories, and one symbol for the other one.** **`{PAPER_ROOT}` stands for the CHI
 paper repository**, currently at `F:\Research\CHI_2027___Explainable_Gaze_Patterns_for_Turn_Taking`.
@@ -148,7 +148,7 @@ below.
 
 **Watch the overlap when tracing a bar back to a log.** Twelve of the eighteen display
 labels also exist as disk labels and name a *different* person: the floor responder drawn
-as `P11` is `Recordings/P15/`, not `Recordings/P11/`. Anything written about an individual
+as `P11` is `Recordings/Study_01/P15/`, not `Recordings/Study_01/P11/`. Anything written about an individual
 participant should say which namespace it is in. `study-registration.md`,
 `user-study-design.md` and `PROGRESS.md` are all in **disk** labels, because they were
 written while the sessions were being run and the filenames are what they refer to.

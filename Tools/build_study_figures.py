@@ -14,7 +14,7 @@ Regenerate with::
 
     python Tools/build_study_figures.py
 
-Reads ``Recordings/P05..P22/responses.csv`` -- the 18 analysed participants;
+Reads ``Recordings/Study_01/P05..P22/responses.csv`` -- the 18 analysed participants;
 P01-P04 are pilots and are excluded (``user-study-design.md`` section 0.1). The
 figures label them P01-P18, renumbering the analysed set from one for publication;
 see ``DISPLAY_LABEL`` below, which is printed on every run so a bar can be traced
@@ -63,7 +63,7 @@ except ImportError:  # pragma: no cover - environment guard, see module docstrin
              "mixed models). Install it, or the figure will not match the prose.")
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-RECORDINGS = os.path.join(REPO, "Recordings")
+RECORDINGS = os.path.join(REPO, "Recordings", "Study_01")
 # The paper lives in its own git repository, outside this one. Set
 # GAZECONTROL_PAPER_DIR to relocate it without editing this file, or pass --out.
 PAPER_DIR = os.environ.get(

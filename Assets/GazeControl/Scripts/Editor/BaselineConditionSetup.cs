@@ -126,7 +126,7 @@ namespace GazeControl.Editor
             // Repair components wired before the video and the gaze log were
             // brought together under one folder per take.
             if (string.IsNullOrEmpty(runner.OutputDirectory))
-                runner.OutputDirectory = "Recordings";
+                runner.OutputDirectory = "Recordings/Study_01";
 
             if (string.IsNullOrEmpty(runner.CaseName))
                 runner.CaseName = "case1_01";

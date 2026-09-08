@@ -31,7 +31,7 @@ The procedure below is the same; only the scene and the clip list differ.
      baking is one play session per condition, from the Clip Browser. Check them
      the day before, not with someone waiting.
 3. Check the participant label at the top. It is taken from the folders under
-   `Recordings/`, so it is one past the last person who ran. The step buttons are
+   the study's folder under `Recordings/`, so it is one past the last person who ran in this study. The step buttons are
    for a correction only.
 4. Start Varjo Base and confirm the headset is connected. Eye tracking needs
    permission granted to this application in Varjo Base — once per machine, not
@@ -60,13 +60,13 @@ The procedure below is the same; only the scene and the clip list differ.
 
 ## Afterwards
 
-Everything lands in `Recordings/`:
+Everything lands in the study's own folder under `Recordings/` (`Recordings/Study_01` for TriadScene, `Recordings/Study_02` for Study2Scene — the gaze runner's `OutputDirectory`):
 
-- `Recordings/Pnn/session.json` — the running order, the counterbalancing slot,
+- `<study>/Pnn/session.json` — the running order, the counterbalancing slot,
   start and end times, how many clips were shown, and the commit it ran at.
   **No `completedUtc` means the session did not finish.**
-- `Recordings/Pnn/responses.csv` and `comments.jsonl` — the questionnaire.
-- `Recordings/<conversation>/Pnn_<condition>_<timestamp>.csv` and `_user.csv` —
+- `<study>/Pnn/responses.csv` and `comments.jsonl` — the questionnaire.
+- `<study>/<conversation>/Pnn_<condition>_<timestamp>.csv` and `_user.csv` —
   the per-frame agent log and the participant's own gaze, per take.
 
 Close the play session. Nothing needs putting back: the study settings were

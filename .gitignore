@@ -28,8 +28,9 @@
 # They also could contain extremely sensitive data
 /[Mm]emoryCaptures/
 
-# Recordings can get excessive in size
-/[Rr]ecordings/
+# Recordings can get excessive in size; only the layout note is tracked
+/[Rr]ecordings/*
+!/Recordings/README.md
 
 # Per-frame gaze logs from experimental condition runs
 /[Gg]aze[Ll]ogs/

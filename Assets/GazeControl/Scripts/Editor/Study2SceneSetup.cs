@@ -43,6 +43,9 @@ namespace GazeControl.Editor
         const string RunnerObjectName = "GazeCondition";
         const string SegmentRoot = "Assets/DemoSegments";
 
+        /// <summary>Where this study's logs, session folders and demo videos go; study 1's are under Recordings/Study_01.</summary>
+        const string RecordingsRoot = "Recordings/Study_02";
+
         /// <summary>The seven clips of `Tools/export_3people_segments.py`, in block order.</summary>
         static readonly string[] k_Conversations =
         {
@@ -80,10 +83,23 @@ namespace GazeControl.Editor
 
             var conversation = conversationObject.GetComponent<RecordedConversation>();
             var session = runnerObject.GetComponent<StudySessionRunner>();
-            if (conversation == null || session == null)
+            var runner = runnerObject.GetComponent<GazeConditionRunner>();
+            if (conversation == null || session == null || runner == null)
             {
-                Debug.LogError("Set Up Study 2 Scene: the conversation or the session runner component is missing.");
+                Debug.LogError("Set Up Study 2 Scene: the conversation, session runner or gaze runner component is missing.");
                 return;
+            }
+
+            // Its own folder under Recordings/, so study 2's participant labels,
+            // take logs and P00 debugging runs never mix with study 1's, and the
+            // roster proposes labels from this study's folders alone.
+            runner.OutputDirectory = RecordingsRoot;
+            EditorUtility.SetDirty(runner);
+            var questionnaire = runnerObject.GetComponent<QuestionnaireSession>();
+            if (questionnaire != null)
+            {
+                questionnaire.OutputDirectory = RecordingsRoot;
+                EditorUtility.SetDirty(questionnaire);
             }
 
             var room = BuildRoom(scene, user.transform);

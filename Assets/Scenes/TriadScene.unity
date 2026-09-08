@@ -699,6 +699,7 @@ MonoBehaviour:
     <Clip>k__BackingField: {fileID: 0}
   <User>k__BackingField: {fileID: 184681076}
   <Director>k__BackingField: {fileID: 696636976}
+  <Placement>k__BackingField: {fileID: 0}
   <AutoplayOnStart>k__BackingField: 1
   <ScheduleLeadSeconds>k__BackingField: 0.2
 --- !u!114 &644306070
@@ -869,7 +870,7 @@ MonoBehaviour:
   <LoggingEnabled>k__BackingField: 1
   <LogVoiceActivity>k__BackingField: 0
   <ParticipantGaze>k__BackingField: {fileID: 184681078}
-  <OutputDirectory>k__BackingField: Recordings
+  <OutputDirectory>k__BackingField: Recordings/Study_01
   <CaseName>k__BackingField: study_c5
 --- !u!4 &696636975
 Transform:
@@ -977,7 +978,7 @@ MonoBehaviour:
   <Pause>k__BackingField: {fileID: 696636977}
   <Runner>k__BackingField: {fileID: 696636974}
   <Display>k__BackingField: {fileID: 762285482}
-  <OutputDirectory>k__BackingField: Recordings
+  <OutputDirectory>k__BackingField: Recordings/Study_01
 --- !u!1 &762285481
 GameObject:
   m_ObjectHideFlags: 0
