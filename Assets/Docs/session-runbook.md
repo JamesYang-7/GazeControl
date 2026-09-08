@@ -58,6 +58,10 @@ The procedure below is the same; only the scene and the clip list differ.
    framing screen, and after each clip it commits the questionnaire screen and
    releases the next clip. The participant answers aloud and you type what they
    say into the operator panel on the desktop window.
+   **Before the Space that starts each group** (the panel's foot says "Next:
+   group N"), ask the participant to stand on the mark and look straight ahead:
+   the view is recentred as the group's first clip is released, so a drift during
+   the previous group does not carry into the next.
 10. Stay in the room. The head tracks, so a participant who walks sees the agents
     move; ask them to stay on the mark, and recentre if they have drifted between
     clips.

@@ -50,6 +50,12 @@ namespace GazeControl.Experiment
         public string SegmentRoot { get; set; } = "Assets/DemoSegments";
 
         [field: SerializeField]
+        [field: Tooltip("Recentre the participant's view as each block's first clip is released, so a " +
+                        "participant who drifted during the previous block starts the next one back on the " +
+                        "vertex. The operator asks them to stand on the mark and look ahead before pressing Space.")]
+        public bool RecentreAtBlockStart { get; set; } = true;
+
+        [field: SerializeField]
         [field: Tooltip("Plays the clips; re-armed for each one")]
         public RecordedConversation Conversation { get; set; }
 
@@ -460,6 +466,13 @@ namespace GazeControl.Experiment
                     return;
                 }
 
+                // Before the take is armed rather than after the voices start:
+                // recentring moves the camera, and the agents aim at it from
+                // the first decision, so the seat must be settled before the
+                // clock that anchors those decisions is running.
+                if (RecentreAtBlockStart && trial.VersionPosition == 1)
+                    RecentreForBlock(trial);
+
                 Runner.BeginTake(condition, SeedOf(trial), trial, _scheduleOrdinal);
 
                 if (!await Conversation.PlayLoadedAsync(destroyCancellationToken))
@@ -469,6 +482,30 @@ namespace GazeControl.Experiment
             {
                 _busy = false;
             }
+        }
+
+        /// <summary>
+        /// Put the participant's head back on the vertex as a block starts.
+        /// The operator has just committed the previous group's questionnaire
+        /// with the participant standing on the mark, which is the one moment in
+        /// a session when a fresh measurement is both possible and expected.
+        /// Skipped, with a note, when the headset is not running — a desktop
+        /// preview has nothing to recentre.
+        /// </summary>
+        void RecentreForBlock(StudyTrial trial)
+        {
+            var rig = FindAnyObjectByType<XrParticipantRig>(FindObjectsInactive.Include);
+            if (rig == null || !rig.IsXrRunning)
+            {
+                Debug.Log($"{name}: block {trial.BlockNumber} starts without recentring — no headset running.", this);
+                return;
+            }
+
+            var result = rig.RecentreView();
+            if (!result.Accepted)
+                Debug.LogWarning(
+                    $"{name}: block {trial.BlockNumber} starts with the view as it was — recentring was refused. " +
+                    "Recentre by hand from the rig's context menu if the participant has moved.", this);
         }
 
         int SeedOf(StudyTrial trial)
