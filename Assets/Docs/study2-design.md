@@ -1,6 +1,6 @@
 # Study 2 — the triadic prototypes played in a triad
 
-Status: **design settled, nothing built** (2026-09-08; revised the same day). This is the
+Status: **design settled; scene, export and placement built, nothing baked** (2026-09-08). This is the
 handoff for the implementation session. It supersedes `user-study-design.md`, which
 describes the three-condition, fifteen-clip design of study 1; that study ran and is
 written up in `{ICMI_ROOT}`, and nothing here undoes it.
@@ -123,15 +123,17 @@ The listener columns of the fifteen, for the comparison in §7.2:
 
 ## 4. Mechanism
 
-Per clip, the study-1 pipeline in the 3People replay scene:
+Per clip, the study-1 pipeline in `Study2Scene` (a copy of TriadScene whose agents are placed by the clip):
 
-1. **Seat.** The participant stands where the clip's listener stood, at the seat
-   `ThreePartyViewpoint` measures off the recording (mean eye position over the window,
-   opening yaw toward the two speakers' midpoint), with the listener's body hidden. Rotation
-   tracked, translation not, as in study 1.
+1. **Seat.** The participant stays on study 1's fixed viewpoint; the recorded room is turned
+   and slid (`RecordedRoomPlacement`, `RoomPlacement`) so the listener's seat — mean eye
+   position over the window, opening yaw toward the two speakers' midpoint, measured at
+   export — lands on that viewpoint and faces its forward axis. The listener's body is
+   never instantiated. Rotation tracked, translation not, as in study 1.
 2. **Roles.** The two takers are the agents: the event's floor-holder is the current
    speaker, its taker the next speaker, and the participant is the listener. Speaker codes
-   are true PC numbers.
+   are remapped at export onto study 1's contract (takers 1 and 2, listener 0); the true PC
+   numbers stay on the agent records.
 3. **Draw.** At each annotated event, one prototype from the pool of its own class, by the
    seeded `FNV-1a(BaseSeed, eventIndex)` draw; the mapping goes into the log's sidecar
    before the first boundary. Whether the pool should be class-matched or all fifteen is
