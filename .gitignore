@@ -140,3 +140,6 @@ __pycache__/
 # Loaders/, Settings/, XRGeneralSettingsPerBuildTarget — are committed.
 /Assets/XR/UserSimulationSettings/
 /Assets/XR/UserSimulationSettings.meta
+
+# Python env for Tools/ (uv)
+/.venv/

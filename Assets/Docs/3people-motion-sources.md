@@ -218,10 +218,13 @@ subject rather than randomly:
 | 3-5-2022 convo2 pc1 | Ahmed | `RTHI` |
 
 The subject's own VSK still declares all 41, so these are labelling/reconstruction
-failures for that take, not a different marker set. **Within a file there are no gaps** —
-every declared marker is valid in every frame sampled, across the whole take, so the data
-is fully labelled and gap-filled. A converter should key off the label list per file and
-tolerate a missing trunk or limb marker rather than assume 41.
+failures for that take, not a different marker set. **Within a file there *are* gaps,
+and they are stored as all-zero points rather than flagged invalid** (corrected
+2026-09-07; the earlier "no gaps" came from sampling too few frames): on Benjamin,
+01-28-2022 convo1, `C7` is zero in 52% of frames, `LBWT` 40%, `RFWT` 20% — the trunk
+and hip markers that arms and clothing occlude. A marker consumer must drop zero points,
+key off the label list per file, and tolerate a missing trunk or limb marker rather than
+assume 41.
 
 Two more traps:
 
@@ -381,16 +384,32 @@ ball/free joints as axis-angle, so the Euler order belongs to the exporter, not 
 Within the export there is no redundancy to exploit: only three joints have translations
 and two of those are constant bone offsets.
 
-Two ways out, and the second is now the better one:
+**Resolved 2026-09-07: it is XYZ, and the C3D markers are what settle it.** Pose the
+source skeleton itself — the VSK's segment lengths, the export's angles and its thorax
+and head offsets — and fit one constant local offset per marker to the segment it rides
+on. A rigidly attached marker leaves millimetres under the right order and tens of
+centimetres under a wrong one. `Tools/convert_3people_smplx.py --check-markers` does
+this under all six orders; on ten subjects over three dates XYZ leaves **2-6 mm RMS**
+(one subject 20 mm, from a slipped left-shoulder marker) against **40-300 mm** for each
+of the other five. The two readers' disagreement is therefore a bug in `Demo/main.cpp`,
+the renderer, not an open convention.
 
-1. **Decide.** Take `Data/main.cpp`'s **XYZ** as the convention of record, because it is
-   what produced the published `Session_<S>_gazeBehavior.txt` annotations the dataset's
-   own analysis rests on. This is the standing decision.
-2. **Bypass it entirely.** `{TPC_VICON}` has the C3D markers, so joint orientations can be
-   computed from marker triads — or SMPL-X fitted to the markers directly — with no Euler
-   decoding anywhere. That is both more accurate and free of this ambiguity, and the
-   marker frame is already aligned with the export's (same room frame, and `Frame` is the
-   C3D index). **Prefer this if the converter is going to be built properly.**
+Over all 69 participant-sessions the XYZ residual has median 8.7 mm; 18 exceed 15 mm,
+and in every one of those the excess sits on one or two segments — a finger marker at
+100-250 mm (`LFIN`/`RFIN` on Benjamin, Karthik, An, Jericka), a head marker at 50-110 mm
+(Clayton, Elian, Ahmed), or a trunk marker (Eric, 03-11-2022 S3, thorax 322 mm) — while
+the rest of the body stays at millimetres. Those are markers that slipped or were
+mislabelled in that take, and the list is the first place to look if the marker-fitting
+route is ever built.
+
+The former justification for XYZ — that it produced the published
+`Session_<S>_gazeBehavior.txt` — turned out to be no justification: a faithful re-run
+of `Data/main.cpp` agrees with that file on 25% of rows (01-28-2022 Session 1), under no
+Euler order or eye-angle convention, and the file codes P1 as looking at nobody 97% of
+the time there and 100% in Session 3. It was evidently produced from other inputs.
+
+Marker-based fitting of SMPL-X (shape and pose) remains the higher-fidelity route; the
+markers are already aligned with the export (same room frame, `Frame` is the C3D index).
 
 ### Other viewer details
 
@@ -471,11 +490,25 @@ must stay zero in the clip so they do not fight it. Fingers get a fixed relaxed 
    segment's first frame the way `SmplxMotionPlayer.RelativeToFirstFrame` does for
    TalkingWithHands, is the same call already made for the existing corpus.
 
+### The converter — `Tools/convert_3people_smplx.py` (built 2026-09-07)
+
+Run from the repo's uv environment (`uv run python Tools/convert_3people_smplx.py`,
+optionally `--date`/`--session`, `--check-markers`, `--dry-run`). It reads the **stacked
+CSV**, not the `Separate/` txt — the CSV carries the subject name heading each block and
+the `Frame` column, both of which the txt loses — resolves the participant number through
+that date's `Notes.xlsx`, and writes `F:\Data\3People-2022-SMPLX\<date>\Session_<S>_pc<N>_<Name>.npz`
+with `poses`/`trans` (float32), `mocap_frame_rate`, `frame_index` and provenance fields.
+All 69 participant-sessions are converted. The module docstring is the design record:
+the joint map and splits, the rest alignment (trunk, head and legs carry orientation onto
+SMPL-X's own rest; arms and feet are bone-direction-matched), the room-frame-plus-grounding
+root convention, and the two validations — an FK self-check on every clip and the marker
+fit above.
+
 ### Two routes — **angle retargeting is the chosen one** (user, 2026-09-07)
 
-- **Angle retargeting** from the processed export — **this is what gets built first.**
-  Cheaper, and everything it needs is described above. Carries the Euler-order risk, and
-  lands on a default SMPL-X body.
+- **Angle retargeting** from the processed export — **built, see above.** Cheaper, and
+  everything it needs is described in this document. Lands on a default SMPL-X body; the
+  Euler-order risk is closed by the marker check.
 - **Marker-based fitting** from the C3D — a MoSh-style fit of SMPL-X (shape *and* pose) to
   the 41 markers, with the VSK anthropometrics as an initialisation or a check. More work,
   but it removes the Euler ambiguity outright, recovers **per-participant body shape**
@@ -543,14 +576,13 @@ the angle route that are worth holding onto while building it:
   **So gaze, audio and the raw folders carry true PC numbers; only the processed motion
   does not.** To pair a converted clip with a voice, read the subject name from the CSV
   block header (or the C3D label) and look that participant up in `Notes.xlsx`. Never join
-  on `PC_<N>` across trees. Remap, to load participant `pc<N>`'s motion:
-
-  ```
-  12-15-2021  pc1->PC_1  pc2->PC_3  pc3->PC_2     03-05-2022  pc1->PC_2  pc2->PC_1  pc3->PC_3
-  01-28-2022  pc1->PC_2  pc2->PC_3  pc3->PC_1     03-11-2022  pc1->PC_2  pc2->PC_1  pc3->PC_3
-  02-11-2022  pc1->PC_1  pc2->PC_3  pc3->PC_2     03-12-2022  pc1->PC_2  pc2->PC_1  pc3->PC_3
-  03-04-2022  pc1->PC_2  pc2->PC_3  pc3->PC_1
-  ```
+  on `PC_<N>` across trees. **And do not use a per-date table**: the CSV block order is
+  *usually* alphabetical but not always — five sessions differ (12-15-2021 S3 is
+  Justice, Crystal, Maryum; 01-28-2022 S4; 03-11-2022 S3; 03-12-2022 S2 and S3), so
+  `PC_k` is block *k* of *that session's* CSV and nothing more. Verified 2026-09-07 by
+  matching every `Separate/` txt's first row against its CSV block: the correspondence
+  is exact in all 69 cases, and the name is only ever in the CSV. The converter resolves
+  it per session; the remap that used to be printed here was wrong for those five.
 
   - **This reaches past our converter.** `Data/main.cpp` reads
     `Mocap/Separate/..._PC_N_...` alongside `Gaze/Convert/..._PC_N_...` to produce the

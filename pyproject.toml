@@ -1,0 +1,21 @@
+[project]
+name = "gazecontrol-tools"
+version = "0.1.0"
+description = "Python environment for the scripts under Tools/ (corpus search, gaze-pattern generators, study figures, 3People-2022 → SMPL-X converter)."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "numpy>=2.0",
+    "scipy>=1.13",
+    "pandas>=2.2",
+    "matplotlib>=3.9",
+    "openpyxl>=3.1",
+    "statsmodels>=0.14",
+    "c3d>=0.6.0",
+]
+
+[dependency-groups]
+# identify_speakers.py only; heavy, so opt in with `uv sync --group speaker`.
+speaker = ["torch", "speechbrain"]
+
+[tool.uv]
+package = false

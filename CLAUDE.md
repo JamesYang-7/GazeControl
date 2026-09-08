@@ -195,8 +195,10 @@ Four roots, all outside this repository, written with symbols the way `{PAPER_RO
 Three things that will otherwise cost a session:
 
 - **`Separate/..._PC_<N>_...` is mislabelled.** The `N` is an alphabetical position, not a participant number, and it is wrong in 16 of 21 slots. Gaze, audio and `raw_data/` carry true PC numbers; the processed motion does not. Join on the subject name via `mocap/<date>/Notes.xlsx`, which is the participant register **and** the per-stream sync sheet.
-- **The two reference readers in `{TPC_VIEWER}` use different Euler orders** (`Data/main.cpp` XYZ, `Demo/main.cpp` XZY) and the export cannot settle which is right. Decision: **XYZ**, kept behind one named constant so it can be flipped in a single edit. Marker-based fitting from `{TPC_VICON}` would avoid Euler decoding altogether and is the better long-term answer, but **angle retargeting is the chosen first route** (user, 2026-09-07).
+- **The two reference readers in `{TPC_VIEWER}` use different Euler orders** (`Data/main.cpp` XYZ, `Demo/main.cpp` XZY). **It is XYZ, measured**: fitting the C3D markers to the posed source skeleton leaves 2-6 mm under XYZ and 40-300 mm under every other order (`--check-markers`). Still behind one named constant. Marker-based fitting from `{TPC_VICON}` remains the higher-fidelity route; **angle retargeting is the chosen first route** (user, 2026-09-07) and is built.
 - **The source has 19 joints against SMPL-X's 55** — no neck, no spine subdivision, no fingers. Jaw and eyes must stay zero in the clip: LipSync and `IGazePolicy` drive them at runtime.
+
+**The converter is `Tools/convert_3people_smplx.py`** (2026-09-07): all 69 participant-sessions are at `F:\Data\3People-2022-SMPLX\<date>\Session_<S>_pc<N>_<Name>.npz`, room frame horizontally, grounded vertically, default body. Its docstring is the design record. It reads the stacked CSV (never the `Separate/` txt — the CSV block order is not always alphabetical) and resolves the participant through `Notes.xlsx`. The C3D markers have gaps stored as zero points; the published `gazeBehavior.txt` cannot be reproduced from the files on disk and is not relied on.
 
 ## Progress board
 
@@ -214,6 +216,7 @@ Write `{PAPER_ROOT}/...` rather than a bare path when referring to something ove
 
 ## Working in this repo
 
+- **Python scripts run from the repo's uv environment**: `pyproject.toml` at the root, `uv sync` once per clone (creates the git-ignored `.venv/`), then `uv run python Tools/<script>.py`. The interpreter on PATH has no numpy. `identify_speakers.py` needs the opt-in `speaker` group (`uv sync --group speaker`, torch + speechbrain).
 - This is a Unity project: every asset file has a paired `.meta` file. When adding, moving, or deleting assets outside the Unity Editor, keep `.meta` files consistent (let the Editor generate them where possible, and always commit them together with their asset).
 - Scenes, prefabs, and most `.asset` files are Unity YAML (see `.gitattributes`); binary media (models, textures, audio) go through **Git LFS**.
 - Tests use the Unity Test Framework and run inside the Unity Editor (Test Runner window, or via the JetBrains Unity test tooling when available).
