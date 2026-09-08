@@ -42,9 +42,12 @@ namespace GazeControl.Editor
         static readonly (string Heading, string Blurb, Entry[] Entries)[] Sections =
         {
             ("Running a session", "The only part with a participant in the room. Start Session is the " +
-                                  "whole procedure; everything else here is preparation.", new[]
+                                  "whole procedure; everything else here is preparation. The Study 1 and " +
+                                  "Study 2 menus carry the same commands and differ only in the scene they " +
+                                  "open first — TriadScene or Study2Scene — so a session cannot be started " +
+                                  "in the wrong one.", new[]
             {
-                new Entry("Study → Start Session",
+                new Entry("Study 1 → Start Session  (Study 2 → Start Session)",
                     "Starts a real recording. Proposes the next participant label by reading the folders " +
                     "under Recordings/ — it is never typed — refuses one that has already run, and shows a " +
                     "preflight of every rule the session will be held to.\n\n" +
@@ -54,7 +57,7 @@ namespace GazeControl.Editor
                     "so the scene on disk is never modified and there is nothing to put back afterwards.\n\n" +
                     "Back / Next step the label, for a correction only. Once play starts the window shows " +
                     "the clip position and whether the headset's eye tracking is available and calibrated.",
-                    "GazeControl/Study/Start Session"),
+                    "GazeControl/Study 1/Start Session"),
 
                 new Entry("In play: Space",
                     "The only key the operator needs. It starts the session, and after each clip it " +
@@ -71,7 +74,7 @@ namespace GazeControl.Editor
 
             ("Preparing the clips", "Both take real time. Do them the day before, not with someone waiting.", new[]
             {
-                new Entry("Study → Clip Browser",
+                new Entry("Clip Browser",
                     "Lists every exported segment with its duration, events, measured voices and " +
                     "transcript, so the study's clips can be chosen by reading rather than by score.\n\n" +
                     "Load into scene / Load and Play preview one. Match textures to voices applies the " +
@@ -82,7 +85,7 @@ namespace GazeControl.Editor
                     "Developer mode marks the end-of-turn boundaries on screen. Preview only: it names the " +
                     "very thing the questionnaire asks participants to judge, and a session refuses to " +
                     "start with it on.",
-                    "GazeControl/Study/Clip Browser"),
+                    "GazeControl/Clip Browser"),
 
                 new Entry("Record Demo",
                     "Enters play, records the Game view with audio to Recordings/<case>/*.mp4, stops " +
@@ -155,12 +158,17 @@ namespace GazeControl.Editor
                     "exists (Tools/summarize_gaze_tracks.py tabulates them) and set it on the session runner.",
                     "GazeControl/Study 2/Bake Seeds 1-12"),
 
-                new Entry("Study → Preview Session",
+                new Entry("Study 2 → Start Session",
+                    "The Start Session window with Study2Scene open. Same window, same rules; the roster " +
+                    "reads Recordings/Study_02, so labels start again at P01.",
+                    "GazeControl/Study 2/Start Session"),
+
+                new Entry("Study 2 → Preview Session  (Study 1 → Preview Session)",
                     "Plays the session's clip order with the baked tracks replayed and nothing else: no " +
-                    "questionnaire, no logs, no headset, developer overlay on with the condition and seed. " +
+                    "questionnaire, no logs, headset off, developer overlay on with the condition and seed. " +
                     "Each clip runs straight into the next, and Space skips the current one. For checking " +
-                    "bakes by eye; nothing it shows is a take. Works in either study scene.",
-                    "GazeControl/Study/Preview Session"),
+                    "bakes by eye on the desktop; nothing it shows is a take.",
+                    "GazeControl/Study 2/Preview Session"),
             }),
 
             ("Asset repair", "One-off, on an imported asset. Not part of running anything.", new[]

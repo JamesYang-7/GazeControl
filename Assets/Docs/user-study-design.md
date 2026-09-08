@@ -199,7 +199,7 @@ replay draws *whole recorded fixation stretches* and a stretch can be long relat
   from the same policy on the same clip. A clip judged by watching a single seed is judged partly
   on its seed.
 
-**Use `GazeControl → Study → Clip Browser → Scan seeds`** before committing to a clip. It simulates
+**Use `GazeControl → Clip Browser → Scan seeds`** before committing to a clip. It simulates
 the condition offline over a range of base seeds and reports each agent's aversion fraction, driving
 the real policies and the real `ConversationDirector` and deriving seeds with the runner's own
 `SeedFor`, so a scanned seed is the draw a take will play — verified against the five baked clips on

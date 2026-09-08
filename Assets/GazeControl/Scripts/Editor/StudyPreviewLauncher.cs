@@ -5,20 +5,33 @@ using UnityEngine;
 namespace GazeControl.Editor
 {
     /// <summary>
-    /// GazeControl → Study → Preview Session: play the session's clip order
+    /// GazeControl → Study 1 / Study 2 → Preview Session: play the session's clip order
     /// with the baked tracks replayed, for checking the bakes by eye.
     ///
     /// <para>A request consumed at play start, exactly like a participant
     /// launch (<see cref="StudyLaunchRequest"/>), so the scene on disk is never
     /// touched: the session runner turns itself on, replays tracks, keeps the
     /// questionnaire and the logs off, shows the developer overlay, and runs
-    /// each clip straight into the next. Space skips the clip that is playing.
-    /// Nothing a preview shows is a take.</para>
+    /// each clip straight into the next, on the desktop with the headset off.
+    /// Space skips the clip that is playing. Nothing a preview shows is a take.</para>
     /// </summary>
     public static class StudyPreviewLauncher
     {
-        [MenuItem("GazeControl/Study/Preview Session")]
-        public static void Preview()
+        [MenuItem("GazeControl/Study 1/Preview Session")]
+        public static void PreviewStudy1()
+        {
+            if (StudyScenes.EnsureOpen(StudyScenes.Study1ScenePath, "Study 1 → Preview Session"))
+                Preview();
+        }
+
+        [MenuItem("GazeControl/Study 2/Preview Session")]
+        public static void PreviewStudy2()
+        {
+            if (StudyScenes.EnsureOpen(StudyScenes.Study2ScenePath, "Study 2 → Preview Session"))
+                Preview();
+        }
+
+        static void Preview()
         {
             if (EditorApplication.isPlaying)
             {

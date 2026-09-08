@@ -45,7 +45,20 @@ namespace GazeControl.Editor
         string _previousLabel;
         Vector2 _scroll;
 
-        [MenuItem("GazeControl/Study/Start Session")]
+        [MenuItem("GazeControl/Study 1/Start Session")]
+        public static void OpenForStudy1()
+        {
+            if (StudyScenes.EnsureOpen(StudyScenes.Study1ScenePath, "Study 1 → Start Session"))
+                Open();
+        }
+
+        [MenuItem("GazeControl/Study 2/Start Session")]
+        public static void OpenForStudy2()
+        {
+            if (StudyScenes.EnsureOpen(StudyScenes.Study2ScenePath, "Study 2 → Start Session"))
+                Open();
+        }
+
         public static void Open()
         {
             var window = GetWindow<StudySessionWindow>("Start Session");

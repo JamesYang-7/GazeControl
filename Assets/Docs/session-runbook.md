@@ -1,7 +1,7 @@
 # Running a participant session
 
 The operator's procedure, start to finish. Everything the software can check for
-itself is checked by **GazeControl → Study → Start Session**; what is left here is
+itself is checked by **GazeControl → Study 1 → Start Session** (or **Study 2 →**); what is left here is
 what only a person in the room can do.
 
 ## Study 2 (3People clips)
@@ -19,12 +19,12 @@ The procedure below is the same; only the scene and the clip list differ.
   Tools/summarize_gaze_tracks.py` tabulates what exists and what each agent did.
   Save the scene.
 - The questionnaire's group count follows the clip list; its items are study 1's.
-- To check the bakes by eye, **GazeControl → Study → Preview Session**: the clip order
-  with the tracks replayed, no questionnaire, Space skips to the next clip.
+- To check the bakes by eye, **GazeControl → Study 2 → Preview Session**: the clip order
+  with the tracks replayed on the desktop, no questionnaire, no headset, Space skips to the next clip.
 
 ## Before the participant arrives
 
-1. Open the study scene and open **GazeControl → Study → Start Session**.
+1. Open **GazeControl → Study 1 → Start Session** or **Study 2 → Start Session**; it opens the right scene.
 2. Read the **Preflight** list. Rows marked `!!` block the session; fix them now.
    Rows marked `→` are set for you when the session starts and need nothing.
    - *Segments exported* / *Tracks baked* are the two that take real time to fix —

@@ -165,6 +165,9 @@ namespace GazeControl.Editor
         [MenuItem("GazeControl/Study 2/Bake Seeds 1-12")]
         public static void BakeStudySeeds()
         {
+            if (!StudyScenes.EnsureOpen(StudyScenes.Study2ScenePath, "Study 2 → Bake Seeds 1-12"))
+                return;
+
             var (_, runner) = FindScene();
             if (runner == null)
                 return;

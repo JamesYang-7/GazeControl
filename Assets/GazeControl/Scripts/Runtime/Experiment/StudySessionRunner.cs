@@ -258,13 +258,21 @@ namespace GazeControl.Experiment
                 Runner.LoggingEnabled = false;
             }
 
+            // Desktop only. With the Varjo runtime up, Windows routes Unity's
+            // output to the headset and the desktop hears nothing, and the frame
+            // clock waits on a compositor nobody is wearing (found 2026-09-08:
+            // a preview with no audio and a stalled clock, both sources playing).
+            var rig = FindAnyObjectByType<XrParticipantRig>(FindObjectsInactive.Include);
+            if (rig != null)
+                rig.StartXrOnPlay = false;
+
             foreach (var overlay in FindObjectsByType<DeveloperOverlay>(
                          FindObjectsInactive.Include, FindObjectsSortMode.None))
                 overlay.Enabled = true;
 
             Debug.Log(
-                $"{name}: PREVIEW — baked tracks replayed in session order, no questionnaire, no logs. " +
-                $"{AdvanceKey} skips to the next clip. Nothing here is a take.", this);
+                $"{name}: PREVIEW — baked tracks replayed in session order on the desktop, no questionnaire, " +
+                $"no logs, no headset. {AdvanceKey} skips to the next clip. Nothing here is a take.", this);
         }
 #endif
 

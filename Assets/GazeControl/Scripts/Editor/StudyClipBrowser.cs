@@ -57,7 +57,7 @@ namespace GazeControl.Editor
         Vector2 _listScroll;
         Vector2 _detailScroll;
 
-        [MenuItem("GazeControl/Study/Clip Browser")]
+        [MenuItem("GazeControl/Clip Browser")]
         public static void Open()
         {
             var window = GetWindow<StudyClipBrowser>("Clip Browser");
