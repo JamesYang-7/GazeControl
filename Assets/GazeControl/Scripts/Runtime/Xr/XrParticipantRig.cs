@@ -84,6 +84,12 @@ namespace GazeControl.Xr
                         "looking ahead at that moment.")]
         public bool RecentreOnXrStart { get; set; } = true;
 
+        [field: SerializeField]
+        [field: Tooltip("Keep Unity's audio on Windows' default output when the headset starts and stops. The XR " +
+                        "runtime hands the audio engine the headset's virtual audio device, which on this Varjo " +
+                        "has no speakers, and the switch back on stop fails and leaves the editor silent.")]
+        public bool KeepSystemAudioOutput { get; set; } = true;
+
         /// <summary>How long after XR starts the automatic recentring keeps trying, seconds.</summary>
         const float RecentreWindowSeconds = 15f;
 
@@ -163,6 +169,7 @@ namespace GazeControl.Xr
 
             settings.Manager.StartSubsystems();
             _startedHere = true;
+            RebindAudioToSystemOutput("started");
 
             // The editor's player loop stalls while the editor is unfocused, and
             // an operator running a session clicks away from the Game view
@@ -197,6 +204,31 @@ namespace GazeControl.Xr
             _recentrePending = false;
             HasRecentred = false;
             PlaceViewpoint();
+            RebindAudioToSystemOutput("stopped");
+        }
+
+        /// <summary>
+        /// Re-initialise the audio engine on Windows' current default output.
+        ///
+        /// <para>Starting XR makes the runtime point Unity's audio at the
+        /// headset's virtual device, and stopping it tries to point it back —
+        /// which failed here ("FMOD failed to switch back to normal output")
+        /// and left every source playing into a device that had gone: no sound
+        /// on the desktop, and a conversation whose scheduled DSP start never
+        /// arrived (2026-09-08). This Varjo has no speakers, so the headset
+        /// route is never wanted; the sound stays on the room's speakers
+        /// whatever the runtime does. A reset stops whatever is playing, so it
+        /// is done here, at the switch, and never during a clip.</para>
+        /// </summary>
+        void RebindAudioToSystemOutput(string when)
+        {
+            if (!KeepSystemAudioOutput)
+                return;
+
+            if (AudioSettings.Reset(AudioSettings.GetConfiguration()))
+                Debug.Log($"{name}: audio engine re-initialised on the system output after XR {when}.", this);
+            else
+                Debug.LogWarning($"{name}: could not re-initialise the audio engine after XR {when}; run GazeControl → Reset Audio.", this);
         }
 
         /// <summary>

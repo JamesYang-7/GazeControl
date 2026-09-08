@@ -76,7 +76,7 @@ applied to the play session only, and the scene asset was never modified.
 
 - **The agents move and nothing is heard, or a clip never starts.** The editor's audio
   engine is still bound to a device that has gone — usually the headset after it was
-  unplugged — even though Windows shows Unity playing on the monitor. Run
+  unplugged or the headset's virtual device after XR started — even though Windows shows Unity playing on the monitor. The rig now resets the engine itself when XR starts and stops; if it still happens, run
   **GazeControl → Reset Audio** (or restart the editor), then start the clip again. A
   headset plugged in or out mid-day is the trigger; the bake does this reset itself.
 
