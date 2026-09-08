@@ -97,11 +97,27 @@ namespace GazeControl.Study
             return definition;
         }
 
-        /// <summary>The foot of the short-answer page, or empty when there is no group after this one.</summary>
-        public string NextGroupText(int groupNumber) =>
+        /// <summary>
+        /// The foot of the short-answer page, or empty when there is no group
+        /// after this one. <c>{0}</c> is the group about to play and <c>{1}</c>
+        /// how many there are, which is the session's number rather than the
+        /// instrument's: study 1 ran five groups and study 2 runs seven on the
+        /// same items.
+        /// </summary>
+        public string NextGroupText(int groupNumber, int groupCount) =>
             groupNumber <= 0 || string.IsNullOrWhiteSpace(nextGroupFormat)
                 ? string.Empty
-                : string.Format(nextGroupFormat, groupNumber);
+                : string.Format(nextGroupFormat, groupNumber, groupCount);
+
+        /// <summary>
+        /// The framing passage's body with the session's shape filled in:
+        /// <c>{0}</c> groups of <c>{1}</c> versions. A body with no placeholders
+        /// is returned as it is.
+        /// </summary>
+        public string FramingBody(int groupCount, int versionsPerGroup) =>
+            framing == null || string.IsNullOrEmpty(framing.body)
+                ? string.Empty
+                : string.Format(framing.body, groupCount, versionsPerGroup);
 
         /// <summary>The item with this code, or null.</summary>
         public Item FindItem(string code)
@@ -140,7 +156,7 @@ namespace GazeControl.Study
 
             try
             {
-                _ = NextGroupText(1);
+                _ = NextGroupText(1, 1);
             }
             catch (FormatException e)
             {
@@ -148,6 +164,15 @@ namespace GazeControl.Study
             }
 
             RequirePassage(framing, nameof(framing));
+
+            try
+            {
+                _ = FramingBody(1, 2);
+            }
+            catch (FormatException e)
+            {
+                throw new InvalidDataException($"the framing body is not a usable format string: {e.Message}");
+            }
             RequirePassage(closing, nameof(closing));
 
             if (perClipItems == null || perClipItems.Length == 0)

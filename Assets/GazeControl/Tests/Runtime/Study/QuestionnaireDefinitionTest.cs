@@ -142,7 +142,7 @@ namespace GazeControl.Study
 
             var actual = QuestionnaireDefinition.Parse(json);
 
-            Assert.That(actual.NextGroupText(3), Is.EqualTo("Next: group 3"));
+            Assert.That(actual.NextGroupText(3, 5), Is.EqualTo("Next: group 3"));
         }
 
         [Test]
@@ -156,13 +156,45 @@ namespace GazeControl.Study
 
             var actual = QuestionnaireDefinition.Parse(json);
 
-            Assert.That(actual.NextGroupText(0), Is.Empty);
+            Assert.That(actual.NextGroupText(0, 5), Is.Empty);
+        }
+
+        [Test]
+        public void NextGroupText_ComposedWithTheGroupCount_NamesBoth()
+        {
+            // Study 2 runs seven groups where study 1 ran five, so the count is
+            // the session's rather than the instrument's.
+            var json = QuestionnaireFixture.JsonWith(
+                @"""source"": ""fixture""",
+                @"""source"": ""fixture"", ""nextGroupFormat"": ""Next: group {0}/{1}""");
+
+            var actual = QuestionnaireDefinition.Parse(json);
+
+            Assert.That(actual.NextGroupText(3, 7), Is.EqualTo("Next: group 3/7"));
+        }
+
+        [Test]
+        public void FramingBody_ComposedWithTheCounts_NamesTheSessionShape()
+        {
+            var json = QuestionnaireFixture.JsonWith(
+                @"""framing"": { ""title"": ""Before"", ""body"": ""Framing body."" }",
+                @"""framing"": { ""title"": ""Before"", ""body"": ""There are {0} groups * {1} versions."" }");
+
+            var actual = QuestionnaireDefinition.Parse(json);
+
+            Assert.That(actual.FramingBody(7, 3), Is.EqualTo("There are 7 groups * 3 versions."));
+        }
+
+        [Test]
+        public void FramingBody_WithoutPlaceholders_IsTheBodyItself()
+        {
+            Assert.That(QuestionnaireFixture.Definition().FramingBody(7, 3), Is.EqualTo("Framing body."));
         }
 
         [Test]
         public void NextGroupText_OnAnInstrumentWithoutOne_IsEmpty()
         {
-            Assert.That(QuestionnaireFixture.Definition().NextGroupText(1), Is.Empty);
+            Assert.That(QuestionnaireFixture.Definition().NextGroupText(1, 5), Is.Empty);
         }
 
         [Test]

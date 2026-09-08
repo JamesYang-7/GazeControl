@@ -125,6 +125,15 @@ namespace GazeControl.Experiment
             ApplyLaunchRequest();
 #endif
 
+            // Awake runs on a disabled component too, and below this line it
+            // takes the conversation's autoplay and the runner's arming away
+            // from a plain Play. A bake disables this component precisely so
+            // that the clip plays by itself, so a disabled session must leave
+            // the scene alone. After the launch request, which is what turns a
+            // disabled session on for a participant run.
+            if (!enabled)
+                return;
+
             var conditions = new[]
             {
                 nameof(GazeConditionRunner.GazeCondition.SpeakerFollowing),

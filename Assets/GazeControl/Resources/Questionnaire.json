@@ -11,11 +11,11 @@
   },
   "framing": {
     "title": "Before we begin",
-    "body": "You are the THIRD PERSON in this conversation.\nPlease pay attention to the EYE MOVEMENT behavior of the characters, especially when the speaker changes. You will be asked some questions after each conversation, please say your answer out loud.\nThere are 5 groups * 3 versions.\n\nNext: questions preview."
+    "body": "You are the THIRD PERSON in this conversation.\nPlease pay attention to the EYE MOVEMENT behavior of the characters, especially when the speaker changes. You will be asked some questions after each conversation, please say your answer out loud.\nThere are {0} groups * {1} versions.\n\nNext: questions preview."
   },
   "ratingTitle": "Rate by Eye Movement Behaviour",
   "shortAnswerTitle": "Short Answer",
-  "nextGroupFormat": "Next: group {0}/5",
+  "nextGroupFormat": "Next: group {0}/{1}",
   "perClipItems": [
     {
       "code": "N1",

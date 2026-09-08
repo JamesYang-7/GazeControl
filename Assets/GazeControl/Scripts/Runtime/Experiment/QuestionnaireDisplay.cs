@@ -118,7 +118,8 @@ namespace GazeControl.Experiment
             switch (session.CurrentPhase)
             {
                 case QuestionnaireSession.Phase.Framing:
-                    Passage(definition.framing);
+                    Passage(definition.framing.title,
+                        definition.FramingBody(session.GroupCount, StudySessionRunner.ConditionCount));
                     break;
 
                 case QuestionnaireSession.Phase.RatingPreview:
@@ -148,14 +149,16 @@ namespace GazeControl.Experiment
             SetVisible(true);
         }
 
-        void Passage(QuestionnaireDefinition.Passage passage)
+        void Passage(QuestionnaireDefinition.Passage passage) => Passage(passage.title, passage.body);
+
+        void Passage(string title, string body)
         {
             // Vertically centred, unlike the item lists: a passage is one block
             // of prose and reads better in the middle of the panel than pinned
             // to the line the items happen to start on.
             _body.alignment = TextAlignmentOptions.Left;
-            _title.text = passage.title;
-            _body.text = passage.body;
+            _title.text = title;
+            _body.text = body;
             _footer.text = string.Empty;
         }
 
@@ -247,7 +250,7 @@ namespace GazeControl.Experiment
             _body.alignment = TextAlignmentOptions.TopLeft;
             _title.text = definition.shortAnswerTitle ?? string.Empty;
             _body.text = body.ToString().TrimEnd();
-            _footer.text = definition.NextGroupText(session.NextGroupNumber);
+            _footer.text = definition.NextGroupText(session.NextGroupNumber, session.GroupCount);
         }
 
         /// <summary>

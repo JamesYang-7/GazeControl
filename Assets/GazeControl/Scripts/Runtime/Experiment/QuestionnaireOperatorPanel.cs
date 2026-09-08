@@ -100,7 +100,7 @@ namespace GazeControl.Experiment
             {
                 case QuestionnaireSession.Phase.Framing:
                     GUILayout.Label("Read to the participant:", _heading);
-                    GUILayout.Label(definition.framing.body, _label);
+                    GUILayout.Label(definition.FramingBody(Session.GroupCount, StudySessionRunner.ConditionCount), _label);
                     break;
 
                 case QuestionnaireSession.Phase.RatingPreview:
