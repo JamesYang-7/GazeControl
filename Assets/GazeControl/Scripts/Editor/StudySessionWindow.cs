@@ -351,7 +351,7 @@ namespace GazeControl.Editor
                 // tell them which answer is the interesting one.
                 var index = session.CurrentIndex;
                 EditorGUILayout.LabelField(index < 0
-                    ? $"Not started — press {session.AdvanceKey} to begin. {session.Trials.Count} clips."
+                    ? $"Not started — press {session.AdvanceKey} in the Game view to begin. {session.Trials.Count} clips."
                     : $"Clip {index + 1} of {session.Trials.Count}");
             }
 

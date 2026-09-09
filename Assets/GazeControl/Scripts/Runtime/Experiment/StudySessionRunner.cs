@@ -49,11 +49,17 @@ namespace GazeControl.Experiment
         [field: Tooltip("Folder holding the exported segments")]
         public string SegmentRoot { get; set; } = "Assets/DemoSegments";
 
+        /// <summary>
+        /// How many labels at the start of this study's roster are pilots outside
+        /// the counterbalancing schedule: 4 for study 1 (P01-P04 ran one fixed
+        /// order), 0 for study 2, whose schedule starts at P01. It was a constant
+        /// until 2026-09-08, which would have given study 2's first five
+        /// participants the same method order.
+        /// </summary>
         [field: SerializeField]
-        [field: Tooltip("Recentre the participant's view as each block's first clip is released, so a " +
-                        "participant who drifted during the previous block starts the next one back on the " +
-                        "vertex. The operator asks them to stand on the mark and look ahead before pressing Space.")]
-        public bool RecentreAtBlockStart { get; set; } = true;
+        [field: Tooltip("Labels at the start of this study's roster that are pilots outside the schedule: " +
+                        "4 for study 1 (P01-P04), 0 for study 2. The schedule's first slot is the next label.")]
+        public int PilotCount { get; set; } = ParticipantLabel.Study1PilotCount;
 
         [field: SerializeField]
         [field: Tooltip("Plays the clips; re-armed for each one")]
@@ -159,7 +165,8 @@ namespace GazeControl.Experiment
             // Safe to read the label here: NextParticipant refuses to step it
             // while playing, so it is fixed for the whole session by the time
             // Awake runs.
-            _scheduleOrdinal = ParticipantLabel.ScheduleOrdinal(Runner == null ? null : Runner.StudyParticipantId);
+            _scheduleOrdinal = ParticipantLabel.ScheduleOrdinal(
+                Runner == null ? null : Runner.StudyParticipantId, PilotCount);
             if (_scheduleOrdinal < 0)
             {
                 // A pilot or debug label is outside the schedule. Fall back to
@@ -341,6 +348,11 @@ namespace GazeControl.Experiment
             ParticipantDirectory = Path.Combine(
                 projectRoot, Runner.OutputDirectory, ParticipantFolder.NameFor(participant, DateTime.Now));
 
+            // The takes go under the participant too, one clip folder each, so
+            // the participant's folder is the whole of what they produced and
+            // deleting an abandoned session deletes its take logs with it.
+            Runner.TakeRoot = ParticipantDirectory;
+
             _record = StudySessionRecord.Begin(
                 participant, _scheduleOrdinal, _trials, Application.unityVersion,
                 GitHead.Read(projectRoot), DateTime.UtcNow);
@@ -466,13 +478,6 @@ namespace GazeControl.Experiment
                     return;
                 }
 
-                // Before the take is armed rather than after the voices start:
-                // recentring moves the camera, and the agents aim at it from
-                // the first decision, so the seat must be settled before the
-                // clock that anchors those decisions is running.
-                if (RecentreAtBlockStart && trial.VersionPosition == 1)
-                    RecentreForBlock(trial);
-
                 Runner.BeginTake(condition, SeedOf(trial), trial, _scheduleOrdinal);
 
                 if (!await Conversation.PlayLoadedAsync(destroyCancellationToken))
@@ -482,30 +487,6 @@ namespace GazeControl.Experiment
             {
                 _busy = false;
             }
-        }
-
-        /// <summary>
-        /// Put the participant's head back on the vertex as a block starts.
-        /// The operator has just committed the previous group's questionnaire
-        /// with the participant standing on the mark, which is the one moment in
-        /// a session when a fresh measurement is both possible and expected.
-        /// Skipped, with a note, when the headset is not running — a desktop
-        /// preview has nothing to recentre.
-        /// </summary>
-        void RecentreForBlock(StudyTrial trial)
-        {
-            var rig = FindAnyObjectByType<XrParticipantRig>(FindObjectsInactive.Include);
-            if (rig == null || !rig.IsXrRunning)
-            {
-                Debug.Log($"{name}: block {trial.BlockNumber} starts without recentring — no headset running.", this);
-                return;
-            }
-
-            var result = rig.RecentreView();
-            if (!result.Accepted)
-                Debug.LogWarning(
-                    $"{name}: block {trial.BlockNumber} starts with the view as it was — recentring was refused. " +
-                    "Recentre by hand from the rig's context menu if the participant has moved.", this);
         }
 
         int SeedOf(StudyTrial trial)

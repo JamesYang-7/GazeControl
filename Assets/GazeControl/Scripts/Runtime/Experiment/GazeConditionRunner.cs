@@ -135,9 +135,24 @@ namespace GazeControl.Experiment
         [field: Tooltip("Folder for this demo's artefacts, e.g. case1_01. Bump per take.")]
         public string CaseName { get; set; } = "case1_01";
 
+        /// <summary>
+        /// Absolute folder the takes go under instead of <see cref="OutputDirectory"/>
+        /// when set; null or empty otherwise. A study session points it at the
+        /// participant's own folder, so that every file a participant produced
+        /// lives under one folder and deleting it leaves no take behind in the
+        /// clip folders (found 2026-09-08: a participant's abandoned first
+        /// attempt survived the deletion of their folder). Play-session state,
+        /// never serialized: a bake, a demo or a P00 run has no participant and
+        /// keeps writing under the clip.
+        /// </summary>
+        public string TakeRoot { get; set; }
+
         /// <summary>Where this run's video and gaze log are written, absolute.</summary>
         public string TakeDirectory => System.IO.Path.Combine(
-            Application.dataPath, "..", OutputDirectory, CaseName);
+            string.IsNullOrEmpty(TakeRoot)
+                ? System.IO.Path.Combine(Application.dataPath, "..", OutputDirectory)
+                : TakeRoot,
+            CaseName);
 
 #if UNITY_EDITOR
         /// <summary>

@@ -22,7 +22,7 @@ namespace GazeControl.Editor
     /// capture room, so the agents are parented to one <c>Room</c> object with
     /// identity local transforms and raw root translation, and
     /// <see cref="RecordedRoomPlacement"/> turns and slides that room for each
-    /// clip so that the listener's measured seat lands on the User vertex and
+    /// clip so that the participant's seat (the equilateral apex on the two agents) lands on the User vertex and
     /// the seat's opening facing lands on the vertex's forward axis. The
     /// participant's viewpoint is therefore the same point, at the same height,
     /// facing the same way, as in study 1.</para>
@@ -112,6 +112,10 @@ namespace GazeControl.Editor
 
             session.Conversations = (string[])k_Conversations.Clone();
             session.SegmentRoot = SegmentRoot;
+
+            // No pilots: study 2's roster starts again at P01 and its schedule
+            // with it. Study 1's four would give P01-P05 one schedule slot.
+            session.PilotCount = 0;
 
             // One seed per clip, as the runner requires. Study 1 chose its seeds
             // by scanning for a representative aversion fraction; nothing has been

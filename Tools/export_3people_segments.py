@@ -13,14 +13,16 @@ What the document carries that a study-1 export does not:
   listener -- the participant no end-of-turn event in the window names --
   becomes speaker 0, the user, who is the study participant. The true PC numbers
   and subject names are kept on each agent record as provenance.
-* **The listener's seat**, measured from the converted motion rather than
-  authored: the mean of the listener's eye position over the window, and the yaw
-  towards the midpoint of the two takers' eyes at the first frame. The scene
-  turns and slides the whole recorded room so that this seat lands on the study
-  rig's fixed viewpoint and that facing lands on the participant's initial view
-  direction (``RoomPlacement``). Positions are written in Unity's frame (the
-  corpus x is mirrored, as ``SmplxAnimUtils.PositionToUnity`` does), so the
-  scene applies them without knowing the corpus's handedness.
+* **The participant's seat**, measured from the converted motion rather than
+  authored: the apex of the equilateral triangle on the two takers' mean eye
+  positions, on the listener's side, facing their midpoint (``measure_seat``
+  says why it is no longer the listener's own position). The scene turns and
+  slides the whole recorded room so that this seat lands on the study rig's
+  viewpoint and that facing lands on the participant's initial view direction
+  (``RoomPlacement``); the two takers keep their recorded distance and bearing
+  to each other. Positions are written in Unity's frame (the corpus x is
+  mirrored, as ``SmplxAnimUtils.PositionToUnity`` does), so the scene applies
+  them without knowing the corpus's handedness.
 
 The rest follows ``find_demo_segments.py``: the two takers' audio is trimmed to
 the window and peak-normalised as a pair, their voices are measured by median
@@ -57,6 +59,7 @@ SEGMENT_ROOT = REPO / "Assets" / "DemoSegments"
 SCHEMA = "gazecontrol.demo-segment/3"
 USER_CODE = 0
 LEFT_EYE, RIGHT_EYE = 23, 24  # SMPL-X joint indices of left/right_eye_smplhf
+HEAD = 15
 
 # Unlike TalkingWithHands this corpus names its participants, so a voice the
 # pitch bands cannot classify is settled by the register rather than by ear.
@@ -182,32 +185,86 @@ def eye_positions(clip: Path, first: int, count: int) -> np.ndarray:
     return 0.5 * (joints[:, LEFT_EYE] + joints[:, RIGHT_EYE])
 
 
+def head_pitch_degrees(clip: Path, first: int, count: int) -> float:
+    """Mean elevation of the head's facing over the window, degrees, positive looking up.
+
+    The recorded people were of different heights and looked up or down at each
+    other accordingly; the converter poses everyone on the default body, so a
+    short person's upward gaze at a tall partner becomes an agent of equal
+    height staring over the participant's head. The scene levels each agent's
+    head by this amount (``SmplxMotionPlayer.HeadPitchCorrectionDegrees``),
+    keeping the nods and turns and removing only the mean tilt (user's call,
+    2026-09-08). The elevation is of the head joint's own forward axis (+Z in
+    the template, which faces +Z), and the mirror into Unity's frame leaves a
+    pitch angle unchanged.
+    """
+    z = np.load(clip)
+    poses = z["poses"][first:first + count].astype(float)
+    forward = converter.global_orientations(poses)[:, HEAD] @ np.array([0.0, 0.0, 1.0])
+    elevation = np.degrees(np.arcsin(np.clip(forward[:, 1], -1.0, 1.0)))
+    return float(elevation.mean())
+
+
 def to_unity(p: np.ndarray) -> np.ndarray:
     """SmplxAnimUtils.PositionToUnity: mirror x."""
     return np.array([-p[0], p[1], p[2]])
 
 
 def measure_seat(clips: dict[int, Path], roles: tuple[int, int, int], first: int, count: int) -> dict:
+    """The participant's seat: the apex of the equilateral triangle on the two takers.
+
+    The seat used to be the listener's own mean eye position (user, 2026-09-08,
+    morning). The recorded listeners sat at unequal distances from the two
+    takers -- 1.09 m and 1.39 m in study2_c1 -- so the participant saw one agent
+    noticeably nearer and larger than the other, and that differed per clip.
+    The user chose (2026-09-08, evening) to keep the takers' pair exactly as
+    recorded, moved together, and to seat the participant where the three form
+    a regular triangle: on the listener's side of the takers' base, at the
+    base's own length from both. The takers' positions are their mean eye
+    positions over the window, so a head sway does not pick the seat. The
+    listener's real seat is kept in the record as ``listenerSeat``.
+    """
     a, b, listener = roles
-    listener_eyes = eye_positions(clips[listener], first, count)
-    seat = to_unity(listener_eyes.mean(axis=0))
-    midpoint = to_unity(0.5 * (eye_positions(clips[a], first, 1)[0] + eye_positions(clips[b], first, 1)[0]))
+    listener_seat = to_unity(eye_positions(clips[listener], first, count).mean(axis=0))
+    eyes_a = to_unity(eye_positions(clips[a], first, count).mean(axis=0))
+    eyes_b = to_unity(eye_positions(clips[b], first, count).mean(axis=0))
 
-    to_target = midpoint - seat
-    horizontal = math.hypot(to_target[0], to_target[2])
-    if horizontal < 0.05:
-        raise ValueError("the seat is level with the takers' midpoint; the facing is undefined")
+    # Horizontal geometry only: the room is placed by yaw and slide, and the
+    # floor stays the floor.
+    base = np.array([eyes_b[0] - eyes_a[0], eyes_b[2] - eyes_a[2]])
+    side = float(np.hypot(*base))
+    if side < 0.3:
+        raise ValueError(f"the takers' eyes are only {side:.2f} m apart; no triangle to seat the participant on")
+    midpoint = np.array([0.5 * (eyes_a[0] + eyes_b[0]), 0.5 * (eyes_a[2] + eyes_b[2])])
+    normal = np.array([-base[1], base[0]]) / side
+    # Of the two apexes, the one on the listener's side of the base.
+    to_listener = np.array([listener_seat[0], listener_seat[2]]) - midpoint
+    if abs(float(normal @ to_listener)) < 0.05:
+        raise ValueError("the listener sat on the takers' line; which side to seat the participant on is undefined")
+    if float(normal @ to_listener) < 0:
+        normal = -normal
+    apex = midpoint + normal * (side * math.sqrt(3) / 2)
 
+    to_target = midpoint - apex
     # Unity yaw: atan2(x, z), clockwise from +Z seen from above -- the same
     # quantity ThreePartyViewpoint measures in the replay scene.
-    yaw = math.degrees(math.atan2(to_target[0], to_target[2]))
+    yaw = math.degrees(math.atan2(to_target[0], to_target[1]))
+    listener_offset = float(np.hypot(*(np.array([listener_seat[0], listener_seat[2]]) - apex)))
     return {
         "valid": True,
-        "x": round(float(seat[0]), 4),
-        "y": round(float(seat[1]), 4),
-        "z": round(float(seat[2]), 4),
+        "mode": "equilateral",
+        "x": round(float(apex[0]), 4),
+        "y": round(float(listener_seat[1]), 4),
+        "z": round(float(apex[1]), 4),
         "yawDegrees": round(yaw, 3),
-        "takersMidpointDistance": round(float(horizontal), 3),
+        "sideMetres": round(side, 3),
+        "takersMidpointDistance": round(float(np.hypot(*to_target)), 3),
+        "listenerSeat": {
+            "x": round(float(listener_seat[0]), 4),
+            "y": round(float(listener_seat[1]), 4),
+            "z": round(float(listener_seat[2]), 4),
+            "offsetFromSeatMetres": round(listener_offset, 3),
+        },
     }
 
 
@@ -291,6 +348,7 @@ def export(window: Window) -> Path:
             "audioSamples": written,
             "voicePitchHz": round(pitch, 1) if pitch else None,
             "voice": voice,
+            "headPitchDegrees": round(head_pitch_degrees(clips[pc], start_frame, frame_count), 2),
         })
 
     document = {

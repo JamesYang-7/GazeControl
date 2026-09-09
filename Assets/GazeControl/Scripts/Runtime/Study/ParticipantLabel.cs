@@ -35,16 +35,18 @@ namespace GazeControl.Study
         public const string First = "P01";
 
         /// <summary>
-        /// How many participants ran before the counterbalanced schedule existed.
-        /// P01-P04 ran a single fixed method order — every one of them the same
-        /// one — and are declared pilots, excluded from analysis
-        /// (`user-study-design.md` §0.1, 2026-08-31).
+        /// Study 1's pilots: how many participants ran before the counterbalanced
+        /// schedule existed. P01-P04 ran a single fixed method order — every one
+        /// of them the same one — and are declared pilots, excluded from analysis
+        /// (`user-study-design.md` §0.1, 2026-08-31). A study's own count lives
+        /// on its session runner (<c>StudySessionRunner.PilotCount</c>); study 2
+        /// has none and starts its schedule at P01.
         /// </summary>
-        public const int PilotCount = 4;
+        public const int Study1PilotCount = 4;
 
         /// <summary>
-        /// The first participant of the analysed study, and so the first one the
-        /// counterbalancing schedule covers.
+        /// The first participant of study 1's analysed sample, and so the first
+        /// one its counterbalancing schedule covers.
         /// </summary>
         public const string FirstStudyLabel = "P05";
 
@@ -57,12 +59,17 @@ namespace GazeControl.Study
         /// that silently took a schedule slot would make the marginal balance
         /// claim depend on runs that are not in the sample.</para>
         /// </summary>
-        public static int ScheduleOrdinal(string label)
+        /// <param name="pilotCount">
+        /// How many labels at the start of this study's roster are pilots outside
+        /// the schedule. It was study 1's constant until 2026-09-08, which gave
+        /// study 2's P01-P05 one and the same schedule slot.
+        /// </param>
+        public static int ScheduleOrdinal(string label, int pilotCount)
         {
-            if (!TryTrailingNumber(label, out var number) || number <= PilotCount)
+            if (!TryTrailingNumber(label, out var number) || number <= pilotCount)
                 return -1;
 
-            return (int)(number - (PilotCount + 1));
+            return (int)(number - (pilotCount + 1));
         }
 
         /// <summary>

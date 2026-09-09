@@ -12,8 +12,9 @@ namespace GazeControl.Conversation
     /// <para>This transform is the room: both agents sit under it with identity
     /// local transforms and their motion players in raw root-translation mode,
     /// so each body stands where its person stood in the capture, and this
-    /// object is turned and slid as one piece so that the listener's measured
-    /// seat lands on the participant's fixed viewpoint and its opening facing
+    /// object is turned and slid as one piece so that the segment's seat (the
+    /// apex of the equilateral triangle on the two agents, measured at export)
+    /// lands on the participant's starting viewpoint and its opening facing
     /// lands on the participant's initial view direction
     /// (<see cref="RoomPlacement"/>). The participant never moves between
     /// clips; the room does.</para>
@@ -26,7 +27,7 @@ namespace GazeControl.Conversation
     {
         [field: SerializeField]
         [field: Tooltip("The participant's fixed viewpoint — the User vertex. Its position and forward axis are "
-                        + "what the listener's seat and facing are moved onto.")]
+                        + "what the participant's seat and facing are moved onto.")]
         public Transform Viewpoint { get; set; }
 
         /// <summary>The pose the room was last moved to; meaningful after <see cref="Apply"/> succeeds.</summary>

@@ -156,5 +156,31 @@ namespace GazeControl.Motion
             Assert.That(_pelvis.localPosition,
                 Is.EqualTo(ScenePosition).Using(new Vector3EqualityComparer(1e-4f)));
         }
+
+        [Test]
+        public void ApplyFrame_WithAHeadPitchCorrection_TipsTheHeadAboutItsOwnLateralAxisAndNothingElse()
+        {
+            // A recorded person looking up at a taller partner keeps that tilt on
+            // the default body, where it points at nobody; the segment's measured
+            // mean elevation is applied about the head's own axis, over the
+            // clip's pose, so nods and turns survive and only the tilt goes.
+            var sut = CreateSystemUnderTest();
+            sut.Initialize();
+            var head = SmplxAnimUtils.FindChildRecursive(_agent.transform, "head");
+            var neck = SmplxAnimUtils.FindChildRecursive(_agent.transform, "neck");
+
+            sut.ApplyFrame(FirstSegmentLastFrame);
+            var recordedHead = head.localRotation;
+            var recordedNeck = neck.localRotation;
+
+            sut.HeadPitchCorrectionDegrees = 12f;
+            sut.ApplyFrame(FirstSegmentLastFrame);
+
+            var expected = recordedHead * Quaternion.Euler(12f, 0f, 0f);
+            Assert.That(Quaternion.Angle(head.localRotation, expected), Is.LessThan(0.01f),
+                "the correction is a pitch in the head's own frame, applied after the clip's pose");
+            Assert.That(Quaternion.Angle(neck.localRotation, recordedNeck), Is.LessThan(0.01f),
+                "no other joint is touched");
+        }
     }
 }

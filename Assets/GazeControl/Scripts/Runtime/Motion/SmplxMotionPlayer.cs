@@ -43,6 +43,22 @@ namespace GazeControl.Motion
         [field: Tooltip("Apply root translation relative to the segment's first frame, keeping the agent anchored where it was placed in the scene. Off = raw dataset positions.")]
         public bool RootTranslationRelative { get; set; } = true;
 
+        /// <summary>
+        /// Extra rotation about the head's own lateral axis after each frame's
+        /// pose, degrees, positive tipping the face down. Set to a person's mean
+        /// head elevation over the clip to level a head that was looking up or
+        /// down at a partner of a different height (the agents all wear the
+        /// default body, so the recorded tilt no longer points at anyone). The
+        /// nods and turns of the clip are kept; only the mean tilt is removed.
+        /// </summary>
+        [field: SerializeField]
+        [field: Tooltip("Rotation about the head's lateral axis after each frame, degrees, positive tipping the " +
+                        "face down. The segment sets it to the person's mean head elevation to level the head.")]
+        public float HeadPitchCorrectionDegrees { get; set; }
+
+        /// <summary>Index of "head" in <see cref="SmplxAnimUtils.JointNames"/>.</summary>
+        const int HeadJoint = 15;
+
         public SmplxMotionClip Clip { get; private set; }
 
         /// <summary>Frames in the segment being played — the whole clip unless one was selected.</summary>
@@ -150,6 +166,12 @@ namespace GazeControl.Motion
         public void ApplyFrame(int frame)
         {
             SmplxAnimUtils.SetPose(_joints, Clip, frame);
+
+            // Post-multiplied, so the turn is about the head's own lateral axis
+            // whatever way the neck has turned it: a levelled head stays level
+            // as it looks from one agent to the other.
+            if (HeadPitchCorrectionDegrees != 0f)
+                _joints[HeadJoint].localRotation *= Quaternion.Euler(HeadPitchCorrectionDegrees, 0f, 0f);
 
             if (!ApplyRootTranslation) return;
             var trans = SmplxAnimUtils.PositionToUnity(Clip.GetTranslation(frame));

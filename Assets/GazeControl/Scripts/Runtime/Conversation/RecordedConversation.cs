@@ -342,6 +342,10 @@ namespace GazeControl.Conversation
             speaker.Motion.FrameCount = Segment.motionFrameCount;
             speaker.Motion.Loop = false;
             speaker.Motion.Autoplay = false; // this component owns the clock
+            // Level the head: the segment measured how far this person looked
+            // up or down on average, and on the default body that tilt points
+            // at nobody. Zero for segments that carry no measurement.
+            speaker.Motion.HeadPitchCorrectionDegrees = agent.headPitchDegrees;
             speaker.Motion.enabled = true;
             speaker.Motion.Initialize();
 

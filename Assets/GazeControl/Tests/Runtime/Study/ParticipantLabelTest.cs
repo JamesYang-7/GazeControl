@@ -101,14 +101,14 @@ namespace GazeControl.Study
         {
             // P05 is the first analysed participant, so it takes the schedule's
             // first slot — the pilots are outside the schedule, not ahead of it.
-            Assert.That(ParticipantLabel.ScheduleOrdinal(ParticipantLabel.FirstStudyLabel), Is.EqualTo(0));
+            Assert.That(ParticipantLabel.ScheduleOrdinal(ParticipantLabel.FirstStudyLabel, ParticipantLabel.Study1PilotCount), Is.EqualTo(0));
         }
 
         [Test]
         public void ScheduleOrdinal_CountsUpOneParticipantAtATime()
         {
-            Assert.That(ParticipantLabel.ScheduleOrdinal("P06"), Is.EqualTo(1));
-            Assert.That(ParticipantLabel.ScheduleOrdinal("P34"), Is.EqualTo(29));
+            Assert.That(ParticipantLabel.ScheduleOrdinal("P06", ParticipantLabel.Study1PilotCount), Is.EqualTo(1));
+            Assert.That(ParticipantLabel.ScheduleOrdinal("P34", ParticipantLabel.Study1PilotCount), Is.EqualTo(29));
         }
 
         [TestCase("P01")]
@@ -118,13 +118,13 @@ namespace GazeControl.Study
             // P01-P04 ran one common order before the schedule existed and are
             // excluded from analysis. Mapping them into a slot would make the
             // marginal balance depend on runs that are not in the sample.
-            Assert.That(ParticipantLabel.ScheduleOrdinal(pilot), Is.EqualTo(-1));
+            Assert.That(ParticipantLabel.ScheduleOrdinal(pilot, ParticipantLabel.Study1PilotCount), Is.EqualTo(-1));
         }
 
         [Test]
         public void ScheduleOrdinal_ForTheDebugLabel_IsRefused()
         {
-            Assert.That(ParticipantLabel.ScheduleOrdinal(ParticipantLabel.DebugLabel), Is.EqualTo(-1));
+            Assert.That(ParticipantLabel.ScheduleOrdinal(ParticipantLabel.DebugLabel, ParticipantLabel.Study1PilotCount), Is.EqualTo(-1));
         }
 
         [TestCase(null)]
@@ -133,14 +133,14 @@ namespace GazeControl.Study
         [TestCase("P")]
         public void ScheduleOrdinal_WithNoNumberToRead_IsRefused(string label)
         {
-            Assert.That(ParticipantLabel.ScheduleOrdinal(label), Is.EqualTo(-1));
+            Assert.That(ParticipantLabel.ScheduleOrdinal(label, ParticipantLabel.Study1PilotCount), Is.EqualTo(-1));
         }
 
         [Test]
         public void ScheduleOrdinal_IgnoresSurroundingWhitespace()
         {
             // Same reason as Next: this is typed into an inspector field.
-            Assert.That(ParticipantLabel.ScheduleOrdinal(" P07 "), Is.EqualTo(2));
+            Assert.That(ParticipantLabel.ScheduleOrdinal(" P07 ", ParticipantLabel.Study1PilotCount), Is.EqualTo(2));
         }
 
         [Test]
@@ -152,9 +152,26 @@ namespace GazeControl.Study
             var label = ParticipantLabel.FirstStudyLabel;
             for (var expected = 0; expected < 18; expected++)
             {
-                Assert.That(ParticipantLabel.ScheduleOrdinal(label), Is.EqualTo(expected));
+                Assert.That(ParticipantLabel.ScheduleOrdinal(label, ParticipantLabel.Study1PilotCount), Is.EqualTo(expected));
                 label = ParticipantLabel.Next(label);
             }
+        }
+
+        [Test]
+        public void ScheduleOrdinal_WithNoPilots_StartsTheScheduleAtTheFirstLabel()
+        {
+            // Study 2 declares no pilots and its roster starts again at P01, so
+            // P01 takes slot 0. With study 1's four pilots subtracted instead,
+            // P01-P05 all collapsed onto slot 0 (found 2026-09-08).
+            Assert.That(ParticipantLabel.ScheduleOrdinal("P01", 0), Is.EqualTo(0));
+            Assert.That(ParticipantLabel.ScheduleOrdinal("P05", 0), Is.EqualTo(4));
+            Assert.That(ParticipantLabel.ScheduleOrdinal("P06", 0), Is.EqualTo(5));
+        }
+
+        [Test]
+        public void ScheduleOrdinal_WithNoPilots_StillRefusesTheDebugLabel()
+        {
+            Assert.That(ParticipantLabel.ScheduleOrdinal(ParticipantLabel.DebugLabel, 0), Is.EqualTo(-1));
         }
     }
 }

@@ -4,7 +4,7 @@ namespace GazeControl.Study
 {
     /// <summary>
     /// The rigid move that puts a recorded room onto the study rig: turn and
-    /// slide the whole three-person triangle so that the listener's measured seat
+    /// slide the whole three-person triangle so that the participant's seat (the equilateral apex on the two agents)
     /// lands on the participant's fixed viewpoint and the seat's opening facing
     /// lands on the participant's initial view direction.
     ///
@@ -44,8 +44,8 @@ namespace GazeControl.Study
         /// <summary>
         /// Solve the room pose that maps the seat onto the viewpoint.
         /// </summary>
-        /// <param name="seatX">The listener's seat in the recorded room, horizontal.</param>
-        /// <param name="seatZ">The listener's seat in the recorded room, horizontal.</param>
+        /// <param name="seatX">The participant's seat in the recorded room, horizontal.</param>
+        /// <param name="seatZ">The participant's seat in the recorded room, horizontal.</param>
         /// <param name="seatYawDegrees">The seat's opening facing in the recorded room.</param>
         /// <param name="viewX">The participant's fixed viewpoint, horizontal.</param>
         /// <param name="viewZ">The participant's fixed viewpoint, horizontal.</param>

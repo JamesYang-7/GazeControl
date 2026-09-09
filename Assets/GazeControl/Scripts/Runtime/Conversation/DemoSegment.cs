@@ -146,6 +146,15 @@ namespace GazeControl.Conversation
 
         /// <summary>3People-2022 only: the recorded person's name.</summary>
         public string subject;
+
+        /// <summary>
+        /// Mean elevation of this person's head over the window, degrees,
+        /// positive looking up; 0 when not measured. The recorded people were
+        /// of different heights and looked up or down at each other, while the
+        /// agents all wear the default body, so the motion player levels the
+        /// head by this amount (<c>SmplxMotionPlayer.HeadPitchCorrectionDegrees</c>).
+        /// </summary>
+        public float headPitchDegrees;
     }
 
     /// <summary>

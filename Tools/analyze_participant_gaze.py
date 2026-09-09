@@ -214,10 +214,14 @@ def main(argv: list[str] | None = None) -> int:
                         help="cross-check agents_looking_at_user against the agent log")
     args = parser.parse_args(argv)
 
-    pattern = os.path.join(args.root, "*", f"{args.participant or '*'}_*_user.csv")
-    files = sorted(glob.glob(pattern))
+    # Takes live under <root>/<label>/<clip>/ since 2026-09-08 (study 2) and
+    # under <root>/<clip>/ before that (study 1, and bakes and P00 runs still).
+    label = args.participant or "*"
+    patterns = [os.path.join(args.root, label, "study*", f"{label}_*_user.csv"),
+                os.path.join(args.root, "study*", f"{label}_*_user.csv")]
+    files = sorted({f for p in patterns for f in glob.glob(p)})
     if not files:
-        print(f"no participant logs match {pattern}", file=sys.stderr)
+        print(f"no participant logs match {' or '.join(patterns)}", file=sys.stderr)
         return 1
 
     results = [analyze_take(f, args.check) for f in files]
