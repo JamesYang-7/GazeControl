@@ -67,9 +67,12 @@ namespace GazeControl.Experiment
         public Color RayColor { get; set; } = new(0.55f, 0.68f, 0.85f, 1f);
 
         [field: SerializeField]
-        [field: Tooltip("How far a trigger with no pressed button of its own must be pulled to count as a press")]
+        [field: Tooltip("How far the trigger must be pulled to count as a press. Near the bottom on purpose: " +
+                        "a Vive wand clicks at full pull, and that click is the only feedback the participant " +
+                        "gets that they pressed anything. Not 1.0, so a controller whose click button reports " +
+                        "nothing still fires on an axis that stops a little short.")]
         [field: Range(0.1f, 0.95f)]
-        public float TriggerThreshold { get; set; } = 0.6f;
+        public float TriggerThreshold { get; set; } = 0.9f;
 
         [field: SerializeField]
         [field: Tooltip("Answer with the mouse in a flat play session, for testing the row without a headset. " +
@@ -341,6 +344,15 @@ namespace GazeControl.Experiment
                     $"{name}: no XR controller tracked ({skipped} other tracked device(s) seen); " +
                     "the participant answers aloud.", this);
             }
+            else
+            {
+                // The threshold in the log because it is serialized: the scene
+                // decides it, not the C# default, and a scene left on an old
+                // number is otherwise silent for a whole session.
+                Debug.Log(
+                    $"{name}: {_pointers.Count} controller(s) can answer; a press is a pull past " +
+                    $"{TriggerThreshold:F2}, released under {TriggerThreshold * 0.5f:F2}.", this);
+            }
 
             if (_preferred >= _pointers.Count)
                 _preferred = -1;
@@ -578,11 +590,16 @@ namespace GazeControl.Experiment
             /// never updates it. The trigger is down when either says so.</para>
             ///
             /// <para>One edge per pull, because the two are ORed into a single
-            /// state rather than each giving its own edge: on a wand the axis
-            /// crosses the threshold a frame or two before the click bottoms
-            /// out, and two edges from one squeeze would enter two answers.
-            /// Release takes it back under half the threshold, so a trigger held
-            /// exactly on the line cannot chatter.</para>
+            /// state rather than each giving its own edge: the axis crosses the
+            /// threshold a frame or two before the click bottoms out, and two
+            /// edges from one squeeze would enter two answers.</para>
+            ///
+            /// <para>Release takes it back under half the threshold, so a
+            /// trigger held exactly on the line cannot chatter. With the
+            /// threshold at the click (0.9) that is 0.45, which is most of the
+            /// travel — a finger resting on the trigger between answers is well
+            /// below it, and the participant does not have to think about
+            /// letting go.</para>
             /// </remarks>
             public bool WasTriggerPressedThisFrame(float threshold)
             {

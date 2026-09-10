@@ -132,6 +132,22 @@ why a refusal has to be visible before the press rather than after it.
   no longer depends on `wasPressedThisFrame`, whose edge is defined against the input update rather
   than the frame the pose was read in.
 
+**A press is the trigger's own click** (user, 2026-09-10). The threshold is 0.9, not the 0.6 it
+started at: a Vive wand clicks at the bottom of its travel, that click is the only feedback the
+participant gets that they pressed anything, and `triggerPressed` is exactly it. It is not 1.0, so a
+controller whose click button reports nothing still fires on an axis that stops a little short.
+Release is half the threshold, 0.45, which is most of the travel — a finger resting on the trigger
+between answers is well below it.
+
+**The scene decides it, not the C# default**, because the field is serialized: both study scenes sat
+on 0.6 after the default moved to 0.9, and nothing in a play session would have said so. Two things
+close that. `GazeControl → Set Up Questionnaire` owns the number as a constant and writes it into the
+scene every time it runs, logging the correction — the same way it already owns the panel's distance
+and eye height — so re-running that command is how a changed threshold reaches the scenes. And the
+pointer logs the value it is actually using as the controllers are found, so a scene left on an old
+number says so in the first seconds of a session rather than never. Tune it in the inspector with a
+wand in hand; bring the number back to the constant.
+
 **Diagnosis is on the panel, not in a guess.** The operator's header carries the controller count,
 what the participant is aiming at and the live trigger reading, because a trigger reporting nothing
 and a participant who is simply not pressing look identical from the desk.

@@ -38,6 +38,22 @@ namespace GazeControl.Editor
         /// </summary>
         const float PanelDistance = 1.5f;
 
+        /// <summary>
+        /// How far the trigger must be pulled to answer. The Vive wand clicks at
+        /// the bottom of its travel and that click is the participant's only
+        /// feedback, so the software press lands where the physical one does.
+        ///
+        /// <para><b>It is written here because the field is serialized.</b> A
+        /// value living only as a C# default is decided by whatever the scene
+        /// was saved with, which is how both study scenes sat on 0.6 after the
+        /// default moved to 0.9 — nothing in a play session would have said so.
+        /// Re-running this command is what puts the current number into the
+        /// scenes, exactly as it does for the panel's distance and eye height.
+        /// Tune it in the inspector with a wand in hand, then bring the number
+        /// back here.</para>
+        /// </summary>
+        const float TriggerThreshold = 0.9f;
+
         [MenuItem("GazeControl/Set Up Questionnaire")]
         public static void SetUp()
         {
@@ -118,6 +134,15 @@ namespace GazeControl.Editor
             Undo.RecordObject(pointer, "Configure questionnaire pointer");
             pointer.Session = session;
             pointer.Display = display;
+
+            if (!Mathf.Approximately(pointer.TriggerThreshold, TriggerThreshold))
+            {
+                Debug.Log(
+                    $"Set Up Questionnaire: trigger threshold {pointer.TriggerThreshold:F2} → " +
+                    $"{TriggerThreshold:F2} on '{pointer.name}'.", pointer);
+            }
+
+            pointer.TriggerThreshold = TriggerThreshold;
 
             var rig = Object.FindAnyObjectByType<XrParticipantRig>(FindObjectsInactive.Include);
             if (rig != null && rig.CameraOffset != null)
