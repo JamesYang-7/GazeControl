@@ -45,14 +45,33 @@ namespace GazeControl.Editor
         string _previousLabel;
         Vector2 _scroll;
 
-        [MenuItem("GazeControl/Study 1/Start Session")]
+        /// <summary>
+        /// Study 1's session, kept but off the menu (user's call, 2026-09-09):
+        /// its eighteen participants are recorded and its paper written, so the
+        /// only thing the entry could still do is open the wrong scene by
+        /// mistake. Restore its <c>[MenuItem("GazeControl/Study 1/Start
+        /// Session")]</c> if study 1 is ever run again.
+        /// </summary>
         public static void OpenForStudy1()
         {
             if (StudyScenes.EnsureOpen(StudyScenes.Study1ScenePath, "Study 1 → Start Session"))
                 Open();
         }
 
-        [MenuItem("GazeControl/Study 2/Start Session")]
+        /// <summary>
+        /// First in the Study 2 menu and separated from the rest (user's call,
+        /// 2026-09-09), because it is the one command a session needs and the
+        /// others are all preparation.
+        ///
+        /// <para><b>It is also what puts Study 2 at the top of the GazeControl
+        /// menu</b>, which is the second half of the same call: a submenu takes
+        /// its place in the parent from its lowest-priority item, so this 0 is
+        /// read twice over — first in the row of the Study 2 menu, then in where
+        /// Study 2 itself sits. The rest of the menu is left at Unity's default
+        /// 1000 and falls in below, with Help sent to 2000 at the
+        /// bottom.</para>
+        /// </summary>
+        [MenuItem("GazeControl/Study 2/Start Session", priority = 0)]
         public static void OpenForStudy2()
         {
             if (StudyScenes.EnsureOpen(StudyScenes.Study2ScenePath, "Study 2 → Start Session"))

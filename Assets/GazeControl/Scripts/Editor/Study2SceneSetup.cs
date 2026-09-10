@@ -54,7 +54,7 @@ namespace GazeControl.Editor
 
         static readonly string[] k_AgentNames = { "AgentA", "AgentB" };
 
-        [MenuItem("GazeControl/Study 2/Set Up Scene")]
+        [MenuItem("GazeControl/Study 2/Set Up Scene", priority = 25)]
         public static void SetUp()
         {
             if (EditorApplication.isPlaying)

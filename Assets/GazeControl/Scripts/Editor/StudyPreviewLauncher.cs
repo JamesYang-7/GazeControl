@@ -5,8 +5,9 @@ using UnityEngine;
 namespace GazeControl.Editor
 {
     /// <summary>
-    /// GazeControl → Study 1 / Study 2 → Preview Session: play the session's clip order
-    /// with the baked tracks replayed, for checking the bakes by eye.
+    /// GazeControl → Study 2 → Preview Session: play the session's clip order
+    /// with the baked tracks replayed, for checking the bakes by eye. Study 1's
+    /// two are still here and no longer on the menu (2026-09-09).
     ///
     /// <para>A request consumed at play start, exactly like a participant
     /// launch (<see cref="StudyLaunchRequest"/>), so the scene on disk is never
@@ -17,21 +18,26 @@ namespace GazeControl.Editor
     /// </summary>
     public static class StudyPreviewLauncher
     {
-        [MenuItem("GazeControl/Study 1/Preview Session")]
+        /// <summary>
+        /// Study 1's previews, kept but off the menu (user's call, 2026-09-09)
+        /// along with its Start Session: its participants are recorded and its
+        /// paper written. Restore the <c>[MenuItem]</c> attributes if study 1 is
+        /// ever run again.
+        /// </summary>
         public static void PreviewStudy1()
         {
             if (StudyScenes.EnsureOpen(StudyScenes.Study1ScenePath, "Study 1 → Preview Session"))
                 Preview(inHeadset: false);
         }
 
-        [MenuItem("GazeControl/Study 1/Preview Session in Headset")]
+        /// <inheritdoc cref="PreviewStudy1"/>
         public static void PreviewStudy1InHeadset()
         {
             if (StudyScenes.EnsureOpen(StudyScenes.Study1ScenePath, "Study 1 → Preview Session in Headset"))
                 Preview(inHeadset: true);
         }
 
-        [MenuItem("GazeControl/Study 2/Preview Session")]
+        [MenuItem("GazeControl/Study 2/Preview Session", priority = 11)]
         public static void PreviewStudy2()
         {
             if (StudyScenes.EnsureOpen(StudyScenes.Study2ScenePath, "Study 2 → Preview Session"))
@@ -43,7 +49,7 @@ namespace GazeControl.Editor
         /// the participant's seat. Put the headset on before pressing it: the
         /// frame clock waits on the compositor while nobody is wearing it.
         /// </summary>
-        [MenuItem("GazeControl/Study 2/Preview Session in Headset")]
+        [MenuItem("GazeControl/Study 2/Preview Session in Headset", priority = 12)]
         public static void PreviewStudy2InHeadset()
         {
             if (StudyScenes.EnsureOpen(StudyScenes.Study2ScenePath, "Study 2 → Preview Session in Headset"))

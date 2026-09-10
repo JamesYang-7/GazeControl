@@ -162,7 +162,7 @@ namespace GazeControl.Editor
         /// chooses one seed per clip from what exists rather than waiting for
         /// a bake on the morning of the study.
         /// </summary>
-        [MenuItem("GazeControl/Study 2/Bake Seeds 1-12")]
+        [MenuItem("GazeControl/Study 2/Bake Seeds 1-12", priority = 24)]
         public static void BakeStudySeeds()
         {
             if (!StudyScenes.EnsureOpen(StudyScenes.Study2ScenePath, "Study 2 → Bake Seeds 1-12"))

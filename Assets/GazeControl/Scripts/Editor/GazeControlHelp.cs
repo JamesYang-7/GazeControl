@@ -7,12 +7,13 @@ namespace GazeControl.Editor
     /// GazeControl → Help: what every command on this menu does, and which of
     /// them a participant session actually needs.
     ///
-    /// <para>The menu had grown to thirteen commands across four submenus, some of
-    /// which are one-off asset repairs and one of which starts a recording with a
-    /// real person in a headset. Nothing on it said which was which, and the
-    /// answers were spread across CLAUDE.md, four design documents and the
-    /// scripts' own summaries. This is the index: one screen, in the place the
-    /// commands are.</para>
+    /// <para>The menu had grown to more than a dozen commands across four
+    /// submenus, some of which are one-off asset repairs and one of which starts
+    /// a recording with a real person in a headset. Nothing on it said which was
+    /// which, and the answers were spread across CLAUDE.md, four design
+    /// documents and the scripts' own summaries. This is the index: one screen,
+    /// in the place the commands are — at the foot of the menu, under
+    /// everything it describes.</para>
     ///
     /// <para>Deliberately not a duplicate of the runbook. This says what each
     /// command <i>is</i>; <c>Assets/Docs/session-runbook.md</c> says what the
@@ -42,12 +43,13 @@ namespace GazeControl.Editor
         static readonly (string Heading, string Blurb, Entry[] Entries)[] Sections =
         {
             ("Running a session", "The only part with a participant in the room. Start Session is the " +
-                                  "whole procedure; everything else here is preparation. The Study 1 and " +
-                                  "Study 2 menus carry the same commands and differ only in the scene they " +
-                                  "open first — TriadScene or Study2Scene — so a session cannot be started " +
-                                  "in the wrong one.", new[]
+                                  "whole procedure; everything else here is preparation. It opens " +
+                                  "Study2Scene first, so a session cannot be started in the wrong scene. " +
+                                  "Study 1 is recorded and written up, and its menu was taken down on " +
+                                  "2026-09-09; StudySessionWindow.OpenForStudy1 is still there if it is " +
+                                  "ever run again.", new[]
             {
-                new Entry("Study 1 → Start Session  (Study 2 → Start Session)",
+                new Entry("Study 2 → Start Session",
                     "Starts a real recording. Proposes the next participant label by reading the folders " +
                     "under Recordings/ — it is never typed — refuses one that has already run, and shows a " +
                     "preflight of every rule the session will be held to.\n\n" +
@@ -56,8 +58,10 @@ namespace GazeControl.Editor
                     "headset switch and the developer overlay. They are applied to the play session only, " +
                     "so the scene on disk is never modified and there is nothing to put back afterwards.\n\n" +
                     "Back / Next step the label, for a correction only. Once play starts the window shows " +
-                    "the clip position and whether the headset's eye tracking is available and calibrated.",
-                    "GazeControl/Study 1/Start Session"),
+                    "the clip position and whether the headset's eye tracking is available and calibrated.\n\n" +
+                    "It opens Study2Scene first, and the roster reads Recordings/Study_02, so labels start " +
+                    "again at P01 rather than continuing study 1's.",
+                    "GazeControl/Study 2/Start Session"),
 
                 new Entry("In play: Space",
                     "The only key the operator needs. It starts the session, and after each clip it " +
@@ -165,19 +169,14 @@ namespace GazeControl.Editor
                     "into the inspector, so the scene never carries a seed whose reason is not on disk.",
                     "GazeControl/Study 2/Apply Chosen Seeds"),
 
-                new Entry("Study 2 → Start Session",
-                    "The Start Session window with Study2Scene open. Same window, same rules; the roster " +
-                    "reads Recordings/Study_02, so labels start again at P01.",
-                    "GazeControl/Study 2/Start Session"),
-
-                new Entry("Study 2 → Preview Session  (Study 1 → Preview Session)",
+                new Entry("Study 2 → Preview Session",
                     "Plays the session's clip order with the baked tracks replayed and nothing else: no " +
                     "questionnaire, no logs, headset off, developer overlay on with the condition and seed. " +
                     "Each clip runs straight into the next, and Space skips the current one. For checking " +
                     "bakes by eye on the desktop; nothing it shows is a take.",
                     "GazeControl/Study 2/Preview Session"),
 
-                new Entry("Study 2 → Preview Session in Headset  (Study 1 → Preview Session in Headset)",
+                new Entry("Study 2 → Preview Session in Headset",
                     "The same preview with the headset started, to watch the bakes from the participant's " +
                     "seat. Put the headset on before pressing it: with the runtime up and nobody wearing it, " +
                     "the frame clock waits on the compositor. Audio stays on the desktop output.",
@@ -213,7 +212,13 @@ namespace GazeControl.Editor
 
         Vector2 _scroll;
 
-        [MenuItem("GazeControl/Help", priority = 0)]
+        /// <summary>
+        /// Last on the menu (user's call, 2026-09-09; it opened at the top from
+        /// 2026-09-08). 2000 rather than a number just past the commands,
+        /// because everything else is at Unity's default 1000 and the gap of
+        /// more than ten is what draws the separator above it.
+        /// </summary>
+        [MenuItem("GazeControl/Help", priority = 2000)]
         public static void Open()
         {
             var window = GetWindow<GazeControlHelp>("GazeControl Help");

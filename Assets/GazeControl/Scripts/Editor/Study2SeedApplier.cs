@@ -39,7 +39,7 @@ namespace GazeControl.Editor
             public Choice[] chosen;
         }
 
-        [MenuItem("GazeControl/Study 2/Apply Chosen Seeds")]
+        [MenuItem("GazeControl/Study 2/Apply Chosen Seeds", priority = 23)]
         public static void Apply()
         {
             const string command = "Study 2 → Apply Chosen Seeds";
