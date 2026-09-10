@@ -83,17 +83,17 @@ session that cannot be finished without them.
 screen with nothing after it — every answer is already written by the time it shows — and a
 participant who pressed on would be left looking at an empty room with the headset still on.
 
-**The ranking now shows the order given** — `Your order:   1st: V2,   2nd: V1,   3rd: _` — which
+**The ranking now shows the order given** — `Your order:  V2  >  V1  >  _` — which
 reverses 2026-08-31's "the ranking marks nothing at all". That decision was right while the
 participant only spoke: listing the versions invited them to do the ranks-to-versions conversion
 themselves. Once they press the buttons, a press that shows nothing back is a press they cannot
 check or correct.
 
-**Each rank is named rather than chained** (user's call, 2026-09-09; it read `V2 > V1 > _` first).
-A chain of ">" leaves the reader to work out which end is best from the shape of the line, and a
-participant pressing the buttons alone has nobody to ask. An ordinal against each slot says it
-outright and names the empty one they are filling next. `RankingOrder.Ordinal` is where a rank is
-spelled, so the operator's "1st / 2nd / 3rd" and the participant's cannot drift apart.
+**A rank-by-rank spelling was tried and put back** (`1st: V2,  2nd: V1,  3rd: _`, both calls the
+user's, 2026-09-09). The chain is the shorter line and reads as one order rather than three
+labelled slots. Which end is best is said in the prompt instead, where it applies to the question
+rather than to the answer so far. `RankingOrder.Ordinal` stays where it was moved to, with the
+operator's panel as its one caller.
 
 **The short-answer page marks the question being asked**, with the same `>` in the same two columns
 the rating page uses (user's call, 2026-09-09). Two questions sit on that page and the button row

@@ -447,15 +447,14 @@ namespace GazeControl.Experiment
         const string k_ShortAnswerIndent = "       ";
 
         /// <summary>
-        /// The order given so far — "Your order:   1st: V2,   2nd: V1,   3rd: _"
-        /// — or empty before anything is entered.
+        /// The order given so far — "Your order:  V2  &gt;  V1  &gt;  _" — or
+        /// empty before anything is entered.
         ///
-        /// <para><b>Ranks named, not chained</b> (user's call, 2026-09-09,
-        /// replacing "V2 &gt; V1 &gt; _"). A chain of "&gt;" leaves the reader
-        /// to work out which end is best from the shape of the line, and a
-        /// participant pressing the buttons alone has nobody to ask; an ordinal
-        /// against each slot says it outright and names the empty one they are
-        /// filling next.</para>
+        /// <para><b>Chained, not named by rank</b> (user's call, 2026-09-09; a
+        /// "1st: V2,  2nd: V1,  3rd: _" spelling was tried the same day and put
+        /// back). The chain is the shorter line and reads as one order rather
+        /// than three labelled slots; the prompt above it says "from best to
+        /// worst", which is where that belongs.</para>
         ///
         /// <para>The versions carry the buttons' own labels rather than the
         /// instrument's "Version 2", so what is on the line is what was pressed
@@ -466,14 +465,13 @@ namespace GazeControl.Experiment
             if (versionsBestFirst == null || versionsBestFirst.Length == 0)
                 return string.Empty;
 
-            var line = new StringBuilder("Your order:   ");
+            var line = new StringBuilder("Your order:  ");
             for (var i = 0; i < versionsBestFirst.Length; i++)
             {
                 if (i > 0)
-                    line.Append(",   ");
+                    line.Append("  >  ");
 
                 var version = versionsBestFirst[i];
-                line.Append(RankingOrder.Ordinal(i + 1)).Append(": ");
                 line.Append(version == QuestionnaireEntry.Unanswered ? "_" : $"V{version}");
             }
 

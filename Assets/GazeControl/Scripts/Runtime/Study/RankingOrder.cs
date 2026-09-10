@@ -47,12 +47,14 @@ namespace GazeControl.Study
         }
 
         /// <summary>
-        /// A rank as the participant and the operator read it: 1st, 2nd, 3rd.
+        /// A rank as the operator's panel lists it: 1st, 2nd, 3rd, each taking a
+        /// version number.
         ///
-        /// <para>Here rather than on either surface because both name ranks and
-        /// they must agree — the operator enters "1st" while the participant
-        /// reads "1st" on the panel, and a second spelling of the same thing is
-        /// free to drift.</para>
+        /// <para>Here rather than on the panel because this is where the
+        /// ranking's other rules live and where they can be tested without an
+        /// operator. The participant's own panel shows the order as a chain
+        /// ("V2 &gt; V1 &gt; _") and names no ranks, so this has one caller
+        /// today.</para>
         /// </summary>
         public static string Ordinal(int rank) => rank switch
         {
