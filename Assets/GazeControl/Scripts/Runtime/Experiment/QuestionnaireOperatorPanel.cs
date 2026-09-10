@@ -100,11 +100,11 @@ namespace GazeControl.Experiment
             GUILayout.Label(ParticipantInput(), _label);
             if (Pointer != null && Pointer.isActiveAndEnabled)
             {
-                // One line per controller, indented: which is pointing where and
-                // how far its trigger is pulled. Every controller fault so far
-                // has looked the same from the desk — "it does nothing" — and
-                // these lines are what tell them apart while the participant is
-                // still wearing the headset.
+                // One line per controller, indented: which is pointing where,
+                // how far its trigger is pulled and whether its pad or grip is
+                // down. Every controller fault so far has looked the same from
+                // the desk — "it does nothing" — and these lines are what tell
+                // them apart while the participant is still wearing the headset.
                 foreach (var report in Pointer.ControllerReports)
                     GUILayout.Label($"   {report}", _label);
 

@@ -41,13 +41,19 @@ namespace GazeControl.Editor
         /// <summary>
         /// How far the trigger must be pulled to answer.
         ///
-        /// <para><b>0.6, because it is what answers on this hardware.</b> 0.9 was
-        /// tried on 2026-09-10 to put the press on the wand's own click, and
-        /// nothing registered at all: the trigger axis does not reach 0.9 here
-        /// and the click button is not filling the gap. The number wants
-        /// measuring rather than reasoning about — the operator panel now shows
-        /// the peak each controller has reported, so a full pull says what it is
-        /// worth.</para>
+        /// <para><b>0.9, to put the press on the wand's own click</b> (user,
+        /// 2026-09-10, restoring the number withdrawn earlier the same day).
+        /// The click at the bottom of the travel is the only feedback a
+        /// participant gets that they pressed anything, so the software press
+        /// wants to land where the physical one does. It was withdrawn the first
+        /// time because nothing registered at all — the trigger axis does not
+        /// reach 0.9 here and <c>triggerPressed</c> did not fill the gap — and
+        /// what has changed since is that the axis is no longer the only way in:
+        /// the trackpad click and the grip press through no threshold, so a
+        /// wand whose ceiling is below this number costs the participant the
+        /// trigger and not the questionnaire. The number still wants measuring
+        /// rather than reasoning about — the operator panel shows the peak each
+        /// controller has reported, so a full pull says what it is worth.</para>
         ///
         /// <para><b>It is written here because the field is serialized.</b> A
         /// value living only as a C# default is decided by whatever the scene
@@ -57,8 +63,15 @@ namespace GazeControl.Editor
         /// scenes, exactly as it does for the panel's distance and eye height.
         /// Tune it in the inspector with a wand in hand, then bring the number
         /// back here.</para>
+        ///
+        /// <para><b>It no longer decides whether a participant can answer at
+        /// all</b> (2026-09-10). The trackpad click and the grip press through
+        /// no threshold, so a wand whose axis never reaches this number still
+        /// answers on either of them. That is the point of having them: this
+        /// constant went wrong once already, and it failed silently. It is also
+        /// what makes 0.9 affordable a second time.</para>
         /// </summary>
-        const float TriggerThreshold = 0.6f;
+        const float TriggerThreshold = 0.9f;
 
         [MenuItem("GazeControl/Set Up Questionnaire")]
         public static void SetUp()

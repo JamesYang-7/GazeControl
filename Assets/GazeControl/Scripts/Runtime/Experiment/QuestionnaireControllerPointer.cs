@@ -14,7 +14,19 @@ namespace GazeControl.Experiment
 {
     /// <summary>
     /// Lets the participant answer for themselves: a ray out of each controller
-    /// they are holding, and the trigger presses the button it lands on.
+    /// they are holding, and the trigger, the trackpad click or the grip presses
+    /// the button it lands on.
+    ///
+    /// <para><b>Three buttons, one press</b> (2026-09-10). The trigger is the
+    /// one with a threshold to get wrong, and getting it wrong is silent: the
+    /// axis on this wand pair does not reach 0.9 and <c>triggerPressed</c> does
+    /// not fill the gap, so a press can fail with the ray tracking perfectly.
+    /// The trackpad click and the grip are plain microswitches with no
+    /// threshold to miss, and the trackpad is the largest surface on a wand and
+    /// the easiest to find blind with a headset on. All three are ORed into one
+    /// down/up state, so squeezing the trigger and clicking the pad in the same
+    /// motion still enters exactly one answer. The System button is not among
+    /// them: SteamVR reserves it and it never reaches the application.</para>
     ///
     /// <para><b>Added 2026-09-09</b>, alongside the spoken path rather than
     /// instead of it (<c>questionnaire-ui-design.md</c> §0.1). Every press goes
@@ -100,12 +112,15 @@ namespace GazeControl.Experiment
         public Color RayColor { get; set; } = new(0.55f, 0.68f, 0.85f, 1f);
 
         [field: SerializeField]
-        [field: Tooltip("How far the trigger must be pulled to count as a press. 0.6 because that is what " +
-                        "answers on this hardware: 0.9 was tried, to put the press on the wand's own click, " +
-                        "and nothing registered at all - the axis does not reach it and the click button is " +
-                        "not filling the gap. Watch the peak on the operator panel before raising it again.")]
+        [field: Tooltip("How far the trigger must be pulled to count as a press. 0.9 puts it on the wand's " +
+                        "own click, which is the only feedback a participant gets that they pressed anything. " +
+                        "It was tried and withdrawn earlier on 2026-09-10, when nothing registered at all - " +
+                        "the axis does not reach it here and the click button did not fill the gap - and it is " +
+                        "affordable now only because the trackpad click and the grip press through no " +
+                        "threshold, so this number can no longer lock anyone out. Watch the peak on the " +
+                        "operator panel to see what a full pull is worth on the hardware in hand.")]
         [field: Range(0.1f, 0.95f)]
-        public float TriggerThreshold { get; set; } = 0.6f;
+        public float TriggerThreshold { get; set; } = 0.9f;
 
         [field: SerializeField]
         [field: Tooltip("Answer with the mouse in a flat play session, for testing the row without a headset. " +
@@ -115,7 +130,8 @@ namespace GazeControl.Experiment
 
         [field: SerializeField]
         [field: Tooltip("Log every control on a controller as it is pressed, to find out what an unfamiliar " +
-                        "controller calls its trigger. A developer switch — leave it off for a participant.")]
+                        "controller calls its trigger, trackpad or grip. A developer switch — leave it off " +
+                        "for a participant.")]
         public bool LogControlsAsPressed { get; set; }
 
         readonly List<Pointer> _pointers = new();
@@ -216,13 +232,13 @@ namespace GazeControl.Experiment
                 var hit = Display.TryAim(ray, out var point, out var button);
                 pointer.Draw(ray, hit ? Vector3.Distance(ray.origin, point) : RayLength, RayWidth, RayColor);
 
-                // Any pull claims the cursor, not just a completed press, so the
-                // hand being used keeps the highlight from the moment it is
-                // squeezed.
-                if (pointer.TriggerLevel > 0.1f)
+                // Any pull or any button claims the cursor, not just a completed
+                // press, so the hand being used keeps the highlight from the
+                // moment it is squeezed or clicked.
+                if (pointer.TriggerLevel > 0.1f || pointer.ButtonsPressed)
                     _preferred = i;
 
-                if (pointer.WasTriggerPressedThisFrame(TriggerThreshold) && hit)
+                if (pointer.WasPressedThisFrame(TriggerThreshold) && hit)
                     Session.Press(button);
 
                 _reports.Add(Report(pointer, hit, button));
@@ -301,11 +317,17 @@ namespace GazeControl.Experiment
             // layout, and one that shows 0.00 under both is the runtime giving
             // this application no button input at all. From the desk those are
             // the same complaint, and they have different answers.
+            //
+            // The pad and grip come after it, because they are what the
+            // participant is told to use: a line reading 0.00 for the trigger
+            // and 'pad/grip: primary2daxisclick' in the same breath is a wand
+            // whose trigger is dead and whose participant is still answering.
             var line = pointer.CanPress
                 ? $"{pointer.Describe()} — {where} · trigger {pointer.TriggerLevel:F2} " +
                   $"(IS {pointer.InputSystemTriggerLevel:F2} · XR {pointer.LegacyTriggerLevel:F2}, " +
-                  $"peak {pointer.PeakTriggerLevel:F2}, needs {TriggerThreshold:F2})"
-                : $"{pointer.Describe()} — {where} · NO TRIGGER CONTROL, cannot answer";
+                  $"peak {pointer.PeakTriggerLevel:F2}, needs {TriggerThreshold:F2})" +
+                  $" · pad/grip: {pointer.DescribeButtons()}"
+                : $"{pointer.Describe()} — {where} · NO TRIGGER, PAD OR GRIP CONTROL, cannot answer";
 
             if (!LogControlsAsPressed)
                 return line;
@@ -390,7 +412,7 @@ namespace GazeControl.Experiment
                 foreach (var usage in usages)
                 {
                     report.AppendLine().Append("    ").Append(usage.name).Append(" (").Append(usage.type.Name)
-                        .Append(") = ").Append(LegacyTrigger.ReadAsText(device, usage));
+                        .Append(") = ").Append(LegacyControls.ReadAsText(device, usage));
                 }
             }
 
@@ -485,21 +507,29 @@ namespace GazeControl.Experiment
 
                 var trigger = Pointer.ResolveTrigger(tracked, out var pressed, out var axis);
 
+                // The trackpad click and the grip, resolved the same two ways.
+                // They are a list rather than two named controls because a wand
+                // reports its grip as a button and an axis both, and an Index
+                // controller as an analog squeeze - all of them are just
+                // 'something the participant can push', read at half travel.
+                var buttons = Pointer.ResolveButtons(tracked);
+
                 // The same controller through the other XR input surface. It is
                 // resolved here rather than inside the pointer because whether a
                 // device can press at all decides whether it is kept.
-                var legacy = LegacyTrigger.For(tracked);
+                var legacy = LegacyControls.For(tracked);
 
-                // A controller with no trigger still gets a ray and says so —
-                // it is meant to be pointed with. Anything else that is merely
-                // tracked (a body tracker, a camera) is passed over in silence.
-                if (!trigger && !legacy.Exists && tracked is not XRController)
+                // A controller with nothing to press still gets a ray and says
+                // so — it is meant to be pointed with. Anything else that is
+                // merely tracked (a body tracker, a camera) is passed over in
+                // silence.
+                if (!trigger && buttons.Count == 0 && !legacy.Exists && tracked is not XRController)
                 {
                     skipped++;
                     continue;
                 }
 
-                _pointers.Add(new Pointer(tracked, NewRayObject(tracked.name), pressed, axis, legacy));
+                _pointers.Add(new Pointer(tracked, NewRayObject(tracked.name), pressed, axis, buttons, legacy));
             }
 
             // Both hands are equal here — every controller found gets a ray and
@@ -517,8 +547,9 @@ namespace GazeControl.Experiment
                 // decides it, not the C# default, and a scene left on an old
                 // number is otherwise silent for a whole session.
                 Debug.Log(
-                    $"{name}: {_pointers.Count} controller(s) can answer; a press is a pull past " +
-                    $"{TriggerThreshold:F2}, released under {TriggerThreshold * 0.5f:F2}.", this);
+                    $"{name}: {_pointers.Count} controller(s) can answer; a press is a trigger pull past " +
+                    $"{TriggerThreshold:F2} (released under {TriggerThreshold * 0.5f:F2}), a trackpad click " +
+                    "or a grip.", this);
             }
 
             if (_preferred >= _pointers.Count)
@@ -594,24 +625,27 @@ namespace GazeControl.Experiment
             readonly LineRenderer _line;
             readonly ButtonControl _triggerPressed;
             readonly AxisControl _trigger;
-            readonly LegacyTrigger _legacy;
+            readonly List<AxisControl> _buttons;
+            readonly LegacyControls _legacy;
             bool _isDown;
 
             public Pointer(
-                TrackedDevice device, LineRenderer line, ButtonControl pressed, AxisControl axis, LegacyTrigger legacy)
+                TrackedDevice device, LineRenderer line, ButtonControl pressed, AxisControl axis,
+                List<AxisControl> buttons, LegacyControls legacy)
             {
                 _device = device;
                 _line = line;
                 _triggerPressed = pressed;
                 _trigger = axis;
+                _buttons = buttons;
                 _legacy = legacy;
 
                 if (!CanPress)
                 {
                     Debug.LogWarning(
-                        $"'{device.name}' ({device.layout}) has no trigger control this can find on either XR " +
-                        $"input surface, so it cannot answer anything. Its Input System controls are: " +
-                        $"{ControlNames(device)}. The legacy subsystem says: {_legacy.Describe()}. The " +
+                        $"'{device.name}' ({device.layout}) has no trigger, trackpad click or grip this can find " +
+                        $"on either XR input surface, so it cannot answer anything. Its Input System controls " +
+                        $"are: {ControlNames(device)}. The legacy subsystem says: {_legacy.Describe()}. The " +
                         "participant's spoken answers still reach the operator panel.");
                     return;
                 }
@@ -620,6 +654,7 @@ namespace GazeControl.Experiment
                     $"Questionnaire pointer: '{device.name}' ({device.layout}) — " +
                     $"triggerPressed {(_triggerPressed != null ? "found" : "missing")}, " +
                     $"trigger axis {(_trigger != null ? _trigger.name : "missing")}, " +
+                    $"pad/grip {(_buttons.Count == 0 ? "none" : string.Join(" ", _buttons.ConvertAll(b => b.name)))}, " +
                     $"legacy XR {_legacy.Describe()}. " +
                     "All of them are read, so one going dead does not stop the participant answering.");
             }
@@ -666,6 +701,73 @@ namespace GazeControl.Experiment
                 axis = device.TryGetChildControl<AxisControl>("trigger");
                 return pressed != null || axis != null;
             }
+
+            /// <summary>
+            /// The trackpad click and the grip, found the same two ways the
+            /// trigger is: what the runtime's own descriptor backs first, the
+            /// layout's usual names where the descriptor says nothing.
+            ///
+            /// <para>Both are read digitally at half travel, whether the runtime
+            /// hands them over as a button or as an axis - a wand's grip is 0/1
+            /// under either name, and an Index controller's analog squeeze is
+            /// past half only when it is being deliberately closed.</para>
+            ///
+            /// <para><b>Touch is not press.</b> A wand's trackpad reports a
+            /// finger resting on it (<c>primary2DAxisTouch</c>) long before the
+            /// switch under it closes, and a participant reading the question
+            /// with a thumb on the pad would otherwise answer it. Only names
+            /// carrying "click" or "press" are taken, which drops the touch
+            /// sensors of both surfaces without naming them.</para>
+            /// </summary>
+            public static List<AxisControl> ResolveButtons(TrackedDevice device)
+            {
+                var buttons = new List<AxisControl>();
+
+                foreach (var name in DescriptorControlNames(device))
+                {
+                    if (!IsPadClick(name) && !IsGrip(name))
+                        continue;
+
+                    if (device.TryGetChildControl(name) is AxisControl control)
+                        buttons.Add(control);
+                }
+
+                if (buttons.Count > 0)
+                    return buttons;
+
+                // The layout's own names, in the order a wand is likeliest to
+                // carry them. Every one that exists is kept: which of them the
+                // runtime actually feeds is exactly what is not knowable here.
+                foreach (var name in FallbackButtonNames)
+                {
+                    var control = device.TryGetChildControl<AxisControl>(name);
+                    if (control != null)
+                        buttons.Add(control);
+                }
+
+                return buttons;
+            }
+
+            /// <summary>
+            /// The names a trackpad click and a grip go under when there is no
+            /// descriptor to read them off. Unity's own XR layouts and the
+            /// vendor ones do not agree, and a name that is not there costs a
+            /// lookup that returns null.
+            /// </summary>
+            static readonly string[] FallbackButtonNames =
+            {
+                "trackpadClicked", "trackpadPressed", "touchpadClicked", "touchpadPressed", "primary2DAxisClick",
+                "gripPressed", "gripButton", "squeezePressed", "grip",
+            };
+
+            /// <summary>The trackpad's own switch, under whichever of its names the runtime reports.</summary>
+            static bool IsPadClick(string name) =>
+                (name.Contains("2daxis") || name.Contains("trackpad") || name.Contains("touchpad"))
+                && (name.Contains("click") || name.Contains("press"));
+
+            /// <summary>The grip, as a button or as a squeeze. Never the capacitive touch beside it.</summary>
+            static bool IsGrip(string name) =>
+                (name.Contains("grip") || name.Contains("squeeze")) && !name.Contains("touch");
 
             /// <summary>
             /// The control names the Input System would have built from this
@@ -777,11 +879,65 @@ namespace GazeControl.Experiment
             public string LastReportedControls { get; set; } = string.Empty;
 
             /// <summary>
-            /// Whether this device has a trigger control at all. False for one
+            /// Whether this device has anything to press at all. False for one
             /// that enumerates with a pose and no buttons, which happens: it can
             /// be aimed and can never answer.
             /// </summary>
-            public bool CanPress => _triggerPressed != null || _trigger != null || _legacy.Exists;
+            public bool CanPress =>
+                _triggerPressed != null || _trigger != null || _buttons.Count > 0 || _legacy.Exists;
+
+            /// <summary>
+            /// Whether the trackpad click or the grip is down, on either surface.
+            /// Digital: there is no threshold to reach and none to get wrong,
+            /// which is the reason they are here beside the trigger.
+            /// </summary>
+            public bool ButtonsPressed
+            {
+                get
+                {
+                    foreach (var button in _buttons)
+                    {
+                        if (button.ReadValue() >= 0.5f)
+                            return true;
+                    }
+
+                    return _legacy.ButtonsPressed;
+                }
+            }
+
+            /// <summary>
+            /// Which of the pad and grip controls are down, by name, for the
+            /// operator panel. The names rather than a tick, because "the pad
+            /// does nothing" and "the pad is feeding a control nothing reads"
+            /// are the same complaint from the desk and different faults.
+            /// </summary>
+            public string DescribeButtons()
+            {
+                if (_buttons.Count == 0 && !_legacy.HasButtons)
+                    return "none found";
+
+                var held = new System.Text.StringBuilder();
+                foreach (var button in _buttons)
+                {
+                    if (button.ReadValue() < 0.5f)
+                        continue;
+
+                    if (held.Length > 0)
+                        held.Append(", ");
+
+                    held.Append(button.name);
+                }
+
+                if (_legacy.ButtonsPressed)
+                {
+                    if (held.Length > 0)
+                        held.Append(", ");
+
+                    held.Append("XR ").Append(_legacy.DescribeButtonsHeld());
+                }
+
+                return held.Length == 0 ? "idle" : held.ToString();
+            }
 
             /// <summary>
             /// The highest pull this controller has reported since the session
@@ -837,34 +993,40 @@ namespace GazeControl.Experiment
                 return true;
             }
 
-            /// <summary>True on the frame the trigger goes down, and not again until it is released.</summary>
+            /// <summary>True on the frame the participant presses, and not again until everything is released.</summary>
             /// <remarks>
-            /// <para><b>Both controls, not one or the other</b> (fixed
-            /// 2026-09-09, on a Vive wand whose trigger did nothing while its
-            /// ray tracked perfectly). Preferring <c>triggerPressed</c> and
-            /// falling back to the axis only where that control is <i>absent</i>
-            /// leaves no path at all for a layout that declares the button and
-            /// never updates it. The trigger is down when either says so.</para>
+            /// <para><b>Every control, not one or the other</b> (fixed
+            /// 2026-09-09 for the trigger's two controls, widened 2026-09-10 to
+            /// the trackpad click and the grip). Preferring <c>triggerPressed</c>
+            /// and falling back to the axis only where that control is
+            /// <i>absent</i> left no path at all for a layout that declares the
+            /// button and never updates it; the same reasoning is what puts two
+            /// more buttons here, since a trigger that reads 0.00 on both
+            /// surfaces is a participant who cannot answer.</para>
             ///
-            /// <para>One edge per pull, because the two are ORed into a single
-            /// state rather than each giving its own edge: the axis crosses the
-            /// threshold a frame or two before the click bottoms out, and two
-            /// edges from one squeeze would enter two answers.</para>
+            /// <para><b>One edge per press</b>, because all of them are ORed
+            /// into a single state rather than each giving its own edge: the
+            /// axis crosses the threshold a frame or two before the click
+            /// bottoms out, and a participant who squeezes the trigger and
+            /// clicks the pad in one motion means one answer, not two.</para>
             ///
-            /// <para>Release takes it back under half the threshold, so a
-            /// trigger held exactly on the line cannot chatter. With the
-            /// threshold at the click (0.9) that is 0.45, which is most of the
-            /// travel — a finger resting on the trigger between answers is well
-            /// below it, and the participant does not have to think about
-            /// letting go.</para>
+            /// <para>Release takes the trigger back under half the threshold, so
+            /// one held exactly on the line cannot chatter; the pad and the grip
+            /// are switches and release at their own edge. A press stays down
+            /// while any of them is down, so rolling from one to another does
+            /// not enter a second answer either.</para>
             /// </remarks>
-            public bool WasTriggerPressedThisFrame(float threshold)
+            public bool WasPressedThisFrame(float threshold)
             {
                 var level = TriggerLevel;
                 if (level > PeakTriggerLevel)
                     PeakTriggerLevel = level;
 
-                var down = _isDown ? level >= threshold * 0.5f : level >= threshold;
+                // The peak is the trigger's alone: it is the number that says
+                // whether a threshold is reachable on this hardware, and a
+                // trackpad click folded into it would read 1.00 for ever and
+                // answer that question wrongly for the rest of the session.
+                var down = ButtonsPressed || (_isDown ? level >= threshold * 0.5f : level >= threshold);
                 var pressed = down && !_isDown;
                 _isDown = down;
                 return pressed;
@@ -897,9 +1059,10 @@ namespace GazeControl.Experiment
         }
 
         /// <summary>
-        /// One controller's trigger as the <b>legacy XR input subsystem</b>
-        /// reports it - the second route to the same hardware, read beside the
-        /// Input System's device rather than instead of it.
+        /// One controller's trigger, trackpad click and grip as the <b>legacy XR
+        /// input subsystem</b> reports them - the second route to the same
+        /// hardware, read beside the Input System's device rather than instead
+        /// of it.
         ///
         /// <para><b>Why a second route at all</b> (2026-09-10, on a wand whose
         /// pull sat at 0.00 for a whole screen while the same wand worked
@@ -919,7 +1082,7 @@ namespace GazeControl.Experiment
         /// and by device name and hand where it does not - a wand pair differs
         /// only by the hand.</para>
         /// </summary>
-        sealed class LegacyTrigger
+        sealed class LegacyControls
         {
             /// <summary>Reused across every controller and every frame: the enumeration is per-frame and per-device.</summary>
             static readonly List<XRInputDevice> Devices = new();
@@ -933,9 +1096,11 @@ namespace GazeControl.Experiment
             XRInputDevice _device;
             bool _hasAxis;
             bool _hasButton;
+            bool _hasPadClick;
+            bool _hasGrip;
             int _resolvedFrame = -1;
 
-            LegacyTrigger(string serial, string name, XRInputDeviceCharacteristics characteristics)
+            LegacyControls(string serial, string name, XRInputDeviceCharacteristics characteristics)
             {
                 _serial = serial;
                 _name = name;
@@ -948,7 +1113,7 @@ namespace GazeControl.Experiment
             /// XR descriptor the Input System device carries - which is where
             /// the serial number and the handedness live.
             /// </summary>
-            public static LegacyTrigger For(TrackedDevice device)
+            public static LegacyControls For(TrackedDevice device)
             {
                 var serial = string.Empty;
                 var name = device.description.product;
@@ -961,17 +1126,67 @@ namespace GazeControl.Experiment
                     characteristics = descriptor.characteristics;
                 }
 
-                return new LegacyTrigger(serial, name, characteristics);
+                return new LegacyControls(serial, name, characteristics);
             }
 
-            /// <summary>Whether a matching device with a trigger feature was found.</summary>
+            /// <summary>Whether a matching device with something pressable was found.</summary>
             public bool Exists
             {
                 get
                 {
                     Resolve();
-                    return _device.isValid && (_hasAxis || _hasButton);
+                    return _device.isValid && (_hasAxis || _hasButton || _hasPadClick || _hasGrip);
                 }
+            }
+
+            /// <summary>Whether this surface carries a trackpad click or a grip at all, pressed or not.</summary>
+            public bool HasButtons
+            {
+                get
+                {
+                    Resolve();
+                    return _device.isValid && (_hasPadClick || _hasGrip);
+                }
+            }
+
+            /// <summary>
+            /// Whether the trackpad click or the grip is down on this surface.
+            /// The grip is read as a button first and as a squeeze second: a
+            /// wand reports 0/1 either way, and a controller with only the
+            /// analog feature still answers at half travel.
+            /// </summary>
+            public bool ButtonsPressed
+            {
+                get
+                {
+                    if (!Resolve())
+                        return false;
+
+                    if (_device.TryGetFeatureValue(XRCommonUsages.primary2DAxisClick, out var pad) && pad)
+                        return true;
+
+                    if (_device.TryGetFeatureValue(XRCommonUsages.gripButton, out var grip) && grip)
+                        return true;
+
+                    return _device.TryGetFeatureValue(XRCommonUsages.grip, out var squeeze) && squeeze >= 0.5f;
+                }
+            }
+
+            /// <summary>Which of them is down, for the operator panel's line.</summary>
+            public string DescribeButtonsHeld()
+            {
+                if (!Resolve())
+                    return "none";
+
+                if (_device.TryGetFeatureValue(XRCommonUsages.primary2DAxisClick, out var pad) && pad)
+                    return "pad";
+
+                if (_device.TryGetFeatureValue(XRCommonUsages.gripButton, out var grip) && grip)
+                    return "grip";
+
+                return _device.TryGetFeatureValue(XRCommonUsages.grip, out var squeeze) && squeeze >= 0.5f
+                    ? "squeeze"
+                    : "none";
             }
 
             /// <summary>How far this surface says the trigger is pulled, 0-1. Zero where there is nothing to read.</summary>
@@ -1009,7 +1224,15 @@ namespace GazeControl.Experiment
                     _ => "no trigger feature",
                 };
 
-                return $"'{_device.name}' [{_device.characteristics}] {features}";
+                var buttons = (_hasPadClick, _hasGrip) switch
+                {
+                    (true, true) => ", pad click and grip",
+                    (true, false) => ", pad click",
+                    (false, true) => ", grip",
+                    _ => ", no pad or grip",
+                };
+
+                return $"'{_device.name}' [{_device.characteristics}] {features}{buttons}";
             }
 
             /// <summary>
@@ -1054,6 +1277,8 @@ namespace GazeControl.Experiment
                 _resolvedFrame = Time.frameCount;
                 _hasAxis = false;
                 _hasButton = false;
+                _hasPadClick = false;
+                _hasGrip = false;
                 _device = default;
 
                 XRInputDevices.GetDevices(Devices);
@@ -1085,6 +1310,10 @@ namespace GazeControl.Experiment
                             _hasAxis = true;
                         else if (usage.name == XRCommonUsages.triggerButton.name)
                             _hasButton = true;
+                        else if (usage.name == XRCommonUsages.primary2DAxisClick.name)
+                            _hasPadClick = true;
+                        else if (usage.name == XRCommonUsages.gripButton.name || usage.name == XRCommonUsages.grip.name)
+                            _hasGrip = true;
                     }
                 }
 

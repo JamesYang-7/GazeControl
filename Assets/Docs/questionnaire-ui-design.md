@@ -45,7 +45,7 @@ answers with nothing more than "thank you", and the operator panel is blinded (�
 ## 0.1 The participant can also press it (2026-09-09)
 
 **A row of buttons under the question page, aimed at with an HTC Vive wand and pressed with the
-trigger** (user's call). It is *added to* §0, not put in place of it: every press goes through the
+trigger, the trackpad click or the grip** (user's call; the trigger alone until 2026-09-10). It is *added to* §0, not put in place of it: every press goes through the
 same `Enter` / `Back` / `Commit` on `QuestionnaireSession` that the operator's keys reach, the
 operator can take over mid-screen, and `responses.csv` cannot tell which surface an answer came
 from. Answering aloud stays the fallback, and stays the only way to answer D1 — there is no
@@ -136,14 +136,17 @@ why a refusal has to be visible before the press rather than after it.
   no longer depends on `wasPressedThisFrame`, whose edge is defined against the input update rather
   than the frame the pose was read in.
 
-**The threshold is 0.6, and it was measured rather than reasoned about.** Putting the press on the
-wand's own click looked right — the wand clicks at the bottom of its travel, that click is the only
-feedback the participant gets, and `triggerPressed` is exactly it — so it was raised to 0.9 on
-2026-09-10 and **nothing registered at all**. The axis does not reach 0.9 on this hardware and the
-click button is not filling the gap, while the same wand works in SteamVR's own panel. It is back at
-0.6, which answers. The operator panel now carries each controller's **peak** pull beside its live
-one (`trigger 0.42 (peak 0.78, needs 0.60)`), so what a full squeeze is worth here is read off the
-hardware before the number is moved again.
+**The threshold is 0.9, on the wand's own click.** The wand clicks at the bottom of its travel, that
+click is the only feedback the participant gets that they pressed anything, and `triggerPressed` is
+exactly it — so the software press should land where the physical one does. It went 0.6 → 0.9 → 0.6
+→ 0.9 across 2026-09-10. The first raise registered **nothing at all**: the axis does not reach 0.9
+on this hardware and the click button did not fill the gap, while the same wand worked in SteamVR's
+own panel. What changed before the second is that the axis stopped being the only way in — the
+trackpad click and the grip press through no threshold, so a wand whose ceiling is below this number
+now costs the participant the trigger and not the questionnaire, and the failure that made 0.9
+unaffordable cannot happen the same way twice. The operator panel carries each controller's **peak**
+pull beside its live one (`trigger 0.42 (peak 0.78, needs 0.90)`), so what a full squeeze is worth
+here is still read off the hardware rather than assumed.
 
 **The scene decides it, not the C# default**, because the field is serialized: both study scenes sat
 on 0.6 after the default moved to 0.9, and nothing in a play session would have said so. Two things
@@ -193,8 +196,27 @@ trigger, press it, and the three cases above are distinguishable in one look.
 enters an answer. The cursor shows for one controller at a time — whichever was last used — which
 is the intended behaviour and reads correctly with both in hand.
 
+**Three buttons, one press** (user, 2026-09-10). The trigger is the only one of the wand's inputs
+with a threshold to get wrong, and every way it has gone wrong so far has been silent: the axis does
+not reach 0.9 here, `triggerPressed` does not fill the gap, and a control the vendor layout declares
+and the descriptor does not back reads 0.00 for ever. The **trackpad click** and the **grip** have no
+threshold to miss — they are microswitches, and the trackpad is the largest surface on a wand and the
+easiest to find blind with a headset on, with its own click as the confirmation the participant
+otherwise never gets. Both are resolved exactly as the trigger is, descriptor first and the layout's
+names second, and read on both input surfaces (`primary2DAxisClick`, `gripButton`, `grip`); the touch
+sensors beside them are excluded by requiring "click" or "press" in the name, because a thumb resting
+on a pad while the question is still being read is not an answer. The **System button is not among
+them**: SteamVR reserves it and it never reaches the application. All of them are ORed into the one
+down/up state `WasPressedThisFrame` already kept, so squeezing the trigger and clicking the pad in
+one motion still enters exactly one answer, and rolling from one to another does not enter a second.
+The peak stays the *trigger's* alone — a pad click folded into it would read 1.00 for ever and answer
+the "is this threshold reachable?" question wrongly for the rest of the session. The operator panel's
+per-controller line gained a `pad/grip:` field naming whichever is down, and the framing screen now
+tells the participant to click the trackpad, with the trigger as the alternative.
+
 **Still unverified**: whether the trigger reads at all after 2026-09-10's two fixes — the first
-thing to try, and `Log XR input snapshot` is what to press if it does not — whether an 11 cm button
+thing to try, and `Log XR input snapshot` is what to press if it does not; whether the trackpad click
+and grip read, which is the same question and the reason they are there — whether an 11 cm button
 at 1.5 m is comfortable over a session of twenty screens, and everything §1 still owes. `QuestionnaireControllerPointer.MouseFallback` walks the
 whole row at a desk with the mouse; it is off by default, because in a session the operator's own
 clicks land in the same game view and one of them on the panel would answer a question nobody
