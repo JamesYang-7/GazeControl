@@ -11,7 +11,7 @@
   },
   "framing": {
     "title": "Before we begin",
-    "body": "You are the THIRD PERSON in this conversation: two people are talking, and you are standing with them.\nListen as you would in real life. You will not need to speak.\nAfter each conversation you will be asked a few questions; please say your answers out loud.\nThere are {0} groups * {1} versions.\n\nNext: questions preview."
+    "body": "You are the THIRD PERSON in this conversation: two people are talking, and you are standing with them.\nListen as you would in real life. You will not need to speak.\nAfter each conversation you will be asked a few questions. Pull the controller trigger to click answer, fully release it before next click.\nThere are {0} groups, each has {1} versions.\n\nNext: questions preview."
   },
   "ratingTitle": "Rate by Eye Movement Behaviour",
   "shortAnswerTitle": "Short Answer",
