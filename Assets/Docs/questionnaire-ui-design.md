@@ -7,7 +7,9 @@ and how the answers are captured.
 
 Status: **built 2026-08-27**, to this design, and given a second way in on **2026-09-09** (§0.1:
 the participant may also answer by pointing a controller at a row of buttons — **working on a real
-Vive wand pair the same day**, both hands, aim and trigger).
+Vive wand pair the same day**, both hands, aim and trigger). On **2026-09-10** the trigger read 0.00
+in study 2's scene while the same wand worked SteamVR's own dashboard; §0.1 has what was found and
+what was done, none of it confirmed on hardware yet.
 `QuestionnaireSession` + `QuestionnaireDisplay` + `QuestionnaireOperatorPanel` +
 `QuestionnaireControllerPointer`, wired by `GazeControl → Set Up Questionnaire`; §9 steps 1-2 and 4
 are done and step 3 is built but has not had its legibility pass in the headset. §1's assumption —
@@ -55,8 +57,10 @@ unit-tested): no XR Interaction Toolkit, no ray interactor, no event system, no 
 to enumerate. The controller is read straight off the Input System, because the Varjo plugin
 publishes its own layouts — `VarjoViveWand`, `VarjoIndexController`, `VarjoController`, all
 deriving from `XRController` — and `QuestionnaireControllerPointer` looks `devicePosition`,
-`deviceRotation` and `triggerPressed`/`trigger` up by name rather than binding an action asset per
-layout, which would silently bind none of them if the loader changed again.
+`deviceRotation` and the trigger up on the device rather than binding an action asset per
+layout, which would silently bind none of them if the loader changed again. The trigger is found
+through the device's own XR descriptor first and read through both input surfaces — see the
+trigger-reads-zero entry below.
 
 The rows, and what may be pressed:
 
@@ -132,12 +136,14 @@ why a refusal has to be visible before the press rather than after it.
   no longer depends on `wasPressedThisFrame`, whose edge is defined against the input update rather
   than the frame the pose was read in.
 
-**A press is the trigger's own click** (user, 2026-09-10). The threshold is 0.9, not the 0.6 it
-started at: a Vive wand clicks at the bottom of its travel, that click is the only feedback the
-participant gets that they pressed anything, and `triggerPressed` is exactly it. It is not 1.0, so a
-controller whose click button reports nothing still fires on an axis that stops a little short.
-Release is half the threshold, 0.45, which is most of the travel — a finger resting on the trigger
-between answers is well below it.
+**The threshold is 0.6, and it was measured rather than reasoned about.** Putting the press on the
+wand's own click looked right — the wand clicks at the bottom of its travel, that click is the only
+feedback the participant gets, and `triggerPressed` is exactly it — so it was raised to 0.9 on
+2026-09-10 and **nothing registered at all**. The axis does not reach 0.9 on this hardware and the
+click button is not filling the gap, while the same wand works in SteamVR's own panel. It is back at
+0.6, which answers. The operator panel now carries each controller's **peak** pull beside its live
+one (`trigger 0.42 (peak 0.78, needs 0.60)`), so what a full squeeze is worth here is read off the
+hardware before the number is moved again.
 
 **The scene decides it, not the C# default**, because the field is serialized: both study scenes sat
 on 0.6 after the default moved to 0.9, and nothing in a play session would have said so. Two things
@@ -148,19 +154,48 @@ pointer logs the value it is actually using as the controllers are found, so a s
 number says so in the first seconds of a session rather than never. Tune it in the inspector with a
 wand in hand; bring the number back to the constant.
 
+**The pull read 0.00 for a whole screen** (2026-09-10, study 2's scene, the same wand working
+SteamVR's own dashboard at the time). Two things were done about it, and **neither is confirmed on
+hardware yet** — what is confirmed is that the old code could not have told the difference between
+them and a participant not pressing.
+
+- **The trigger is looked up through the device's XR descriptor, not through its layout's control
+  names.** An XR device's controls are assembled by the Input System's `XRLayoutBuilder` out of the
+  features the runtime reports, one control per feature, named by the feature; the vendor's layout
+  contributes the type and any aliases. A control the layout *declares* and the descriptor does not
+  back is therefore still there to be found — and reads zero however hard the trigger is pulled. So
+  `TryGetChildControl("trigger")` succeeds on every wand and proves nothing, and the old fallback
+  that searched for any control named after a trigger could never run, because the lookup before it
+  always found something. What the descriptor lists is now tried first, under the name the builder
+  would have given it (`XrFeatureControlName`, pure and unit-tested), and the layout's own names are
+  the fallback.
+- **It is read through the legacy XR subsystem as well**, `UnityEngine.XR.InputDevices`, matched to
+  the same hardware by serial number (or by device name and hand where the descriptor carries no
+  serial). That route asks the runtime for the trigger *by usage* and so cannot be caught out by any
+  of the above. Both are read every frame and the pull is whichever reports more, exactly as the
+  axis and the click already were.
+
 **Diagnosis is on the panel, not in a guess.** The operator's header carries the controller count,
 what the participant is aiming at and the live trigger reading, because a trigger reporting nothing
-and a participant who is simply not pressing look identical from the desk.
+and a participant who is simply not pressing look identical from the desk. Each controller's line
+now names **both** surfaces — `trigger 0.83 (IS 0.00 · XR 0.83, peak 0.90, needs 0.60)` — because a
+pull that shows under one and not the other is a mapping fault, while 0.00 under both is the runtime
+giving this application no button input at all, and those have different answers.
 `QuestionnaireControllerPointer.LogControlsAsPressed` names every control on a controller as it is
 held, which is how an unfamiliar controller's trigger is found without spending another headset
-session on the question.
+session on the question. **`Log XR input snapshot`** — a button on the operator panel and a context
+menu item on the component — writes one console entry holding every tracked device's layout, the
+features its descriptor actually lists, whichever of its controls is reading anything, and then every
+legacy XR device with every feature usage it carries and that usage's current value. Squeeze the
+trigger, press it, and the three cases above are distinguishable in one look.
 
 **Working after those two fixes** (user, 2026-09-09): both wands aim, both press, and the trigger
 enters an answer. The cursor shows for one controller at a time — whichever was last used — which
 is the intended behaviour and reads correctly with both in hand.
 
-**Still unverified**: whether an 11 cm button at 1.5 m is comfortable over a session of twenty
-screens, and everything §1 still owes. `QuestionnaireControllerPointer.MouseFallback` walks the
+**Still unverified**: whether the trigger reads at all after 2026-09-10's two fixes — the first
+thing to try, and `Log XR input snapshot` is what to press if it does not — whether an 11 cm button
+at 1.5 m is comfortable over a session of twenty screens, and everything §1 still owes. `QuestionnaireControllerPointer.MouseFallback` walks the
 whole row at a desk with the mouse; it is off by default, because in a session the operator's own
 clicks land in the same game view and one of them on the panel would answer a question nobody
 asked.

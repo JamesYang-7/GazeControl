@@ -1088,7 +1088,7 @@ MonoBehaviour:
   <RayLength>k__BackingField: 3
   <RayWidth>k__BackingField: 0.004
   <RayColor>k__BackingField: {r: 0.55, g: 0.68, b: 0.85, a: 1}
-  <TriggerThreshold>k__BackingField: 0.9
+  <TriggerThreshold>k__BackingField: 0.6
   <MouseFallback>k__BackingField: 0
   <LogControlsAsPressed>k__BackingField: 0
 --- !u!1 &857390468

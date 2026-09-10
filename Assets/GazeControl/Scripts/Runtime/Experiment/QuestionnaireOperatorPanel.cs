@@ -107,6 +107,13 @@ namespace GazeControl.Experiment
                 // still wearing the headset.
                 foreach (var report in Pointer.ControllerReports)
                     GUILayout.Label($"   {report}", _label);
+
+                // A button rather than only the component's context menu: when
+                // a trigger is not answering, the participant is wearing the
+                // headset and the inspector is behind the game view. It only
+                // writes to the console.
+                if (GUILayout.Button("Log XR input snapshot", GUILayout.Width(180f)))
+                    Pointer.LogInputSnapshot();
             }
         }
 

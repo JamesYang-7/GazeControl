@@ -1,8 +1,14 @@
 using System.Collections.Generic;
+using GazeControl.Study;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
 using UnityEngine.InputSystem.XR;
+using XRCommonUsages = UnityEngine.XR.CommonUsages;
+using XRInputDevice = UnityEngine.XR.InputDevice;
+using XRInputDeviceCharacteristics = UnityEngine.XR.InputDeviceCharacteristics;
+using XRInputDevices = UnityEngine.XR.InputDevices;
+using XRInputFeatureUsage = UnityEngine.XR.InputFeatureUsage;
 
 namespace GazeControl.Experiment
 {
@@ -32,6 +38,33 @@ namespace GazeControl.Experiment
     /// this looks up rather than assumes. An action asset would need a binding
     /// per layout and would silently bind none of them if the loader ever
     /// changes again.</para>
+    ///
+    /// <para><b>The trigger is found through the device's XR descriptor, not
+    /// through the layout's control names</b> (2026-09-10). A vendor layout
+    /// declares its controls whether or not the runtime reports the features
+    /// behind them, while <c>XRLayoutBuilder</c> gives a control its place in
+    /// the state only for a feature the descriptor actually lists — so
+    /// <c>trigger</c> and <c>triggerPressed</c> are always <i>found</i> on a
+    /// wand and can be backed by nothing, which reads as a pull that never
+    /// leaves 0.00. What the descriptor lists is looked up first, under the
+    /// name the builder would have given it, and the layout's own names are
+    /// only the fallback.</para>
+    ///
+    /// <para><b>The trigger is read through both XR input surfaces</b>
+    /// (2026-09-10, after a session where a wand's pull sat at 0.00 on the
+    /// operator panel for a whole screen while the same wand worked SteamVR's
+    /// own dashboard). The Input System's XR device and the legacy
+    /// <see cref="UnityEngine.XR.InputDevices"/> subsystem carry the same
+    /// controller by two different routes: the Input System binds a vendor's
+    /// declared layout onto the native state <i>by offset</i>, so a wand that
+    /// enumerates under a layout whose controls do not line up with the
+    /// features the runtime actually reports reads zero from a control that
+    /// exists — while the legacy API asks for the feature <i>by name</i> and is
+    /// immune to it. Varjo's own layouts make that concrete: its handed
+    /// SteamVR-tracker layout, which is what a wand falls back to when SteamVR
+    /// has not given it a controller role, declares <c>triggerPressed</c> and no
+    /// trigger axis at all. Both are read and the larger wins, so either route
+    /// going quiet still answers.</para>
     ///
     /// <para><b>Nothing is drawn unless a screen is asking something.</b> The
     /// ray follows <see cref="QuestionnaireSession.Buttons"/>, which is empty
@@ -67,12 +100,12 @@ namespace GazeControl.Experiment
         public Color RayColor { get; set; } = new(0.55f, 0.68f, 0.85f, 1f);
 
         [field: SerializeField]
-        [field: Tooltip("How far the trigger must be pulled to count as a press. Near the bottom on purpose: " +
-                        "a Vive wand clicks at full pull, and that click is the only feedback the participant " +
-                        "gets that they pressed anything. Not 1.0, so a controller whose click button reports " +
-                        "nothing still fires on an axis that stops a little short.")]
+        [field: Tooltip("How far the trigger must be pulled to count as a press. 0.6 because that is what " +
+                        "answers on this hardware: 0.9 was tried, to put the press on the wand's own click, " +
+                        "and nothing registered at all - the axis does not reach it and the click button is " +
+                        "not filling the gap. Watch the peak on the operator panel before raising it again.")]
         [field: Range(0.1f, 0.95f)]
-        public float TriggerThreshold { get; set; } = 0.9f;
+        public float TriggerThreshold { get; set; } = 0.6f;
 
         [field: SerializeField]
         [field: Tooltip("Answer with the mouse in a flat play session, for testing the row without a headset. " +
@@ -162,6 +195,7 @@ namespace GazeControl.Experiment
             }
 
             var aiming = false;
+            var aimingCanPress = false;
             var aimedPoint = Vector3.zero;
             AimedAtButton = -1;
             _reports.Clear();
@@ -205,10 +239,17 @@ namespace GazeControl.Experiment
                 // so with the trigger not reporting it stayed at -1, which no
                 // index matches — and the first controller to hit kept the
                 // cursor for the whole session while the other read as dead.
-                if (aiming && i != _preferred)
+                //
+                // A device that cannot press yields to one that can (2026-09-10,
+                // on a wand whose trigger read 0.00 while it clicked): a pose
+                // with no buttons on it still enumerates, still aims, and can
+                // never answer, so letting it hold the cursor is a controller
+                // that works everywhere except where it counts.
+                if (aiming && i != _preferred && !(pointer.CanPress && !aimingCanPress))
                     continue;
 
                 aiming = true;
+                aimingCanPress = pointer.CanPress;
                 aimedPoint = point;
                 AimedAtButton = button;
             }
@@ -255,7 +296,17 @@ namespace GazeControl.Experiment
                 : button >= 0 && button < buttons.Length ? $"on '{buttons[button].Label}'"
                 : "on the panel";
 
-            var line = $"{pointer.Describe()} — {where} · trigger {pointer.TriggerLevel:F2}";
+            // Both surfaces on the line, not just the number that decides:
+            // a pull that shows under XR and 0.00 under IS is a mapped-wrong
+            // layout, and one that shows 0.00 under both is the runtime giving
+            // this application no button input at all. From the desk those are
+            // the same complaint, and they have different answers.
+            var line = pointer.CanPress
+                ? $"{pointer.Describe()} — {where} · trigger {pointer.TriggerLevel:F2} " +
+                  $"(IS {pointer.InputSystemTriggerLevel:F2} · XR {pointer.LegacyTriggerLevel:F2}, " +
+                  $"peak {pointer.PeakTriggerLevel:F2}, needs {TriggerThreshold:F2})"
+                : $"{pointer.Describe()} — {where} · NO TRIGGER CONTROL, cannot answer";
+
             if (!LogControlsAsPressed)
                 return line;
 
@@ -277,6 +328,117 @@ namespace GazeControl.Experiment
 
             pointer.LastReportedControls = active;
             Debug.Log($"{pointer.Describe()} holding: {(active.Length == 0 ? "nothing" : active)}", this);
+        }
+
+        /// <summary>
+        /// Everything both XR input surfaces say about every device attached,
+        /// in one log entry: the Input System's devices with their layout and
+        /// the controls a press could come from, and the legacy subsystem's
+        /// devices with every feature usage they carry and what each reads
+        /// right now.
+        ///
+        /// <para>It exists because the question a dead trigger raises cannot be
+        /// answered from the operator panel: whether the control is missing,
+        /// present and unmapped, or present and simply not being fed by the
+        /// runtime. Squeeze the trigger and press this, and the answer is in
+        /// the console. On the operator panel as a button, and on the
+        /// component's own context menu for a run without a session.</para>
+        /// </summary>
+        [ContextMenu("Log XR input snapshot")]
+        public void LogInputSnapshot()
+        {
+            var report = new System.Text.StringBuilder();
+            report.Append("XR input snapshot - Input System devices:");
+
+            var tracked = 0;
+            foreach (var device in InputSystem.devices)
+            {
+                if (device is not TrackedDevice)
+                    continue;
+
+                tracked++;
+                report.AppendLine().Append("  '").Append(device.name).Append("' (").Append(device.layout)
+                    .Append(')').Append(device.added ? string.Empty : " [not added]");
+                report.AppendLine().Append("    product: '").Append(device.description.product)
+                    .Append("', manufacturer: '").Append(device.description.manufacturer).Append("'");
+                report.AppendLine().Append("    descriptor features: ").Append(DescriptorFeatures(device));
+                report.AppendLine().Append("    non-zero controls: ").Append(NonZeroControls(device));
+            }
+
+            if (tracked == 0)
+                report.Append(" none.");
+
+            report.AppendLine().AppendLine().Append("Legacy XR subsystem devices:");
+
+            var devices = new List<XRInputDevice>();
+            XRInputDevices.GetDevices(devices);
+            if (devices.Count == 0)
+                report.Append(" none.");
+
+            var usages = new List<XRInputFeatureUsage>();
+            foreach (var device in devices)
+            {
+                report.AppendLine().Append("  '").Append(device.name).Append("' [").Append(device.characteristics)
+                    .Append("] serial '").Append(device.serialNumber).Append("'");
+
+                if (!device.TryGetFeatureUsages(usages))
+                {
+                    report.AppendLine().Append("    no feature usages reported");
+                    continue;
+                }
+
+                foreach (var usage in usages)
+                {
+                    report.AppendLine().Append("    ").Append(usage.name).Append(" (").Append(usage.type.Name)
+                        .Append(") = ").Append(LegacyTrigger.ReadAsText(device, usage));
+                }
+            }
+
+            Debug.Log(report.ToString(), this);
+        }
+
+        /// <summary>
+        /// The features the device's own XR descriptor lists - which is what
+        /// decides which of its layout's controls are backed by anything. A
+        /// control the layout declares and this list does not name is a control
+        /// that will read zero however hard the trigger is pulled.
+        /// </summary>
+        static string DescriptorFeatures(InputDevice device)
+        {
+            if (device is not TrackedDevice tracked)
+                return "not a tracked device";
+
+            var names = new System.Text.StringBuilder();
+            foreach (var name in Pointer.DescriptorControlNames(tracked))
+            {
+                if (names.Length > 0)
+                    names.Append(", ");
+
+                names.Append(name);
+            }
+
+            return names.Length == 0 ? "none reported" : names.ToString();
+        }
+
+        /// <summary>
+        /// Every control on a device that is reading anything, so the snapshot
+        /// says what a squeeze moves rather than only what exists.
+        /// </summary>
+        static string NonZeroControls(InputDevice device)
+        {
+            var active = new System.Text.StringBuilder();
+            foreach (var control in device.allControls)
+            {
+                if (control is not AxisControl axis || Mathf.Approximately(axis.ReadValue(), 0f))
+                    continue;
+
+                if (active.Length > 0)
+                    active.Append(", ");
+
+                active.Append(axis.name).Append('=').Append(axis.ReadValue().ToString("F2"));
+            }
+
+            return active.Length == 0 ? "nothing reading" : active.ToString();
         }
 
         void Hide()
@@ -323,16 +485,21 @@ namespace GazeControl.Experiment
 
                 var trigger = Pointer.ResolveTrigger(tracked, out var pressed, out var axis);
 
+                // The same controller through the other XR input surface. It is
+                // resolved here rather than inside the pointer because whether a
+                // device can press at all decides whether it is kept.
+                var legacy = LegacyTrigger.For(tracked);
+
                 // A controller with no trigger still gets a ray and says so —
                 // it is meant to be pointed with. Anything else that is merely
                 // tracked (a body tracker, a camera) is passed over in silence.
-                if (!trigger && tracked is not XRController)
+                if (!trigger && !legacy.Exists && tracked is not XRController)
                 {
                     skipped++;
                     continue;
                 }
 
-                _pointers.Add(new Pointer(tracked, NewRayObject(tracked.name), pressed, axis));
+                _pointers.Add(new Pointer(tracked, NewRayObject(tracked.name), pressed, axis, legacy));
             }
 
             // Both hands are equal here — every controller found gets a ray and
@@ -412,13 +579,14 @@ namespace GazeControl.Experiment
         /// One controller: where it is pointing, whether its trigger just went
         /// down, and the line drawn out of it.
         ///
-        /// <para>The trigger is looked up by name rather than taken from a typed
+        /// <para>The trigger is looked up rather than taken from a typed
         /// layout, because the Varjo layouts do not share one: the wand and the
         /// Index controller carry <c>triggerPressed</c> beside an axis, and an
-        /// unfamiliar controller may carry only one of them. Anything still
-        /// unfound is searched for by name across the device's own controls,
-        /// which is the difference between a strange controller working and it
-        /// silently doing nothing.</para>
+        /// unfamiliar controller may carry only one of them. It is looked up
+        /// through the device's own XR descriptor first and its layout's names
+        /// second, and read again through the legacy XR subsystem, because a
+        /// control that is present and dead looks exactly like a participant
+        /// not pressing.</para>
         /// </summary>
         sealed class Pointer
         {
@@ -426,59 +594,126 @@ namespace GazeControl.Experiment
             readonly LineRenderer _line;
             readonly ButtonControl _triggerPressed;
             readonly AxisControl _trigger;
+            readonly LegacyTrigger _legacy;
             bool _isDown;
 
-            public Pointer(TrackedDevice device, LineRenderer line, ButtonControl pressed, AxisControl axis)
+            public Pointer(
+                TrackedDevice device, LineRenderer line, ButtonControl pressed, AxisControl axis, LegacyTrigger legacy)
             {
                 _device = device;
                 _line = line;
                 _triggerPressed = pressed;
                 _trigger = axis;
+                _legacy = legacy;
 
-                if (_triggerPressed == null && _trigger == null)
+                if (!CanPress)
                 {
                     Debug.LogWarning(
-                        $"'{device.name}' ({device.layout}) has no trigger control this can find, so it cannot " +
-                        $"answer anything. Its controls are: {ControlNames(device)}. The participant's spoken " +
-                        "answers still reach the operator panel.");
+                        $"'{device.name}' ({device.layout}) has no trigger control this can find on either XR " +
+                        $"input surface, so it cannot answer anything. Its Input System controls are: " +
+                        $"{ControlNames(device)}. The legacy subsystem says: {_legacy.Describe()}. The " +
+                        "participant's spoken answers still reach the operator panel.");
                     return;
                 }
 
                 Debug.Log(
                     $"Questionnaire pointer: '{device.name}' ({device.layout}) — " +
                     $"triggerPressed {(_triggerPressed != null ? "found" : "missing")}, " +
-                    $"trigger axis {(_trigger != null ? _trigger.name : "missing")}. " +
-                    "Both are read, so one of them going dead does not stop the participant answering.");
+                    $"trigger axis {(_trigger != null ? _trigger.name : "missing")}, " +
+                    $"legacy XR {_legacy.Describe()}. " +
+                    "All of them are read, so one going dead does not stop the participant answering.");
             }
 
             /// <summary>
-            /// The controls that read this device's trigger, by their usual
-            /// names and then by any name containing "trigger" — a layout this
-            /// project has not seen is the case worth surviving, since what a
-            /// runtime calls a wand's controls is not guaranteed.
+            /// The controls that read this device's trigger: whatever the
+            /// runtime's own descriptor calls it, and the layout's usual names
+            /// only where the descriptor says nothing. A layout this project has
+            /// not seen is the case worth surviving, since what a runtime calls
+            /// a wand's controls is not guaranteed.
             /// </summary>
             /// <returns>True where at least one of them was found.</returns>
             public static bool ResolveTrigger(TrackedDevice device, out ButtonControl pressed, out AxisControl axis)
             {
-                pressed = device.TryGetChildControl<ButtonControl>("triggerPressed");
-                axis = device.TryGetChildControl<AxisControl>("trigger");
+                pressed = null;
+                axis = null;
+
+                // The features the device itself reports, first. A control the
+                // descriptor does not back exists all the same - it is
+                // inherited from the vendor's layout - and reads zero forever,
+                // so looking 'trigger' up by name finds something on every wand
+                // and proves nothing.
+                foreach (var name in DescriptorControlNames(device))
+                {
+                    // A touch sensor is not a press: on a wand it reports a
+                    // finger resting on the trigger, which would answer the
+                    // question the participant is still reading.
+                    if (!name.Contains("trigger") || name.Contains("touch"))
+                        continue;
+
+                    var control = device.TryGetChildControl(name);
+                    if (control is ButtonControl button)
+                        pressed ??= button;
+                    else if (control is AxisControl analog)
+                        axis ??= analog;
+                }
 
                 if (pressed != null || axis != null)
                     return true;
 
-                foreach (var control in device.allControls)
+                // No descriptor, or nothing trigger-shaped in it. The layout's
+                // own names are what is left.
+                pressed = device.TryGetChildControl<ButtonControl>("triggerPressed");
+                axis = device.TryGetChildControl<AxisControl>("trigger");
+                return pressed != null || axis != null;
+            }
+
+            /// <summary>
+            /// The control names the Input System would have built from this
+            /// device's XR descriptor - the only way to tell a control that is
+            /// backed by the hardware from one the layout merely declares. The
+            /// naming rule is <see cref="XrFeatureControlName"/>.
+            /// </summary>
+            public static IEnumerable<string> DescriptorControlNames(TrackedDevice device)
+            {
+                // The parse is a method of its own because an iterator may not
+                // hold a yield inside a try that catches.
+                if (!TryReadDescriptor(device, out var descriptor) || descriptor.inputFeatures == null)
+                    yield break;
+
+                foreach (var feature in descriptor.inputFeatures)
                 {
-                    if (control is AxisControl candidate && candidate.name.ToLowerInvariant().Contains("trigger"))
-                    {
-                        Debug.LogWarning(
-                            $"'{device.name}' ({device.layout}) carries no 'trigger' or 'triggerPressed', so " +
-                            $"'{candidate.name}' is being used as its trigger.");
-                        axis = candidate;
-                        return true;
-                    }
+                    var name = XrFeatureControlName.For(feature.name);
+                    if (name.Length > 0)
+                        yield return name;
+                }
+            }
+
+            /// <summary>
+            /// The XR descriptor a tracked device carries in its capabilities:
+            /// what the runtime says this piece of hardware reports, as opposed
+            /// to what its layout declares.
+            /// </summary>
+            public static bool TryReadDescriptor(TrackedDevice device, out XRDeviceDescriptor descriptor)
+            {
+                descriptor = null;
+
+                var capabilities = device.description.capabilities;
+                if (string.IsNullOrEmpty(capabilities))
+                    return false;
+
+                try
+                {
+                    descriptor = XRDeviceDescriptor.FromJson(capabilities);
+                }
+                catch (System.Exception e)
+                {
+                    // A tracked device whose capabilities are not an XR
+                    // descriptor at all. It still gets a ray off its pose.
+                    Debug.LogWarning($"'{device.name}' carries no readable XR descriptor: {e.Message}");
+                    return false;
                 }
 
-                return false;
+                return descriptor != null;
             }
 
             static string ControlNames(TrackedDevice device)
@@ -541,8 +776,27 @@ namespace GazeControl.Experiment
             /// <summary>What <see cref="ActiveControls"/> last said, so the log carries changes and not every frame.</summary>
             public string LastReportedControls { get; set; } = string.Empty;
 
-            /// <summary>How far the trigger is pulled, 0-1, over whichever control reports the most.</summary>
-            public float TriggerLevel
+            /// <summary>
+            /// Whether this device has a trigger control at all. False for one
+            /// that enumerates with a pose and no buttons, which happens: it can
+            /// be aimed and can never answer.
+            /// </summary>
+            public bool CanPress => _triggerPressed != null || _trigger != null || _legacy.Exists;
+
+            /// <summary>
+            /// The highest pull this controller has reported since the session
+            /// began. It is what says whether a threshold is even reachable:
+            /// a full squeeze that peaks at 0.78 cannot answer at 0.9, and from
+            /// the desk that is indistinguishable from a participant not
+            /// pressing.
+            /// </summary>
+            public float PeakTriggerLevel { get; private set; }
+
+            /// <summary>How far the trigger is pulled, 0-1, over whichever control on whichever surface reports the most.</summary>
+            public float TriggerLevel => Mathf.Max(InputSystemTriggerLevel, LegacyTriggerLevel);
+
+            /// <summary>The pull as the Input System's device reports it, for the operator panel.</summary>
+            public float InputSystemTriggerLevel
             {
                 get
                 {
@@ -553,6 +807,9 @@ namespace GazeControl.Experiment
                     return level;
                 }
             }
+
+            /// <summary>The pull as the legacy XR subsystem reports it, for the operator panel.</summary>
+            public float LegacyTriggerLevel => _legacy.Level;
 
             /// <summary>The ray out of the controller, in world space, or false when it is not being tracked.</summary>
             public bool TryAim(Transform trackingSpace, out Ray ray)
@@ -604,6 +861,9 @@ namespace GazeControl.Experiment
             public bool WasTriggerPressedThisFrame(float threshold)
             {
                 var level = TriggerLevel;
+                if (level > PeakTriggerLevel)
+                    PeakTriggerLevel = level;
+
                 var down = _isDown ? level >= threshold * 0.5f : level >= threshold;
                 var pressed = down && !_isDown;
                 _isDown = down;
@@ -633,6 +893,202 @@ namespace GazeControl.Experiment
                 // does not inherit the shorthand.
                 if (_line != null)
                     UnityEngine.Object.Destroy(_line.gameObject);
+            }
+        }
+
+        /// <summary>
+        /// One controller's trigger as the <b>legacy XR input subsystem</b>
+        /// reports it - the second route to the same hardware, read beside the
+        /// Input System's device rather than instead of it.
+        ///
+        /// <para><b>Why a second route at all</b> (2026-09-10, on a wand whose
+        /// pull sat at 0.00 for a whole screen while the same wand worked
+        /// SteamVR's own dashboard): the Input System's device is assembled by
+        /// <c>XRLayoutBuilder</c> from the descriptor the runtime reports, and a
+        /// control the vendor's layout declares but the descriptor does not back
+        /// is still there to be found - reading zero for ever. Which controls
+        /// those are depends on what the runtime chose to call this device's
+        /// features, and a wand that SteamVR has not given a hand role
+        /// enumerates under a different layout again.
+        /// <see cref="XRInputDevices"/> goes past all of that and asks the
+        /// runtime for the feature by its usage, so it cannot be fooled the same
+        /// way. Neither route is the trustworthy one; the pull is whichever
+        /// reports more.</para>
+        ///
+        /// <para>The match is by serial number where the descriptor carries one,
+        /// and by device name and hand where it does not - a wand pair differs
+        /// only by the hand.</para>
+        /// </summary>
+        sealed class LegacyTrigger
+        {
+            /// <summary>Reused across every controller and every frame: the enumeration is per-frame and per-device.</summary>
+            static readonly List<XRInputDevice> Devices = new();
+
+            static readonly List<XRInputFeatureUsage> Usages = new();
+
+            readonly string _serial;
+            readonly string _name;
+            readonly XRInputDeviceCharacteristics _characteristics;
+
+            XRInputDevice _device;
+            bool _hasAxis;
+            bool _hasButton;
+            int _resolvedFrame = -1;
+
+            LegacyTrigger(string serial, string name, XRInputDeviceCharacteristics characteristics)
+            {
+                _serial = serial;
+                _name = name;
+                _characteristics = characteristics;
+                Resolve();
+            }
+
+            /// <summary>
+            /// The legacy device behind an Input System one, identified from the
+            /// XR descriptor the Input System device carries - which is where
+            /// the serial number and the handedness live.
+            /// </summary>
+            public static LegacyTrigger For(TrackedDevice device)
+            {
+                var serial = string.Empty;
+                var name = device.description.product;
+                var characteristics = default(XRInputDeviceCharacteristics);
+
+                if (Pointer.TryReadDescriptor(device, out var descriptor))
+                {
+                    serial = descriptor.serialNumber;
+                    name = descriptor.deviceName;
+                    characteristics = descriptor.characteristics;
+                }
+
+                return new LegacyTrigger(serial, name, characteristics);
+            }
+
+            /// <summary>Whether a matching device with a trigger feature was found.</summary>
+            public bool Exists
+            {
+                get
+                {
+                    Resolve();
+                    return _device.isValid && (_hasAxis || _hasButton);
+                }
+            }
+
+            /// <summary>How far this surface says the trigger is pulled, 0-1. Zero where there is nothing to read.</summary>
+            public float Level
+            {
+                get
+                {
+                    if (!Resolve())
+                        return 0f;
+
+                    var level = 0f;
+                    if (_device.TryGetFeatureValue(XRCommonUsages.trigger, out var axis))
+                        level = axis;
+
+                    // A button reads as a full pull, so a controller that
+                    // reports only the click can still cross any threshold.
+                    if (_device.TryGetFeatureValue(XRCommonUsages.triggerButton, out var pressed) && pressed)
+                        level = 1f;
+
+                    return level;
+                }
+            }
+
+            /// <summary>What this surface found, for the log and the warning that nothing can press.</summary>
+            public string Describe()
+            {
+                if (!Resolve())
+                    return "no matching device";
+
+                var features = (_hasAxis, _hasButton) switch
+                {
+                    (true, true) => "trigger axis and button",
+                    (true, false) => "trigger axis only",
+                    (false, true) => "trigger button only",
+                    _ => "no trigger feature",
+                };
+
+                return $"'{_device.name}' [{_device.characteristics}] {features}";
+            }
+
+            /// <summary>
+            /// One feature's current value as text, for the snapshot. Poses and
+            /// rotations are named but not printed: the snapshot is asked when a
+            /// button is not answering.
+            /// </summary>
+            public static string ReadAsText(XRInputDevice device, XRInputFeatureUsage usage)
+            {
+                if (usage.type == typeof(bool))
+                    return device.TryGetFeatureValue(usage.As<bool>(), out var flag) ? flag.ToString() : "unreadable";
+
+                if (usage.type == typeof(float))
+                    return device.TryGetFeatureValue(usage.As<float>(), out var value) ? value.ToString("F2") : "unreadable";
+
+                if (usage.type == typeof(Vector2))
+                    return device.TryGetFeatureValue(usage.As<Vector2>(), out var axis) ? axis.ToString("F2") : "unreadable";
+
+                if (usage.type == typeof(uint))
+                    return device.TryGetFeatureValue(usage.As<uint>(), out var bits) ? bits.ToString() : "unreadable";
+
+                return "(not shown)";
+            }
+
+            /// <summary>
+            /// Find the legacy device, once per frame at most. A controller that
+            /// has not woken up yet is looked for again next frame rather than
+            /// given up on, because the two surfaces do not necessarily
+            /// enumerate a controller on the same frame.
+            /// </summary>
+            bool Resolve()
+            {
+                if (_device.isValid)
+                    return true;
+
+                if (string.IsNullOrEmpty(_serial) && string.IsNullOrEmpty(_name))
+                    return false;
+
+                if (_resolvedFrame == Time.frameCount)
+                    return false;
+
+                _resolvedFrame = Time.frameCount;
+                _hasAxis = false;
+                _hasButton = false;
+                _device = default;
+
+                XRInputDevices.GetDevices(Devices);
+                foreach (var candidate in Devices)
+                {
+                    if (!candidate.isValid)
+                        continue;
+
+                    if (!string.IsNullOrEmpty(_serial) && candidate.serialNumber == _serial)
+                    {
+                        _device = candidate;
+                        break;
+                    }
+
+                    // No serial to go on. The name and the hand are what is
+                    // left, and they are what tells a wand pair apart.
+                    if (candidate.name == _name && candidate.characteristics == _characteristics)
+                        _device = candidate;
+                }
+
+                if (!_device.isValid)
+                    return false;
+
+                if (_device.TryGetFeatureUsages(Usages))
+                {
+                    foreach (var usage in Usages)
+                    {
+                        if (usage.name == XRCommonUsages.trigger.name)
+                            _hasAxis = true;
+                        else if (usage.name == XRCommonUsages.triggerButton.name)
+                            _hasButton = true;
+                    }
+                }
+
+                return true;
             }
         }
     }

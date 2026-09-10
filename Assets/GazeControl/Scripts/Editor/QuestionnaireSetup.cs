@@ -39,9 +39,15 @@ namespace GazeControl.Editor
         const float PanelDistance = 1.5f;
 
         /// <summary>
-        /// How far the trigger must be pulled to answer. The Vive wand clicks at
-        /// the bottom of its travel and that click is the participant's only
-        /// feedback, so the software press lands where the physical one does.
+        /// How far the trigger must be pulled to answer.
+        ///
+        /// <para><b>0.6, because it is what answers on this hardware.</b> 0.9 was
+        /// tried on 2026-09-10 to put the press on the wand's own click, and
+        /// nothing registered at all: the trigger axis does not reach 0.9 here
+        /// and the click button is not filling the gap. The number wants
+        /// measuring rather than reasoning about — the operator panel now shows
+        /// the peak each controller has reported, so a full pull says what it is
+        /// worth.</para>
         ///
         /// <para><b>It is written here because the field is serialized.</b> A
         /// value living only as a C# default is decided by whatever the scene
@@ -52,7 +58,7 @@ namespace GazeControl.Editor
         /// Tune it in the inspector with a wand in hand, then bring the number
         /// back here.</para>
         /// </summary>
-        const float TriggerThreshold = 0.9f;
+        const float TriggerThreshold = 0.6f;
 
         [MenuItem("GazeControl/Set Up Questionnaire")]
         public static void SetUp()
