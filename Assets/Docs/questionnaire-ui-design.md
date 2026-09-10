@@ -214,6 +214,38 @@ the "is this threshold reachable?" question wrongly for the rest of the session.
 per-controller line gained a `pad/grip:` field naming whichever is down, and the framing screen now
 tells the participant to click the trackpad, with the trigger as the alternative.
 
+**A fresh clone answered nothing until the snapshot button had been pressed once** (second PC, same
+environment, 2026-09-10; after one press, every session worked, P00 and real). That is a *persistent*
+side effect, which is what named it: the XR subsystem and its connection to the runtime belong to the
+editor process, not to the play session, so whatever the button woke stayed woken across Play. Three
+defects, compounding, all now fixed:
+
+- **The legacy surface was never enumerated on the normal path.** `XRInputDevices.GetDevices` was
+  called in exactly two places — `LogInputSnapshot`, unguarded, and `LegacyControls.Resolve`, behind
+  `if (string.IsNullOrEmpty(_serial) && string.IsNullOrEmpty(_name)) return false;`. Both fields are
+  captured **once**, in `Rescan` → `LegacyControls.For`, off the Input System device's XR descriptor —
+  and `Rescan` first runs in `OnEnable`, *before* the rig starts XR. A wand whose descriptor was
+  unreadable or carried an empty serial and name at that moment disabled the entire second surface for
+  the life of the pointer, silently. With the Input System surface also reading 0.00 — the fault the
+  second surface exists to survive — nothing could press. The guard is gone, and `Rescan` now calls
+  `LegacyControls.Wake()` unconditionally, because a run where the Input System enumerates no tracked
+  device builds no pointer at all and would still touch nothing.
+- **The match was against data captured before XR started.** The fallback required
+  `candidate.characteristics == _characteristics`, snapshotted at rescan; SteamVR assigns hand roles
+  *after* the wands come up, so a wand that read `None` then never matched again. There is now a last
+  resort on the hand alone, taken from the Input System device's own usages — a controller in the
+  right hand is the right controller.
+- **The feature flags latched false.** `Resolve` returned at `_device.isValid` ever after, so the
+  usage scan ran on exactly one frame. A device matched before the runtime had populated its usages
+  kept all four flags false permanently, which reads downstream as a controller that exists and
+  declares itself dead — `Exists` false, so `Rescan` could drop it before giving it a ray, and the
+  panel saying NO TRIGGER, PAD OR GRIP CONTROL. The *values* were never affected, since those go
+  straight to the runtime, which is what made it look like a hardware fault. Features are now
+  re-scanned until something is found.
+
+Both `Rescan` log lines now carry the legacy controller count beside the Input System one, which
+separates "no controller anywhere" from "the Input System cannot see the two this surface can".
+
 **Still unverified**: whether the trigger reads at all after 2026-09-10's two fixes — the first
 thing to try, and `Log XR input snapshot` is what to press if it does not; whether the trackpad click
 and grip read, which is the same question and the reason they are there — whether an 11 cm button

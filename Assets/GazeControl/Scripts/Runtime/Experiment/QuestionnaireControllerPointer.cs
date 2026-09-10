@@ -499,6 +499,14 @@ namespace GazeControl.Experiment
         {
             Clear();
 
+            // First, and unconditionally: enumerate the legacy XR subsystem.
+            // Nothing else on this path is guaranteed to, and until 2026-09-10
+            // the only thing in the project that did was the snapshot button —
+            // which is why a fresh clone answered nothing until someone had
+            // pressed it once. The count also separates "no controller anywhere"
+            // from "the Input System cannot see the two this surface can".
+            var legacyControllers = LegacyControls.Wake();
+
             var skipped = 0;
             foreach (var device in InputSystem.devices)
             {
@@ -538,7 +546,8 @@ namespace GazeControl.Experiment
             if (_pointers.Count == 0)
             {
                 Debug.Log(
-                    $"{name}: no XR controller tracked ({skipped} other tracked device(s) seen); " +
+                    $"{name}: no XR controller tracked ({skipped} other tracked device(s) seen, " +
+                    $"{legacyControllers} controller(s) on the legacy XR surface); " +
                     "the participant answers aloud.", this);
             }
             else
@@ -547,9 +556,9 @@ namespace GazeControl.Experiment
                 // decides it, not the C# default, and a scene left on an old
                 // number is otherwise silent for a whole session.
                 Debug.Log(
-                    $"{name}: {_pointers.Count} controller(s) can answer; a press is a trigger pull past " +
-                    $"{TriggerThreshold:F2} (released under {TriggerThreshold * 0.5f:F2}), a trackpad click " +
-                    "or a grip.", this);
+                    $"{name}: {_pointers.Count} controller(s) can answer ({legacyControllers} on the legacy " +
+                    $"XR surface); a press is a trigger pull past {TriggerThreshold:F2} (released under " +
+                    $"{TriggerThreshold * 0.5f:F2}), a trackpad click or a grip.", this);
             }
 
             if (_preferred >= _pointers.Count)
@@ -1093,6 +1102,9 @@ namespace GazeControl.Experiment
             readonly string _name;
             readonly XRInputDeviceCharacteristics _characteristics;
 
+            /// <summary>Left or Right alone, taken from the Input System device's usages: the last resort for a match.</summary>
+            readonly XRInputDeviceCharacteristics _hand;
+
             XRInputDevice _device;
             bool _hasAxis;
             bool _hasButton;
@@ -1100,12 +1112,42 @@ namespace GazeControl.Experiment
             bool _hasGrip;
             int _resolvedFrame = -1;
 
-            LegacyControls(string serial, string name, XRInputDeviceCharacteristics characteristics)
+            LegacyControls(
+                string serial, string name, XRInputDeviceCharacteristics characteristics,
+                XRInputDeviceCharacteristics hand)
             {
                 _serial = serial;
                 _name = name;
                 _characteristics = characteristics;
+                _hand = hand;
                 Resolve();
+            }
+
+            /// <summary>
+            /// Enumerate the legacy subsystem once, whether or not any
+            /// controller is waiting to be resolved.
+            ///
+            /// <para>Called from <c>Rescan</c> because <see cref="Find"/> is
+            /// reached only through a <see cref="Pointer"/>, and a run where the
+            /// Input System enumerates no tracked device builds no pointer at
+            /// all — so nothing would touch this surface, and the one thing in
+            /// the project that did was a debug button. Cheap: a list fill, on
+            /// an event that happens when a controller wakes or sleeps.</para>
+            /// </summary>
+            /// <returns>How many controllers this surface can see.</returns>
+            public static int Wake()
+            {
+                XRInputDevices.GetDevices(Devices);
+
+                var controllers = 0;
+                foreach (var candidate in Devices)
+                {
+                    if (candidate.isValid &&
+                        (candidate.characteristics & XRInputDeviceCharacteristics.Controller) != 0)
+                        controllers++;
+                }
+
+                return controllers;
             }
 
             /// <summary>
@@ -1126,7 +1168,20 @@ namespace GazeControl.Experiment
                     characteristics = descriptor.characteristics;
                 }
 
-                return new LegacyControls(serial, name, characteristics);
+                // The hand from the Input System device's own usages rather than
+                // from the descriptor, because the descriptor is what may not be
+                // readable yet — and the hand is the last thing left to match a
+                // wand on when there is neither serial nor name.
+                var hand = characteristics & (XRInputDeviceCharacteristics.Left | XRInputDeviceCharacteristics.Right);
+                foreach (var usage in device.usages)
+                {
+                    if (usage == UnityEngine.InputSystem.CommonUsages.LeftHand)
+                        hand = XRInputDeviceCharacteristics.Left;
+                    else if (usage == UnityEngine.InputSystem.CommonUsages.RightHand)
+                        hand = XRInputDeviceCharacteristics.Right;
+                }
+
+                return new LegacyControls(serial, name, characteristics, hand);
             }
 
             /// <summary>Whether a matching device with something pressable was found.</summary>
@@ -1265,21 +1320,52 @@ namespace GazeControl.Experiment
             /// </summary>
             bool Resolve()
             {
-                if (_device.isValid)
+                // Resolved, and its features known: there is nothing left to
+                // look for. A device found before the runtime had populated its
+                // usages is deliberately *not* finished — see ScanFeatures.
+                if (_device.isValid && HasAnyFeature)
                     return true;
 
-                if (string.IsNullOrEmpty(_serial) && string.IsNullOrEmpty(_name))
-                    return false;
-
                 if (_resolvedFrame == Time.frameCount)
-                    return false;
+                    return _device.isValid;
 
                 _resolvedFrame = Time.frameCount;
-                _hasAxis = false;
-                _hasButton = false;
-                _hasPadClick = false;
-                _hasGrip = false;
-                _device = default;
+
+                if (!_device.isValid)
+                    _device = Find();
+
+                if (!_device.isValid)
+                    return false;
+
+                ScanFeatures();
+                return true;
+            }
+
+            /// <summary>
+            /// The matching legacy device, or an invalid one.
+            ///
+            /// <para><b>No early-out on having neither serial nor name</b>
+            /// (removed 2026-09-10, after a fresh clone on a second PC where no
+            /// controller answered until <c>Log XR input snapshot</c> had been
+            /// pressed once, after which every session worked). That guard sat
+            /// in front of the only <see cref="XRInputDevices.GetDevices"/> call
+            /// on the normal path, and both fields are captured once, in
+            /// <c>Rescan</c> — which first runs in <c>OnEnable</c>, before the
+            /// rig has started XR. A wand whose descriptor was unreadable or
+            /// carried an empty serial and name at that moment therefore
+            /// silently disabled this whole surface for the life of the pointer,
+            /// and the snapshot button was the only thing in the project that
+            /// enumerated the subsystem regardless.</para>
+            ///
+            /// <para><b>The hand is matched as well as the name</b>, for the
+            /// same reason: SteamVR assigns hand roles after the wands come up,
+            /// so the characteristics captured at rescan can be stale, and a
+            /// controller in the right hand is the right controller.</para>
+            /// </summary>
+            XRInputDevice Find()
+            {
+                XRInputDevice byName = default;
+                XRInputDevice byHand = default;
 
                 XRInputDevices.GetDevices(Devices);
                 foreach (var candidate in Devices)
@@ -1287,38 +1373,63 @@ namespace GazeControl.Experiment
                     if (!candidate.isValid)
                         continue;
 
+                    // The serial is unique where there is one at all.
                     if (!string.IsNullOrEmpty(_serial) && candidate.serialNumber == _serial)
-                    {
-                        _device = candidate;
-                        break;
-                    }
+                        return candidate;
 
-                    // No serial to go on. The name and the hand are what is
-                    // left, and they are what tells a wand pair apart.
-                    if (candidate.name == _name && candidate.characteristics == _characteristics)
-                        _device = candidate;
+                    if ((candidate.characteristics & XRInputDeviceCharacteristics.Controller) == 0)
+                        continue;
+
+                    if (!string.IsNullOrEmpty(_name) && candidate.name == _name &&
+                        candidate.characteristics == _characteristics)
+                        byName = candidate;
+                    else if (_hand != 0 && (candidate.characteristics & _hand) == _hand)
+                        byHand = candidate;
                 }
 
-                if (!_device.isValid)
-                    return false;
-
-                if (_device.TryGetFeatureUsages(Usages))
-                {
-                    foreach (var usage in Usages)
-                    {
-                        if (usage.name == XRCommonUsages.trigger.name)
-                            _hasAxis = true;
-                        else if (usage.name == XRCommonUsages.triggerButton.name)
-                            _hasButton = true;
-                        else if (usage.name == XRCommonUsages.primary2DAxisClick.name)
-                            _hasPadClick = true;
-                        else if (usage.name == XRCommonUsages.gripButton.name || usage.name == XRCommonUsages.grip.name)
-                            _hasGrip = true;
-                    }
-                }
-
-                return true;
+                return byName.isValid ? byName : byHand;
             }
+
+            /// <summary>
+            /// Which of the pressable features this device carries.
+            ///
+            /// <para><b>Re-scanned until something is found</b> (2026-09-10).
+            /// This used to run on exactly one frame — the frame the device was
+            /// first matched — because <c>Resolve</c> returned at
+            /// <c>_device.isValid</c> ever after. A device matched before the
+            /// runtime had populated its usages therefore latched all four flags
+            /// false permanently, which reads downstream as a controller that
+            /// exists and declares itself dead: <see cref="Exists"/> false, so
+            /// <c>Rescan</c> can drop it before it is even given a ray, and the
+            /// operator panel saying NO TRIGGER, PAD OR GRIP CONTROL. The values
+            /// were never affected — those go straight to the runtime — which is
+            /// what made it look like a device fault rather than a latch.</para>
+            /// </summary>
+            void ScanFeatures()
+            {
+                _hasAxis = false;
+                _hasButton = false;
+                _hasPadClick = false;
+                _hasGrip = false;
+
+                if (!_device.TryGetFeatureUsages(Usages))
+                    return;
+
+                foreach (var usage in Usages)
+                {
+                    if (usage.name == XRCommonUsages.trigger.name)
+                        _hasAxis = true;
+                    else if (usage.name == XRCommonUsages.triggerButton.name)
+                        _hasButton = true;
+                    else if (usage.name == XRCommonUsages.primary2DAxisClick.name)
+                        _hasPadClick = true;
+                    else if (usage.name == XRCommonUsages.gripButton.name || usage.name == XRCommonUsages.grip.name)
+                        _hasGrip = true;
+                }
+            }
+
+            /// <summary>Whether anything pressable has been seen on this device yet.</summary>
+            bool HasAnyFeature => _hasAxis || _hasButton || _hasPadClick || _hasGrip;
         }
     }
 }
