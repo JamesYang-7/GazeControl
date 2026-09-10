@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text.RegularExpressions;
+using GazeControl.Motion;
 
 namespace GazeControl.ThreeParty
 {
@@ -23,8 +24,13 @@ namespace GazeControl.ThreeParty
         /// <summary>Motion and the mocap clock, 60 fps on every session.</summary>
         public const float FrameRate = 60f;
 
-        /// <summary>Converted SMPL-X clips, <c>&lt;root&gt;/&lt;date&gt;/Session_&lt;S&gt;_pc&lt;N&gt;_&lt;Name&gt;.npz</c>.</summary>
-        public const string DefaultMotionRoot = @"F:\Data\3People-2022-SMPLX";
+        /// <summary>
+        /// Converted SMPL-X clips, <c>&lt;root&gt;/&lt;date&gt;/Session_&lt;S&gt;_pc&lt;N&gt;_&lt;Name&gt;.npz</c>.
+        /// Machine-local, so it comes from <see cref="MotionDataRoot"/> rather
+        /// than being a constant here — a clone that keeps the corpus somewhere
+        /// else configures it in one place.
+        /// </summary>
+        public static string DefaultMotionRoot => MotionDataRoot.ThreePeopleSmplx;
 
         /// <summary>The dataset's processed tree, <c>{TPC_DATA}</c>.</summary>
         public const string DefaultDataRoot = @"D:\3People-2022";

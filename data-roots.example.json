@@ -1,0 +1,4 @@
+{
+  "//": "Copy to data-roots.json (machine-local, git-ignored) to move the motion corpora off the project. 'dataRoot' is the directory that HOLDS the corpus folder, so the clips are looked for at <dataRoot>/3People-2022-SMPLX/<date>/Session_<S>_pc<N>_<Name>.npz. A relative path resolves against the project root, and the default './' finds a copy of the corpus folder dropped beside Assets/ — with the corpus there, no config file is needed at all. See CLAUDE.md, 'Where the corpora live'.",
+  "dataRoot": "F:/Data"
+}

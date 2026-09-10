@@ -144,3 +144,9 @@ __pycache__/
 
 # Python env for Tools/ (uv)
 /.venv/
+
+# Motion corpora copied into the project so a clone can run without the drive
+# they were exported from. Where they are looked for is data-roots.json, itself
+# machine-local; data-roots.example.json is the committed template.
+/3People-2022-SMPLX/
+/data-roots.json

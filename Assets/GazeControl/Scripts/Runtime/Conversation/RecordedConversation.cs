@@ -337,7 +337,10 @@ namespace GazeControl.Conversation
             voice.loop = false;
             voice.playOnAwake = false;
 
-            speaker.Motion.ClipPath = agent.motion;
+            // Not agent.motion as recorded: that is the absolute path the corpus
+            // sat at when the segment was exported, and it is the one part of a
+            // segment that does not survive a move to another machine.
+            speaker.Motion.ClipPath = MotionDataRoot.Resolve(agent.motion);
             speaker.Motion.StartFrame = Segment.motionStartFrame;
             speaker.Motion.FrameCount = Segment.motionFrameCount;
             speaker.Motion.Loop = false;
