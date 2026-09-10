@@ -332,12 +332,19 @@ namespace GazeControl.Experiment
         /// keeps the next participant off this label even if this session ends
         /// before a single question is answered.</para>
         ///
-        /// <para>Only for a real session. A development run would otherwise leave
-        /// a timestamped folder behind on every press of Play.</para>
+        /// <para>The folder is named for every run but the record is written
+        /// only for a real session. A P00 development run used to skip this
+        /// method entirely, and its takes then stayed in the clip folders while
+        /// the questionnaire opened a timestamped <c>P00_…</c> folder of its own
+        /// for the answers (found 2026-09-09) — the one layout that the
+        /// per-participant filing was meant to end. Naming the folder creates
+        /// nothing on disk: the loggers make it on the first take, so a Play
+        /// that is stopped before a clip ends still leaves no folder behind.
+        /// A preview logs nothing and names no folder.</para>
         /// </summary>
         void BeginRecord()
         {
-            if (Runner == null || !Runner.StudySession)
+            if (Runner == null || Preview)
                 return;
 
             var participant = Runner.StudyParticipantId?.Trim();
@@ -352,6 +359,9 @@ namespace GazeControl.Experiment
             // the participant's folder is the whole of what they produced and
             // deleting an abandoned session deletes its take logs with it.
             Runner.TakeRoot = ParticipantDirectory;
+
+            if (!Runner.StudySession)
+                return;
 
             _record = StudySessionRecord.Begin(
                 participant, _scheduleOrdinal, _trials, Application.unityVersion,

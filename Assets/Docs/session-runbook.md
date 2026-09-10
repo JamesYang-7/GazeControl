@@ -39,7 +39,9 @@ The procedure below is the same; only the scene and the clip list differ.
 
 ## With the participant
 
-5. Consent and instructions, then fit the headset.
+5. Consent and instructions, then fit the headset. If they will answer with a
+   controller, hand them one now and say what it does: point it at the buttons
+   under the question and pull the trigger.
 6. Press **Start session for Pnn**. The editor enters play; the scene applies
    study mode, replayed tracks, logging, the headset and the developer overlay
    itself. The window switches to a live view: XR status, eye-tracking status and
@@ -57,8 +59,21 @@ The procedure below is the same; only the scene and the clip list differ.
 9. Press **Space** with the Game view focused to begin (the key does not reach the
    scene while the Start Session window is focused). From here Space is the only key: it advances past
    the framing screen, and after each clip it commits the questionnaire screen
-   and releases the next clip. The participant answers aloud and you type what they
-   say into the operator panel on the desktop window.
+   and releases the next clip.
+
+   **The participant answers either way.** They may press the buttons under the
+   question with the controller, or say the answer for you to type into the
+   operator panel on the desktop window — the two write the same record, and you
+   can take over mid-screen. The panel's header says whether a controller is
+   being tracked and which button they are pointing at; if it says none is, the
+   session simply runs on spoken answers.
+
+   With a controller they can pass **every screen but the last**, framing and
+   both previews included — read those aloud and ask them to wait for you rather
+   than relying on the screen to hold them. The free-text probe has no keyboard
+   in the headset, so it is always spoken: their **Next** on that screen records
+   whatever you have typed, empty included. The closing passage is yours alone;
+   press Enter when the headset is off.
 10. Stay in the room. The head tracks, so a participant who walks sees the agents
     move; ask them to stay on the mark, and recentre if they have drifted between
     clips.

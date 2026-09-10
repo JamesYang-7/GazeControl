@@ -34,6 +34,11 @@ namespace GazeControl.Experiment
         public QuestionnaireSession Session { get; set; }
 
         [field: SerializeField]
+        [field: Tooltip("The participant's controller pointer, so the operator can see whether their buttons are " +
+                        "live. Optional: without one the panel simply says so.")]
+        public QuestionnaireControllerPointer Pointer { get; set; }
+
+        [field: SerializeField]
         [field: Tooltip("Panel width in pixels; it sits against the left edge of the game view")]
         public float Width { get; set; } = 560f;
 
@@ -48,6 +53,9 @@ namespace GazeControl.Experiment
         {
             if (Session == null)
                 Session = FindFirstObjectByType<QuestionnaireSession>();
+
+            if (Pointer == null)
+                Pointer = FindFirstObjectByType<QuestionnaireControllerPointer>();
         }
 
         void OnGUI()
@@ -88,6 +96,40 @@ namespace GazeControl.Experiment
 
             GUILayout.Label($"Screen {screen.Number} of {Session.ScreenCount} — {where}", _label);
             GUILayout.Label($"Phase: {Session.CurrentPhase}", _label);
+
+            GUILayout.Label(ParticipantInput(), _label);
+            if (Pointer != null && Pointer.isActiveAndEnabled)
+            {
+                // One line per controller, indented: which is pointing where and
+                // how far its trigger is pulled. Every controller fault so far
+                // has looked the same from the desk — "it does nothing" — and
+                // these lines are what tell them apart while the participant is
+                // still wearing the headset.
+                foreach (var report in Pointer.ControllerReports)
+                    GUILayout.Label($"   {report}", _label);
+            }
+        }
+
+        /// <summary>
+        /// Whether the participant can answer for themselves right now. The
+        /// operator needs it before the first screen: a controller that never
+        /// woke up looks exactly like a participant who is not pressing
+        /// anything, and the difference decides whether the session runs on
+        /// spoken answers.
+        /// </summary>
+        string ParticipantInput()
+        {
+            if (Pointer == null || !Pointer.isActiveAndEnabled)
+                return "Participant's buttons: none in the scene — spoken answers only.";
+
+            var controllers = Pointer.ControllerCount;
+            if (controllers == 0)
+                return "Participant's buttons: no controller tracked — spoken answers only.";
+
+            var aimed = Pointer.AimedAtButton;
+            var buttons = Session.Buttons;
+            var at = aimed >= 0 && aimed < buttons.Length ? $"on '{buttons[aimed].Label}'" : "off the row";
+            return $"Participant's buttons: {controllers} controller(s), aiming {at}.";
         }
 
         void DrawScreen()
@@ -210,12 +252,16 @@ namespace GazeControl.Experiment
             GUILayout.Label(definition.ranking.instruction, _label);
             GUILayout.Space(6f);
 
-            for (var position = 1; entry != null && position <= entry.SlotCount; position++)
+            // Listed by rank, taking a version number each: the participant
+            // says "two, then one, then three", and the operator types exactly
+            // that. The file still gets a rank per version (RankingOrder).
+            GUILayout.Label("Type the version numbers best first, as the participant says them:", _label);
+            for (var rank = 1; entry != null && rank <= entry.SlotCount; rank++)
             {
-                var current = entry.Cursor == position - 1;
-                var value = entry[position - 1];
-                var rank = value == QuestionnaireEntry.Unanswered ? "_" : value.ToString();
-                GUILayout.Label($"{(current ? ">" : " ")} [{rank}]  {definition.ranking.LabelFor(position)}", _label);
+                var current = entry.Cursor == rank - 1;
+                var value = entry[rank - 1];
+                var version = value == QuestionnaireEntry.Unanswered ? "_" : definition.ranking.LabelFor(value);
+                GUILayout.Label($"{(current ? ">" : " ")} {RankingOrder.Ordinal(rank)}:  [{version}]", _label);
             }
         }
 
@@ -253,9 +299,10 @@ namespace GazeControl.Experiment
                         ? "[Enter] move on without recording"
                         : "[1-7] answer   [Backspace] undo   [Enter] record and play the next clip",
                 QuestionnaireSession.Phase.Ranking =>
-                    "[1-3] rank each version in turn   [Backspace] undo   [Enter] record",
+                    "[1-3] version number, best first   [Backspace] undo   [Enter] record",
                 QuestionnaireSession.Phase.Comment =>
-                    "type the answer, or leave it empty   [Ctrl+Enter] record",
+                    "type the answer, or leave it empty   [Ctrl+Enter] record   " +
+                    "(the participant's Next records it as it stands)",
                 QuestionnaireSession.Phase.Framing => "[Enter] show the four rating items",
                 QuestionnaireSession.Phase.RatingPreview => "[Enter] show the two end-of-group questions",
                 QuestionnaireSession.Phase.ShortAnswerPreview => "[Enter] start the first clip",

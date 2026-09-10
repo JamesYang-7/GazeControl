@@ -1011,6 +1011,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GazeControl.Experiment.QuestionnaireOperatorPanel
   <Session>k__BackingField: {fileID: 696636980}
+  <Pointer>k__BackingField: {fileID: 762285485}
   <Width>k__BackingField: 560
 --- !u!114 &696636980
 MonoBehaviour:
@@ -1040,6 +1041,7 @@ GameObject:
   - component: {fileID: 762285484}
   - component: {fileID: 762285483}
   - component: {fileID: 762285482}
+  - component: {fileID: 762285485}
   m_Layer: 0
   m_Name: Questionnaire Panel
   m_TagString: Untagged
@@ -1063,8 +1065,15 @@ MonoBehaviour:
   <EyeHeight>k__BackingField: 1.6846
   <Distance>k__BackingField: 1.5
   <BodyFontSize>k__BackingField: 34
+  <ButtonHeight>k__BackingField: 0.14
+  <ButtonRowGap>k__BackingField: 0.05
+  <ButtonGap>k__BackingField: 0.012
   <Background>k__BackingField: {r: 0.06, g: 0.06, b: 0.07, a: 1}
   <Foreground>k__BackingField: {r: 0.94, g: 0.94, b: 0.96, a: 1}
+  <ButtonFace>k__BackingField: {r: 0.2, g: 0.21, b: 0.24, a: 1}
+  <ButtonFaceAimed>k__BackingField: {r: 0.42, g: 0.5, b: 0.62, a: 1}
+  <ButtonFaceDisabled>k__BackingField: {r: 0.1, g: 0.1, b: 0.12, a: 1}
+  <CursorSize>k__BackingField: 0.02
 --- !u!223 &762285483
 Canvas:
   m_ObjectHideFlags: 0
@@ -1108,6 +1117,27 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 1.6846}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &762285485
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 762285481}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 422c6711c68c8404ca44eb83abb58776, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GazeControl.Experiment.QuestionnaireControllerPointer
+  <Session>k__BackingField: {fileID: 696636980}
+  <Display>k__BackingField: {fileID: 762285482}
+  <TrackingSpace>k__BackingField: {fileID: 1811005179}
+  <RayLength>k__BackingField: 3
+  <RayWidth>k__BackingField: 0.004
+  <RayColor>k__BackingField: {r: 0.55, g: 0.68, b: 0.85, a: 1}
+  <TriggerThreshold>k__BackingField: 0.6
+  <MouseFallback>k__BackingField: 0
+  <LogControlsAsPressed>k__BackingField: 0
 --- !u!1 &857390468
 GameObject:
   m_ObjectHideFlags: 0

@@ -142,8 +142,9 @@ namespace GazeControl.Experiment
         /// lives under one folder and deleting it leaves no take behind in the
         /// clip folders (found 2026-09-08: a participant's abandoned first
         /// attempt survived the deletion of their folder). Play-session state,
-        /// never serialized: a bake, a demo or a P00 run has no participant and
-        /// keeps writing under the clip.
+        /// never serialized: a bake or a demo has no participant and keeps
+        /// writing under the clip; a P00 run with the session runner on files
+        /// under its timestamped debug folder like a participant.
         /// </summary>
         public string TakeRoot { get; set; }
 

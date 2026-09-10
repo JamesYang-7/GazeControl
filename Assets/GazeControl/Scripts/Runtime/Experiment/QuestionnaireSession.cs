@@ -29,6 +29,16 @@ namespace GazeControl.Experiment
     /// recording and a plain preview all press Play in this same scene, and none
     /// of them is a participant — so with the session runner off, this writes
     /// nothing, shows nothing and holds nothing.</para>
+    ///
+    /// <para><b>Two ways in, one state machine.</b> Since 2026-09-09 the
+    /// participant can also answer for themselves, by pointing a controller at
+    /// the button row under their own panel (<see cref="Buttons"/>,
+    /// <see cref="Press"/>). A press goes through the same <see cref="Enter"/>,
+    /// <see cref="Back"/> and <see cref="Commit"/> the operator's keys go
+    /// through, so the two surfaces cannot come to disagree about what has been
+    /// answered and the response file cannot tell which was used. The spoken
+    /// path stays, both as the fallback and because the free-text probe has no
+    /// keyboard in the headset.</para>
     /// </summary>
     public sealed class QuestionnaireSession : MonoBehaviour
     {
@@ -102,6 +112,9 @@ namespace GazeControl.Experiment
         StudyTrial _trial;
         int _screenIndex;
         bool _clipWasCutShort;
+        string[] _scaleLabels;
+        string[] _versionLabels;
+        int[] _rankingCommitted;
 
         /// <summary>Where the run is.</summary>
         public Phase CurrentPhase { get; private set; } = Phase.Inactive;
@@ -136,6 +149,26 @@ namespace GazeControl.Experiment
 
         /// <summary>What the operator is typing into, or null on a screen with no answer.</summary>
         public QuestionnaireEntry Entry { get; private set; }
+
+        /// <summary>
+        /// The buttons under the screen now showing, in row order, or empty on a
+        /// screen the participant may not advance. Rebuilt on every state
+        /// change, so it is always the row the current entry allows.
+        /// </summary>
+        public QuestionnaireButton[] Buttons { get; private set; } = QuestionnaireButtonRow.None;
+
+        /// <summary>
+        /// The versions ranked so far, best first, or null on a screen that is
+        /// not the ranking. It survives into the free-text screen — the same page
+        /// to the participant — so the order they gave stays in front of them
+        /// while they answer the second question about it.
+        /// </summary>
+        public int[] RankingEntered => CurrentPhase switch
+        {
+            Phase.Ranking => Entry?.ToArray(),
+            Phase.Comment => _rankingCommitted,
+            _ => null,
+        };
 
         /// <summary>The block's free-text answer, as typed. Empty is a legitimate answer — the probe is optional.</summary>
         public string Comment { get; set; } = string.Empty;
@@ -197,6 +230,40 @@ namespace GazeControl.Experiment
             // handles — an interrupted session keeps everything already answered.
             _writer?.Dispose();
             _writer = null;
+        }
+
+        /// <summary>
+        /// Press one of the participant's own buttons, by its position in
+        /// <see cref="Buttons"/>. Disabled buttons and indices off the row are
+        /// ignored rather than refused: the participant's panel carries no
+        /// notice for them to read, so the feedback is the button being dim.
+        /// </summary>
+        /// <returns>True when the press did something.</returns>
+        public bool Press(int buttonIndex)
+        {
+            if (buttonIndex < 0 || buttonIndex >= Buttons.Length)
+                return false;
+
+            var button = Buttons[buttonIndex];
+            if (!button.Enabled)
+                return false;
+
+            switch (button.Kind)
+            {
+                case QuestionnaireButtonKind.Back:
+                    Back();
+                    break;
+
+                case QuestionnaireButtonKind.Value:
+                    Enter(button.Value);
+                    break;
+
+                case QuestionnaireButtonKind.Next:
+                    Commit();
+                    break;
+            }
+
+            return true;
         }
 
         /// <summary>Type one number into the screen's current slot.</summary>
@@ -353,22 +420,31 @@ namespace GazeControl.Experiment
         {
             if (!Entry.IsComplete)
             {
-                Notice = "every version needs a rank, and no two may be the same.";
+                Notice = "every rank needs a version, and no version may appear twice.";
                 return;
             }
 
+            // The operator typed the versions best first, as the participant
+            // says them; the file records the rank of each version (see
+            // RankingOrder), so the two agree with what study 1 wrote.
+            var ranksByVersion = RankingOrder.RanksByVersion(Entry.ToArray());
             var block = Screen.BlockNumber;
             if (!TryWrite(() =>
             {
                 for (var position = 1; position <= _script.VersionsPerBlock; position++)
                 {
                     var trial = TrialOf(block, position);
-                    _writer.AppendRank(block, trial.Conversation, position, trial.Condition, Entry[position - 1]);
+                    _writer.AppendRank(block, trial.Conversation, position, trial.Condition, ranksByVersion[position - 1]);
                 }
             }))
             {
                 return;
             }
+
+            // Kept for the free-text screen, which is the same page to the
+            // participant: the order they gave stays in front of them while they
+            // answer the second question about the same three versions.
+            _rankingCommitted = Entry.ToArray();
 
             // The comment shares the ranking screen rather than getting its own
             // (§3): it is asked about the same three versions, and a screen the
@@ -448,6 +524,10 @@ namespace GazeControl.Experiment
 
         void BeginRanking()
         {
+            // Slot r-1 takes the version placed at rank r: the operator types,
+            // or the participant presses, versions in the order they are named,
+            // best first.
+            _rankingCommitted = null;
             Entry = new QuestionnaireEntry(_script.VersionsPerBlock, 1, _script.VersionsPerBlock, requireDistinct: true);
             Notice = string.Empty;
             CurrentPhase = Phase.Ranking;
@@ -476,11 +556,72 @@ namespace GazeControl.Experiment
             Pause.Advance();
         }
 
-        /// <summary>Push the current state to the participant's canvas, if there is one.</summary>
+        /// <summary>
+        /// Push the current state to the participant's canvas, if there is one,
+        /// having first rebuilt the row of buttons it and the controller pointer
+        /// both read. The row lives here rather than on the canvas because the
+        /// pointer must be able to ask what it is aiming at in a scene with no
+        /// canvas at all — a flat preview, or a run with the panel switched off.
+        /// </summary>
         void Show()
         {
+            Buttons = BuildButtons();
+
             if (Display != null)
                 Display.Render(this);
+        }
+
+        /// <summary>
+        /// The row for the screen now showing.
+        ///
+        /// <para><b>Every screen up to the first clip carries a live
+        /// <c>Next</c></b> (user's call, 2026-09-09, replacing the answer-screens-only
+        /// row of the same day): a participant who can start the session should
+        /// be able to finish it, and a framing screen only the operator could
+        /// pass is a session that stops on its first page. The two previews
+        /// carry the row of the page they preview with the values and undo
+        /// disabled — they answer nothing, and seeing the buttons is half of
+        /// what a preview is for.</para>
+        ///
+        /// <para>The closing passage is the exception and has no row at all. It
+        /// is the one screen with nothing after it: every answer is already
+        /// written by the time it shows, and a participant who pressed on would
+        /// be left looking at an empty room with the headset still on.</para>
+        /// </summary>
+        QuestionnaireButton[] BuildButtons()
+        {
+            if (Definition == null || _scaleLabels == null)
+                return QuestionnaireButtonRow.None;
+
+            return CurrentPhase switch
+            {
+                Phase.Framing => QuestionnaireButtonRow.NextOnly(commitAllowed: true),
+
+                Phase.RatingPreview =>
+                    QuestionnaireButtonRow.Build(null, Definition.scale.min, _scaleLabels, commitAllowed: true),
+
+                // A clip cut short records nothing, so there is nothing to
+                // complete and the only thing left to do with the screen is
+                // leave it.
+                Phase.Rating =>
+                    QuestionnaireButtonRow.Build(
+                        Entry, Definition.scale.min, _scaleLabels,
+                        _clipWasCutShort || (Entry != null && Entry.IsComplete)),
+
+                Phase.ShortAnswerPreview =>
+                    QuestionnaireButtonRow.Build(null, 1, _versionLabels, commitAllowed: true),
+
+                Phase.Ranking =>
+                    QuestionnaireButtonRow.Build(Entry, 1, _versionLabels, Entry != null && Entry.IsComplete),
+
+                // The probe is optional and the participant has no keyboard in
+                // the headset, so their Next is "leave it empty and go on"; a
+                // comment reaches the file only when the operator typed one.
+                Phase.Comment =>
+                    QuestionnaireButtonRow.Build(null, 1, _versionLabels, commitAllowed: true),
+
+                _ => QuestionnaireButtonRow.None,
+            };
         }
 
         /// <summary>
@@ -525,6 +666,12 @@ namespace GazeControl.Experiment
 
             _script = QuestionnaireScript.Build(
                 definition, Session.Conversations.Length, StudySessionRunner.ConditionCount);
+
+            // Once, here: neither the scale nor the number of versions changes
+            // within a session, and rebuilding the labels on every render would
+            // put an allocation behind every keystroke.
+            _scaleLabels = QuestionnaireButtonRow.ScaleLabels(definition.scale.min, definition.scale.max);
+            _versionLabels = QuestionnaireButtonRow.VersionLabels(_script.VersionsPerBlock);
 
             try
             {

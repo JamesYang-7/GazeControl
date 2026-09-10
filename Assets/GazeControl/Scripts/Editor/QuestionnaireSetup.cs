@@ -18,6 +18,12 @@ namespace GazeControl.Editor
     /// <para>The panel hangs off the participant's own vertex, so it sits where
     /// they are facing however the play area is recentred, at the same eye line
     /// as the agents and at the distance the agents stand.</para>
+    ///
+    /// <para>Since 2026-09-09 it also builds the participant's own way in: a
+    /// <see cref="QuestionnaireControllerPointer"/> on the same panel object,
+    /// pointed at the rig's tracking space. Without an XR rig in the scene it is
+    /// still built and warns — the pointer costs nothing when no controller is
+    /// tracked, and a session with none simply runs on spoken answers.</para>
     /// </summary>
     public static class QuestionnaireSetup
     {
@@ -71,12 +77,15 @@ namespace GazeControl.Editor
             questionnaire.Display = display;
             questionnaire.OutputDirectory = runner.OutputDirectory;
 
+            var pointer = FindOrCreatePointer(display, questionnaire);
+
             var panel = session.GetComponent<QuestionnaireOperatorPanel>();
             if (panel == null)
                 panel = Undo.AddComponent<QuestionnaireOperatorPanel>(session.gameObject);
 
             Undo.RecordObject(panel, "Configure questionnaire operator panel");
             panel.Session = questionnaire;
+            panel.Pointer = pointer;
 
             WarnIfTheAgentsAreNotHiddenWhileAnswering(pause);
 
@@ -86,8 +95,44 @@ namespace GazeControl.Editor
             Debug.Log(
                 $"Set Up Questionnaire: participant panel on '{display.name}' at {PanelDistance:F2} m, " +
                 $"{ParticipantEyeHeight.SmplxEyeHeight:F3} m up; operator panel on '{session.name}'. " +
-                "The participant reads and answers aloud; the operator types it. Nothing is written unless " +
-                "the study session runner is enabled.", questionnaire);
+                "The participant answers with a controller or aloud, and the operator can type either. " +
+                "Nothing is written unless the study session runner is enabled.", questionnaire);
+        }
+
+        /// <summary>
+        /// The participant's controller pointer, on the panel object: its
+        /// lifetime is the panel's, and the two are meaningless apart.
+        ///
+        /// <para>The tracking space is the rig's <c>Camera Offset</c>, which is
+        /// what recentring turns and moves — a controller pose read against
+        /// anything else would leave the ray behind the moment the view was
+        /// recentred.</para>
+        /// </summary>
+        static QuestionnaireControllerPointer FindOrCreatePointer(
+            QuestionnaireDisplay display, QuestionnaireSession session)
+        {
+            var pointer = display.GetComponent<QuestionnaireControllerPointer>();
+            if (pointer == null)
+                pointer = Undo.AddComponent<QuestionnaireControllerPointer>(display.gameObject);
+
+            Undo.RecordObject(pointer, "Configure questionnaire pointer");
+            pointer.Session = session;
+            pointer.Display = display;
+
+            var rig = Object.FindAnyObjectByType<XrParticipantRig>(FindObjectsInactive.Include);
+            if (rig != null && rig.CameraOffset != null)
+            {
+                pointer.TrackingSpace = rig.CameraOffset;
+            }
+            else
+            {
+                Debug.LogWarning(
+                    "Set Up Questionnaire: no XR rig with a Camera Offset, so the controller pointer has no " +
+                    "tracking space and its ray would ignore recentring. Run GazeControl → Set Up XR Rig, then " +
+                    "this again.", pointer);
+            }
+
+            return pointer;
         }
 
         /// <summary>

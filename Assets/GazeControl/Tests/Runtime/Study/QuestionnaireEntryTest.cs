@@ -175,5 +175,28 @@ namespace GazeControl.Study
         public void Constructor_WithNoSlots_IsRejected() =>
             Assert.That(() => new QuestionnaireEntry(0, 1, 7, false),
                 Throws.TypeOf<ArgumentOutOfRangeException>());
+
+        [Test]
+        public void Accepts_AgreesWithTryEnter()
+        {
+            var sut = Ranks();
+            Enter(sut, 2);
+
+            // The same predicate the participant's button row is greyed by, so
+            // a button that looks pressable is one that will be taken.
+            Assert.That(sut.Accepts(1), Is.True);
+            Assert.That(sut.Accepts(2), Is.False, "already ranked");
+            Assert.That(sut.Accepts(4), Is.False, "off the scale");
+        }
+
+        [Test]
+        public void Accepts_WithEverySlotFilled_IsFalseForEverything()
+        {
+            var sut = Ratings();
+            Enter(sut, 5, 5, 5, 5);
+
+            Assert.That(sut.Accepts(5), Is.False);
+            Assert.That(sut.Accepts(1), Is.False);
+        }
     }
 }

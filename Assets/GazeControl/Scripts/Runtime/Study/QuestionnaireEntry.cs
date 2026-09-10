@@ -83,34 +83,42 @@ namespace GazeControl.Study
         /// </summary>
         public bool TryEnter(int value, out string refusal)
         {
-            if (Cursor >= SlotCount)
-            {
-                refusal = "every answer on this screen is entered.";
+            refusal = Refusal(value);
+            if (refusal != null)
                 return false;
-            }
-
-            if (value < Min || value > Max)
-            {
-                refusal = $"{value} is outside the {Min}-{Max} scale.";
-                return false;
-            }
-
-            if (RequireDistinct)
-            {
-                for (var i = 0; i < _values.Length; i++)
-                {
-                    if (i != Cursor && _values[i] == value)
-                    {
-                        refusal = $"{value} is already used, and ties are not allowed.";
-                        return false;
-                    }
-                }
-            }
 
             _values[Cursor] = value;
             Cursor++;
-            refusal = null;
             return true;
+        }
+
+        /// <summary>
+        /// Whether <see cref="TryEnter"/> would take this value now. The
+        /// participant's button row greys out what it would refuse rather than
+        /// showing a refusal they cannot read (their panel carries no notice),
+        /// and asking the same predicate is what keeps the two from drifting.
+        /// </summary>
+        public bool Accepts(int value) => Refusal(value) == null;
+
+        /// <summary>Why this value cannot go in the slot under the cursor, or null when it can.</summary>
+        string Refusal(int value)
+        {
+            if (Cursor >= SlotCount)
+                return "every answer on this screen is entered.";
+
+            if (value < Min || value > Max)
+                return $"{value} is outside the {Min}-{Max} scale.";
+
+            if (!RequireDistinct)
+                return null;
+
+            for (var i = 0; i < _values.Length; i++)
+            {
+                if (i != Cursor && _values[i] == value)
+                    return $"{value} is already used, and ties are not allowed.";
+            }
+
+            return null;
         }
 
         /// <summary>

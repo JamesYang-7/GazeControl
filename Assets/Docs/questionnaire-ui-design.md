@@ -5,10 +5,14 @@ The **instrument** is not designed here — §6 of that document fixes the items
 ranking and when each is asked, settled 2026-08-21. This is only how a participant is shown them
 and how the answers are captured.
 
-Status: **built 2026-08-27**, to this design. `QuestionnaireSession` + `QuestionnaireDisplay` +
-`QuestionnaireOperatorPanel`, wired by `GazeControl → Set Up Questionnaire`; §9 steps 1-2 and 4 are
-done and step 3 is built but has not had its legibility pass in the headset. §1's assumption — that
-the IMGUI panel does not reach the eye textures — is still unconfirmed on hardware.
+Status: **built 2026-08-27**, to this design, and given a second way in on **2026-09-09** (§0.1:
+the participant may also answer by pointing a controller at a row of buttons — **working on a real
+Vive wand pair the same day**, both hands, aim and trigger).
+`QuestionnaireSession` + `QuestionnaireDisplay` + `QuestionnaireOperatorPanel` +
+`QuestionnaireControllerPointer`, wired by `GazeControl → Set Up Questionnaire`; §9 steps 1-2 and 4
+are done and step 3 is built but has not had its legibility pass in the headset. §1's assumption —
+that the IMGUI panel does not reach the eye textures — is still unconfirmed on hardware, and so is
+every part of §0.1 that needs a controller.
 
 For a spell on the same day the items were dropped from the headset entirely (recorded only in
 `ClipPauseController`'s doc, never in the decisions log); the user restored this design after a VR
@@ -35,6 +39,115 @@ it:
 in the room is this design's one demand-effect exposure. Two mitigations, both cheap, both belong
 in the protocol rather than in code — the experimenter reads the item verbatim and acknowledges
 answers with nothing more than "thank you", and the operator panel is blinded (§2).
+
+## 0.1 The participant can also press it (2026-09-09)
+
+**A row of buttons under the question page, aimed at with an HTC Vive wand and pressed with the
+trigger** (user's call). It is *added to* §0, not put in place of it: every press goes through the
+same `Enter` / `Back` / `Commit` on `QuestionnaireSession` that the operator's keys reach, the
+operator can take over mid-screen, and `responses.csv` cannot tell which surface an answer came
+from. Answering aloud stays the fallback, and stays the only way to answer D1 — there is no
+keyboard in the headset.
+
+**What §0 bought is kept.** The row is flat rectangles on the same world-space canvas, aimed at by
+intersecting a ray with the panel plane (`PanelRaycast` and `ButtonRowLayout`, both pure and
+unit-tested): no XR Interaction Toolkit, no ray interactor, no event system, no collider, nothing
+to enumerate. The controller is read straight off the Input System, because the Varjo plugin
+publishes its own layouts — `VarjoViveWand`, `VarjoIndexController`, `VarjoController`, all
+deriving from `XRController` — and `QuestionnaireControllerPointer` looks `devicePosition`,
+`deviceRotation` and `triggerPressed`/`trigger` up by name rather than binding an action asset per
+layout, which would silently bind none of them if the loader changed again.
+
+The rows, and what may be pressed:
+
+| Screen | Row |
+|---|---|
+| Rating | `Undo` `1`…`7` `Next` — Next lights only once all four items are answered, or the clip was cut short and nothing is being recorded |
+| Ranking | `Undo` `V1` `V2` `V3` `Next` — a version already placed goes dim, because a tie is refused |
+| Free text | the same row with the versions dim and `Next` lit — the probe is optional, so the participant's Next means "leave it as it stands and play the next clip" |
+| Both previews | the row of the page being previewed, values and `Undo` dim, `Next` lit |
+| Framing | one `Next`, at a short-answer button's width, centred |
+| Closing | no row at all |
+
+**Every screen up to the first clip is pressable, and the closing one is not** (user's call, the
+same day, replacing an answer-screens-only row): *a participant who can start the session should be
+able to finish it*, and a framing screen only the operator could pass is a session that stops on
+its first page. The previews carry the row of the page they preview with the values dim, because
+seeing the buttons is half of what a preview is for and pressing them there would mean nothing.
+
+The cost, accepted: a participant may press on before the operator has finished reading a passage
+aloud. The operator can ask them to wait, and their own key still works — the alternative was a
+session that cannot be finished without them.
+
+**The closing passage is the exception**: no row, and the operator's key alone. It is the one
+screen with nothing after it — every answer is already written by the time it shows — and a
+participant who pressed on would be left looking at an empty room with the headset still on.
+
+**The ranking now shows the order given** — `Your order:   1st: V2,   2nd: V1,   3rd: _` — which
+reverses 2026-08-31's "the ranking marks nothing at all". That decision was right while the
+participant only spoke: listing the versions invited them to do the ranks-to-versions conversion
+themselves. Once they press the buttons, a press that shows nothing back is a press they cannot
+check or correct.
+
+**Each rank is named rather than chained** (user's call, 2026-09-09; it read `V2 > V1 > _` first).
+A chain of ">" leaves the reader to work out which end is best from the shape of the line, and a
+participant pressing the buttons alone has nobody to ask. An ordinal against each slot says it
+outright and names the empty one they are filling next. `RankingOrder.Ordinal` is where a rank is
+spelled, so the operator's "1st / 2nd / 3rd" and the participant's cannot drift apart.
+
+**The short-answer page marks the question being asked**, with the same `>` in the same two columns
+the rating page uses (user's call, 2026-09-09). Two questions sit on that page and the button row
+changes under them — versions while the ranking is open, then only `Next` — so which one the row is
+answering has to be visible. The preview marks neither, exactly as the rating preview shows no
+cursor.
+
+**And the ranking prompt says "from best to worst"** (user, same day), for the same reason: nothing
+else on the page said which end came first.
+
+**Enabling is asked of `QuestionnaireEntry.Accepts`** — the same predicate that refuses the
+operator's keystroke — so what is dim and what would be refused cannot drift. A disabled button is
+dimmed and never hidden: the row keeps its shape, so the same answer stays in the same place on the
+panel from screen to screen. The participant's panel carries no notice for them to read, which is
+why a refusal has to be visible before the press rather than after it.
+
+**First tried on a real Vive wand pair, 2026-09-09**, which found two faults, both since fixed:
+
+- **Only one of the two wands could highlight anything**, and the giveaway was the cursor sitting
+  at the end of the *idle* controller's ray. `TryAim` reported a hit on the panel's **plane**, which
+  is infinite — so a controller hanging at the participant's side and pointing vaguely forward
+  "hit" it several metres off to one side, and since the first hit won the cursor, the controller
+  actually aimed at a button got neither cursor nor highlight. It now takes a hit only inside the
+  canvas rect. Two things behind it were wrong as well: the tie-break preferred whichever controller
+  had last *completed a press*, which the trigger fault below made impossible, so the preference
+  stayed at -1 and never moved; and the device filter took only `XRController`, while the Varjo
+  plugin publishes handed SteamVR *tracker* layouts that do not derive from it, so a runtime that
+  enumerates one wand that way loses that hand entirely. Any tracked device with a trigger now
+  counts (the headset excepted, being tracked too), and any *pull* claims the cursor rather than
+  only a completed press.
+- **The trigger did nothing.** `triggerPressed` was preferred and the axis used only where that
+  control was *absent*, which leaves no path at all for a layout that declares the button and never
+  updates it. Both are now read into one down/up state, so either alone is enough, and it is one
+  edge per pull rather than one per control - on a wand the axis crosses the threshold a frame or
+  two before the click bottoms out, and two edges from one squeeze would enter two answers. It also
+  no longer depends on `wasPressedThisFrame`, whose edge is defined against the input update rather
+  than the frame the pose was read in.
+
+**Diagnosis is on the panel, not in a guess.** The operator's header carries the controller count,
+what the participant is aiming at and the live trigger reading, because a trigger reporting nothing
+and a participant who is simply not pressing look identical from the desk.
+`QuestionnaireControllerPointer.LogControlsAsPressed` names every control on a controller as it is
+held, which is how an unfamiliar controller's trigger is found without spending another headset
+session on the question.
+
+**Working after those two fixes** (user, 2026-09-09): both wands aim, both press, and the trigger
+enters an answer. The cursor shows for one controller at a time — whichever was last used — which
+is the intended behaviour and reads correctly with both in hand.
+
+**Still unverified**: whether an 11 cm button at 1.5 m is comfortable over a session of twenty
+screens, and everything §1 still owes. `QuestionnaireControllerPointer.MouseFallback` walks the
+whole row at a desk with the mouse; it is off by default, because in a session the operator's own
+clicks land in the same game view and one of them on the panel would answer a question nobody
+asked.
 
 ---
 
@@ -100,6 +213,11 @@ inside the Varjo's focus area. Exact size and type scale need a headset — §10
 
 The ranking screen names the three versions **by the order they were shown** (Version 1 / 2 / 3),
 which is the only handle the participant has on them, and states that ties are not allowed (§6.3).
+**The operator enters versions by rank, not ranks by version** (2026-09-09): the panel lists 1st /
+2nd / 3rd and takes a version number in each, because a participant says "two, then one, then
+three" and typing that verbatim is one conversion fewer for the operator to get wrong. The file is
+unchanged — `responses.csv` still holds one `R1` row per version with its rank, inverted at commit by
+`RankingOrder` (pure, tested) — so study 1's responses and study 2's read identically.
 
 ## 5. Flow, and the seam to the harness
 
@@ -115,8 +233,11 @@ which version position just played, the questionnaire raises an event when its s
 and the harness starts the next clip. Designing the seam now is the point of doing this first —
 building the harness against a questionnaire that already exists is easier than the reverse.
 
-**Only the experimenter can advance.** A participant who did not understand an item cannot get
-stuck, and cannot skip past one.
+**The participant can advance every screen but the last** (2026-09-09, §0.1), so a session that has
+started can be finished without the operator touching anything. They still cannot *skip* an item:
+`Next` on an answer screen lights only once the screen is complete, and a participant who did not
+understand one cannot get stuck, because the operator's keyboard stays live on every screen. The
+closing passage is the operator's alone.
 
 ## 6. The response record
 
@@ -165,6 +286,8 @@ Ordered so that headset time — the scarce resource — is needed only at step 
 ## 10. Open items
 
 - Confirm the overlay/mirror split in a real Varjo session (§1). Everything else assumes it.
+- Confirm a Vive wand enumerates under the Varjo loader, and that a button at 1.5 m is comfortable
+  to hit (§0.1). Both need the headset; the mouse fallback covers everything else.
 - Legibility, panel distance and type size in the headset (§4) — cannot be settled at a desk.
 - Whether the framing screen (§6.1) reads naturally when displayed rather than spoken; the pilot of
   3–5 people (`user-study-design.md` §10) is where that gets answered.
