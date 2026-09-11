@@ -32,7 +32,7 @@ it:
 - No XR Interaction Toolkit, no ray interactor, no pointer/hover/press states, no SteamVR
   dependency for controllers under the Varjo loader — an untested path on the one piece of
   hardware that has already produced one surprise (OpenXR's eye-gaze extension enumerating no
-  device, CLAUDE.md "XR — the study rig").
+  device, `xr-rig.md`).
 - The VR surface becomes **display-only**: a world-space canvas with no input at all.
 - The entry surface is a desktop panel: keyboard, no latency, and it cannot be seen from inside
   the headset.
