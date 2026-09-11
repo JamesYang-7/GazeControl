@@ -4,6 +4,10 @@ Reads every participant folder under ``Recordings/Study_02`` (``P01``, ``P02``,
 ...; ``P00`` is the debugging label and is skipped) -- ``responses.csv``,
 ``comments.jsonl`` and ``session.json`` -- and reports:
 
+* **at a glance** -- the numbers a significance claim rests on, before the tables
+  they come from: the per-condition means, Friedman and Kendall's W per item, the
+  Holm-corrected pairwise p and its rank-biserial effect size, what clears alpha,
+  and a legend saying what each of them does and does not license;
 * **completeness** -- which participants are there, whether each session finished,
   whether every block carries four ratings per version and a proper ranking, and
   how the method x serial-position counts stand (the counterbalancing closes only
@@ -20,6 +24,10 @@ Reads every participant folder under ``Recordings/Study_02`` (``P01``, ``P02``,
   used resolved to conditions from that block's running order, since ``v1`` in a
   comment is a serial position and means a different method in every block.
 
+The report is printed. ``--csv PREFIX`` also writes the per-participant tables as
+``<PREFIX>_*.csv`` and the whole report as ``<PREFIX>_report.md`` -- markdown with
+every table kept as preformatted text, since they are aligned by column width.
+
 Descriptive and non-parametric on purpose. The mixed-model estimated marginal
 means of study 1 live in ``build_study_figures.py`` and need the full balanced
 design; this script is for reading the results while they are still coming in.
@@ -31,6 +39,7 @@ design; this script is for reading the results while they are still coming in.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import glob
 import json
 import os
@@ -50,6 +59,9 @@ CONDITION_NAME = {"Proposed": "Ours", "RoleConditioned": "A", "SpeakerFollowing"
 METHODS = ["Ours", "A", "B"]
 LEGEND = {"Ours": "Ours (prototypes)", "A": "Baseline A (role-conditioned)",
           "B": "Baseline B (speaker-following)"}
+
+PAIRS = [("Ours", "A"), ("Ours", "B"), ("A", "B")]
+ALPHA = 0.05
 
 RANK_ITEM = "R1"
 COMMENT_ITEM = "D1"
@@ -166,12 +178,24 @@ def holm(pvals):
     return adj
 
 
-def pairwise(per_participant, label):
+def rank_biserial(diff):
+    """Matched-pairs rank-biserial correlation: the effect size beside a Wilcoxon p.
+
+    +1 means every participant moved one way, 0 means the signed ranks cancel. Ties
+    are dropped first, exactly as the test drops them.
+    """
+    d = np.asarray(diff, float)
+    d = d[d != 0]
+    if d.size == 0:
+        return 0.0
+    r = stats.rankdata(np.abs(d))
+    return float((r[d > 0].sum() - r[d < 0].sum()) / r.sum())
+
+
+def pairwise_stats(per_participant):
     """Wilcoxon signed-rank on each pair of methods over the per-participant values."""
-    pairs = [("Ours", "A"), ("Ours", "B"), ("A", "B")]
-    raw = []
     rows = []
-    for a, b in pairs:
+    for a, b in PAIRS:
         # Rounded so that two means of 0.6 tie rather than differing in the 16th decimal
         # and taking two ranks; the means are multiples of 1/N_BLOCKS.
         diff = (per_participant[a] - per_participant[b]).round(9)
@@ -182,28 +206,115 @@ def pairwise(per_participant, label):
             res = stats.wilcoxon(diff, zero_method="wilcox",
                                  method="exact" if n <= 25 else "approx")
             pval, w = float(res.pvalue), float(res.statistic)
-        raw.append(pval)
         rows.append({"pair": "%s vs %s" % (a, b), "mean diff": diff.mean(),
-                     "n nonzero": n, "W": w, "p": pval})
-    adj = holm(raw)
-    for r, a in zip(rows, adj):
-        r["p (Holm)"] = a
+                     "n nonzero": n, "W": w, "r": rank_biserial(diff), "p": pval})
     t = pd.DataFrame(rows)
+    t["p (Holm)"] = holm(t["p"])
+    return t
+
+
+def pairwise(per_participant, label):
+    t = pairwise_stats(per_participant)
     print("  pairwise Wilcoxon signed-rank (%s):" % label)
     print(t.to_string(index=False, float_format=lambda v: "%.3f" % v))
 
 
-def friedman(per_participant, label):
+def friedman_stats(per_participant):
+    """Friedman across the three methods, or None with too few participants to run it."""
     n = len(per_participant)
     if n < 3:
-        print("  Friedman (%s): skipped, %d participants" % (label, n))
-        return
+        return None
     cols = [per_participant[m].to_numpy() for m in METHODS]
     chi2, p = stats.friedmanchisquare(*cols)
     # Kendall's W from the Friedman statistic: W = chi2 / (n (k - 1)).
-    w = chi2 / (n * (len(METHODS) - 1))
+    return {"chi2": float(chi2), "p": float(p),
+            "W": float(chi2) / (n * (len(METHODS) - 1)), "n": n}
+
+
+def friedman(per_participant, label):
+    f = friedman_stats(per_participant)
+    if f is None:
+        print("  Friedman (%s): skipped, %d participants" % (label, len(per_participant)))
+        return
     print("  Friedman (%s): chi2(%d) = %.2f, p = %.4f, Kendall W = %.2f, n = %d"
-          % (label, len(METHODS) - 1, chi2, p, w, n))
+          % (label, len(METHODS) - 1, f["chi2"], f["p"], f["W"], f["n"]))
+
+
+def per_participant(s):
+    """Each participant's mean per method -- the unit of analysis every test runs on."""
+    return s.pivot_table(index="participant", columns="m", values="response",
+                         aggfunc="mean")[METHODS]
+
+
+def report_summary(d, items):
+    """The numbers a significance claim rests on, before the full tables below."""
+    print("== At a glance")
+    n = d.participant.nunique()
+    n_blocks = len(d[["participant", "block"]].drop_duplicates())
+    print("   %d participants x %d blocks = %d judgements per method and item."
+          % (n, n_blocks // n, n_blocks))
+    print("   Every test below runs on the per-participant mean over those blocks, so")
+    print("   n = %d for all of them -- that, and not the %d ratings behind each item,"
+          % (n, n_blocks * N_POSITIONS))
+    print("   is the number that decides the power.")
+
+    rows, pairs, verdicts = [], [], []
+    for code, construct, _ in items + [(RANK_ITEM, "Ranking (1 = best)", None)]:
+        s = d[d.item == code]
+        pp = per_participant(s)
+        f = friedman_stats(pp)
+        t = pairwise_stats(pp)
+        label = "%s %s" % (code, construct)
+        row = {"": label}
+        row.update({m: pp[m].mean() for m in METHODS})
+        row.update({"chi2(2)": f["chi2"] if f else np.nan,
+                    "p": f["p"] if f else np.nan,
+                    "W": f["W"] if f else np.nan})
+        rows.append(row)
+        p_row = {"": label}
+        for _, r in t.iterrows():
+            p_row[(r["pair"], "p Holm")] = r["p (Holm)"]
+            p_row[(r["pair"], "r")] = r["r"]
+        pairs.append(p_row)
+        if f and f["p"] < ALPHA:
+            verdicts.append("%s Friedman p = %.4f" % (code, f["p"]))
+        for _, r in t.iterrows():
+            if r["p (Holm)"] < ALPHA:
+                verdicts.append("%s %s p = %.4f (Holm)" % (code, r["pair"], r["p (Holm)"]))
+
+    p4 = lambda v: "%.4f" % v          # p-values, where the third decimal is not enough
+    print("\n-- Omnibus: is there any difference among the three methods?")
+    ot = pd.DataFrame(rows).set_index("").rename_axis(None)
+    print(ot.to_string(float_format=lambda v: "%.2f" % v, formatters={"p": p4}))
+    print("\n-- Pairwise: which two differ? (Holm-corrected within each row's three pairs)")
+    pt = pd.DataFrame(pairs).set_index("").rename_axis(None)
+    pt.columns = pd.MultiIndex.from_tuples(pt.columns)
+    print(pt.to_string(float_format=lambda v: "%.2f" % v,
+                       formatters={c: p4 for c in pt.columns if c[1] == "p Holm"}))
+
+    print("\n-- Significant at %.2f" % ALPHA)
+    for v in verdicts or ["nothing"]:
+        print("   %s" % v)
+    print("""
+   What each number means
+     n              participants (%d here), the sample size of every test -- a
+                    participant's five blocks are not independent of each other.
+     chi2(2), p     Friedman, the omnibus test: does any of the three methods
+                    differ at all? Above %.2f, the pairwise column is exploratory.
+     W              Kendall's W, the omnibus effect size, 0-1: how consistently
+                    participants ordered the methods. ~.1 small, ~.3 moderate, ~.5 large.
+     p Holm         the pairwise Wilcoxon p after Holm correction over that row's
+                    three pairs. THIS is the number to quote for "Ours beats A",
+                    not the uncorrected p in the full tables below.
+     r              matched-pairs rank-biserial correlation, the pairwise effect
+                    size, -1 to +1. A small p with a small r is a fragile result.
+     n nonzero      (full tables) participants whose two means actually differed.
+                    Ties are dropped, so a pair with few of them cannot reach a
+                    small p however large the difference looks.
+
+   Correction is applied within an item, across its three pairs -- not across the
+   %d items. Reading all of them and quoting the smallest inflates the error rate.
+""" % (n, ALPHA, len(items) + 1))
 
 
 def report_ratings(d, items, csv_prefix):
@@ -335,6 +446,73 @@ def report_comments(d, comments, prompt, csv_prefix):
     print()
 
 
+# ------------------------------------------------------------------ markdown
+
+class Tee:
+    """Passes everything printed through to the console and keeps a copy."""
+
+    def __init__(self, stream):
+        self.stream = stream
+        self.parts = []
+
+    def write(self, s):
+        self.stream.write(s)
+        self.parts.append(s)
+        return len(s)
+
+    def flush(self):
+        self.stream.flush()
+
+    def text(self):
+        return "".join(self.parts)
+
+
+def to_markdown(report):
+    """The printed report as markdown.
+
+    Headings come from the report's own ``==`` and ``--`` rules and the quoted item
+    text under one becomes a caption; every other line is kept as preformatted text,
+    because the tables are whitespace-aligned by ``to_string`` and a markdown
+    renderer would collapse them.
+    """
+    out = []
+    fenced = False
+    caption = False
+    titled = False
+
+    def close_fence():
+        if not fenced:
+            return
+        while out and not out[-1].strip():
+            out.pop()
+        out.extend(["```", ""])
+
+    for line in report.splitlines():
+        heading = "## " if line.startswith("== ") else "### " if line.startswith("-- ") else None
+        if heading:
+            close_fence()
+            fenced = False
+            out.extend([heading + line[3:].strip(), ""])
+            caption = True
+            continue
+        if caption and line.strip().startswith('"'):
+            out.extend(["*%s*" % line.strip(), ""])
+            continue
+        caption = False
+        if not fenced:
+            if not line.strip():
+                continue
+            if not titled:      # the "Study 2 questionnaire -- N participants" line
+                out.extend(["# " + line.strip(), ""])
+                titled = True
+                continue
+            out.append("```text")
+            fenced = True
+        out.append(line)
+    close_fence()
+    return "\n".join(out).rstrip() + "\n"
+
+
 # ---------------------------------------------------------------------- main
 
 def main():
@@ -344,7 +522,8 @@ def main():
                     help="labels to include (default: every P<nn> folder with responses.csv)")
     ap.add_argument("--exclude", nargs="*", default=[], help="labels to leave out")
     ap.add_argument("--csv", metavar="PREFIX",
-                    help="also write the per-participant tables as <PREFIX>_*.csv")
+                    help="also write the per-participant tables as <PREFIX>_*.csv "
+                         "and the whole report as <PREFIX>_report.md")
     args = ap.parse_args()
 
     participants = args.participants or discover_participants(args.root)
@@ -357,12 +536,21 @@ def main():
     if args.csv:
         os.makedirs(os.path.dirname(os.path.abspath(args.csv)), exist_ok=True)
 
-    print("Study 2 questionnaire -- %d participants: %s\n"
-          % (len(participants), ", ".join(participants)))
-    report_completeness(d, sessions, items)
-    report_ratings(d, items, args.csv)
-    report_rankings(d, rank_prompt, args.csv)
-    report_comments(d, comments, comment_prompt, args.csv)
+    tee = Tee(sys.stdout)
+    with contextlib.redirect_stdout(tee):
+        print("Study 2 questionnaire -- %d participants: %s\n"
+              % (len(participants), ", ".join(participants)))
+        report_summary(d, items)
+        report_completeness(d, sessions, items)
+        report_ratings(d, items, args.csv)
+        report_rankings(d, rank_prompt, args.csv)
+        report_comments(d, comments, comment_prompt, args.csv)
+
+    if args.csv:
+        path = args.csv + "_report.md"
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(to_markdown(tee.text()))
+        print("wrote %s" % path)
 
 
 if __name__ == "__main__":
