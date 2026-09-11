@@ -1,4 +1,5 @@
 using GazeControl.Conversation;
+using GazeControl.Demo;
 using GazeControl.Experiment;
 using UnityEditor;
 using UnityEditor.Recorder;
@@ -43,6 +44,7 @@ namespace GazeControl.Editor
         {
             SilenceDeveloperOverlay();
             SessionState.SetBool(k_PendingKey, true);
+            RecordingHold.Hold();
             EditorApplication.isPlaying = true;
         }
 
@@ -53,7 +55,7 @@ namespace GazeControl.Editor
         /// here rather than trusted to be off, because the overlay is toggled
         /// for preview all the time and nothing else would catch it.
         /// </summary>
-        static void SilenceDeveloperOverlay()
+        public static void SilenceDeveloperOverlay()
         {
             foreach (var overlay in Object.FindObjectsByType<DeveloperOverlay>(
                          FindObjectsInactive.Include, FindObjectsSortMode.None))
@@ -74,10 +76,10 @@ namespace GazeControl.Editor
 
             if (SessionState.GetBool(k_PendingKey, false))
             {
-                // The flag is cleared only once the encoder is up, because the
+                // The hold is released only once the encoder is up, because the
                 // conversation waits on it: starting the segment while Recorder
                 // is still preparing cost the first two seconds of the video.
-                // Cleared in a finally so a failed start cannot hang the scene.
+                // Released in a finally so a failed start cannot hang the scene.
                 try
                 {
                     StartRecording();
@@ -85,6 +87,7 @@ namespace GazeControl.Editor
                 finally
                 {
                     SessionState.SetBool(k_PendingKey, false);
+                    RecordingHold.Release();
                 }
             }
 

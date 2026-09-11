@@ -13,15 +13,22 @@ using UnityEngine;
 namespace GazeControl.Editor
 {
     /// <summary>
-    /// GazeControl → Study → Clip Browser: lists every segment exported under
-    /// Assets/DemoSegments/, shows what it contains, and loads one into the
-    /// open scene so it can be played.
+    /// Lists every segment exported under Assets/DemoSegments/, shows what it
+    /// contains, and loads one into the open scene so it can be played.
     ///
     /// Built for choosing the study's five scene-1 clips by eye. The candidate
     /// set is far larger than the study needs, and the ranking in
     /// Tools/find_demo_segments.py scores timing only — nothing in it reads the
     /// words — so the final pick has to be made by watching and reading. The
     /// transcript is shown beside the metadata for exactly that reason.
+    ///
+    /// <para><b>Study 1's, and off the menu with the rest of study 1</b> (user's
+    /// call, 2026-09-10). It was at the menu root as a shared command, and it is
+    /// not shared: study 2's clips are chosen from the 3People corpus through
+    /// <c>GazeControl → 3People → Session Browser</c>, which reads a window out
+    /// as a transcript before anything plays. Restore its
+    /// <c>[MenuItem("GazeControl/Study 1/Clip Browser")]</c> if study 1's clips
+    /// are ever picked over again.</para>
     /// </summary>
     public sealed class StudyClipBrowser : EditorWindow
     {
@@ -57,7 +64,7 @@ namespace GazeControl.Editor
         Vector2 _listScroll;
         Vector2 _detailScroll;
 
-        [MenuItem("GazeControl/Clip Browser")]
+        /// <inheritdoc cref="StudyClipBrowser"/>
         public static void Open()
         {
             var window = GetWindow<StudyClipBrowser>("Clip Browser");

@@ -78,23 +78,57 @@ namespace GazeControl.Editor
 
             ("Preparing the clips", "Both take real time. Do them the day before, not with someone waiting.", new[]
             {
-                new Entry("Clip Browser",
-                    "Lists every exported segment with its duration, events, measured voices and " +
-                    "transcript, so the study's clips can be chosen by reading rather than by score.\n\n" +
-                    "Load into scene / Load and Play preview one. Match textures to voices applies the " +
-                    "clip's own voice measurement as a scene edit (a session does this itself at load). " +
-                    "Scan seeds reports how much each agent averts across twelve seeds, so a clip is judged " +
-                    "on the clip and not on an unlucky draw. Bake all 3 records the baked gaze track for " +
-                    "each condition — one play session each, and a study session replays these files.\n\n" +
-                    "Developer mode marks the end-of-turn boundaries on screen. Preview only: it names the " +
-                    "very thing the questionnaire asks participants to judge, and a session refuses to " +
-                    "start with it on.",
-                    "GazeControl/Clip Browser"),
+                new Entry("3People → Session Browser",
+                    "Where study 2's clips are chosen. Picks the date, session and window, lists the " +
+                    "finder's ranking from output/3people_segments.csv as a starting point, and reads a " +
+                    "window out as a transcript with its events marked before anything plays — which is " +
+                    "the only way to catch the microphone bleed that puts a phantom line, and so a " +
+                    "phantom event, on the wrong track.\n\n" +
+                    "Play whole session ignores the ranking, which is what watching the originals means.\n\n" +
+                    "Study 1's own Clip Browser came off the menu with the rest of study 1; " +
+                    "StudyClipBrowser.Open is still there and wants only its [MenuItem] back.",
+                    "GazeControl/3People/Session Browser"),
+
+                new Entry("Study 2 → Bake Seeds 1-12",
+                    "Every condition at every study seed for every clip the session runner lists — 252 " +
+                    "play sessions for seven clips, about two hours. A study session replays these files, " +
+                    "so nothing can run until they exist. Each track is validated as its play session " +
+                    "ends and a short one is queued again; output/bake_report_*.txt is the result.\n\n" +
+                    "Apply Chosen Seeds then writes the seed per clip that Tools/choose_study2_seeds.py " +
+                    "picked onto the session runner, so the scene never carries a seed whose reason is " +
+                    "not on disk.",
+                    "GazeControl/Study 2/Bake Seeds 1-12"),
 
                 new Entry("Record Demo",
                     "Enters play, records the Game view with audio to Recordings/<case>/*.mp4, stops " +
                     "shortly after the segment ends and leaves play. The take's length is the segment's. " +
                     "For demo videos, not for participants."),
+            }),
+
+            ("The demo video", "A flat 16:9 video of the clips under each method. Two stages, so a " +
+                               "rewording costs a minute of ffmpeg rather than fifteen play sessions. " +
+                               "Assets/Docs/demo-video.md is the full account.", new[]
+            {
+                new Entry("Demo Video → Set Up Demo Camera",
+                    "Builds the camera a demo video is shot through: a second one beside the " +
+                    "participant's, pulled back and tilted down so a flat frame holds both agents' " +
+                    "bodies. The participant's camera is never moved — the agents aim at it, so its pose " +
+                    "is part of the stimulus.",
+                    "GazeControl/Demo Video/Set Up Demo Camera"),
+
+                new Entry("Demo Video → Camera Framing",
+                    "The five numbers that decide the shot, with a readout in metres of what the frame " +
+                    "covers at each agent's distance. Pick a clip and play it through the demo camera to " +
+                    "tune against the real thing; set the Game view to 16:9 first, or the picture is not " +
+                    "the one that gets recorded.",
+                    "GazeControl/Demo Video/Camera Framing"),
+
+                new Entry("Demo Video → Render Takes",
+                    "One play session per clip and method, writing a PNG per frame plus audio.wav and " +
+                    "take.json into Recordings/Demos/<clip>/<method>/. The baked track is replayed at " +
+                    "the session's own seed, so the gaze in the video is the gaze in the study. Then " +
+                    "uv run python Tools/compose_demo_video.py cuts them into output/demo_video.mp4.",
+                    "GazeControl/Demo Video/Render Takes"),
             }),
 
             ("Scene setup", "Idempotent. Each builds its part of the scene, and re-running one repairs it " +

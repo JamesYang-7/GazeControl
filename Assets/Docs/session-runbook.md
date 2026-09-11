@@ -1,7 +1,7 @@
 # Running a participant session
 
 The operator's procedure, start to finish. Everything the software can check for
-itself is checked by **GazeControl → Study 1 → Start Session** (or **Study 2 →**); what is left here is
+itself is checked by **GazeControl → Study 2 → Start Session**; what is left here is
 what only a person in the room can do.
 
 ## Study 2 (3People clips)
@@ -24,12 +24,13 @@ The procedure below is the same; only the scene and the clip list differ.
 
 ## Before the participant arrives
 
-1. Open **GazeControl → Study 1 → Start Session** or **Study 2 → Start Session**; it opens the right scene.
+1. Open **GazeControl → Study 2 → Start Session**; it opens the right scene. (Study 1's entry came off
+   the menu on 2026-09-09 — its participants are recorded and its paper written.)
 2. Read the **Preflight** list. Rows marked `!!` block the session; fix them now.
    Rows marked `→` are set for you when the session starts and need nothing.
    - *Segments exported* / *Tracks baked* are the two that take real time to fix —
-     baking is one play session per condition, from the Clip Browser. Check them
-     the day before, not with someone waiting.
+     baking is one play session per condition, from **Study 2 → Bake Seeds 1-12**.
+     Check them the day before, not with someone waiting.
 3. Check the participant label at the top. It is taken from the folders under
    the study's folder under `Recordings/`, so it is one past the last person who ran in this study. The step buttons are
    for a correction only.

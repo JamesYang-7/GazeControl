@@ -370,14 +370,14 @@ namespace GazeControl.Conversation
         }
 
         /// <summary>
-        /// Hold the segment until the demo recorder's encoder is running. The
-        /// flag is the recorder's own "a recording was asked for" session key, so
-        /// a plain Play Mode session never waits on anything.
+        /// Hold the segment until a recorder's encoder is running. Nothing sets
+        /// the hold unless a recording was asked for, so a plain Play Mode
+        /// session never waits on anything.
         /// </summary>
         async Awaitable WaitForRecorderAsync(System.Threading.CancellationToken cancellationToken)
         {
 #if UNITY_EDITOR
-            while (UnityEditor.SessionState.GetBool("GazeControl.DemoRecorder.Pending", false))
+            while (Demo.RecordingHold.Pending)
                 await Awaitable.NextFrameAsync(cancellationToken);
 #else
             await Awaitable.NextFrameAsync(cancellationToken);
