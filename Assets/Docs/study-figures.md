@@ -11,10 +11,16 @@ generated PDF, and never let a number in the paper's prose come from anywhere bu
 script that draws the figure. Regenerate with:
 
 ```
-python Tools/build_study_figures.py
+python Tools/build_study_figures.py            # study 2, the paper's current study
+python Tools/build_study_figures.py --study 1  # study 1
 ```
 
-It reads `Recordings/Study_01/P05..P22/responses.csv` and writes into `{PAPER_ROOT}/figures/`.
+**Since 2026-09-10 the paper's figures are study 2's** (`--study 2`, the default): it reads
+`Recordings/Study_02/P01..P18/responses.csv`, labels the participants as they are on disk
+(study 2 had no pilots, so section 2.1's renumbering does nothing there), and writes into
+`{PAPER_ROOT}/figures/`. Study 1 reads `Recordings/Study_01/P05..P22/responses.csv` with the
+renumbering below. Everything else in this document applies to both studies unchanged; the
+numbers quoted in the caption discussions below are study 1's.
 
 **Two repositories, and one symbol for the other one.** **`{PAPER_ROOT}` stands for the CHI
 paper repository**, currently at `F:\Research\CHI_2027___Explainable_Gaze_Patterns_for_Turn_Taking`.

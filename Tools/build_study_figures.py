@@ -12,13 +12,15 @@ Two figures, specified in ``Assets/Docs/study-figures.md``:
 
 Regenerate with::
 
-    python Tools/build_study_figures.py
+    python Tools/build_study_figures.py            # study 2, the paper's current study
+    python Tools/build_study_figures.py --study 1  # study 1, for the ICMI paper
 
-Reads ``Recordings/Study_01/P05..P22/responses.csv`` -- the 18 analysed participants;
-P01-P04 are pilots and are excluded (``user-study-design.md`` section 0.1). The
-figures label them P01-P18, renumbering the analysed set from one for publication;
-see ``DISPLAY_LABEL`` below, which is printed on every run so a bar can be traced
-back to the log it came from.
+Study 2 reads ``Recordings/Study_02/P01..P18/responses.csv`` and labels them as they
+are. Study 1 reads ``Recordings/Study_01/P05..P22/responses.csv`` -- the 18 analysed
+participants; P01-P04 are pilots and are excluded (``user-study-design.md`` section
+0.1) -- and the figures label them P01-P18, renumbering the analysed set from one for
+publication; see ``DISPLAY_LABEL`` below, which is printed on every run so a bar can
+be traced back to the log it came from.
 Writes into the paper's ``figures/`` directory. **The paper is a separate git
 repository, outside this one** (moved out of ``Research/`` on 2026-09-06 so that it
 could have version control of its own; ``Research/`` is git-ignored here). Its
@@ -63,7 +65,12 @@ except ImportError:  # pragma: no cover - environment guard, see module docstrin
              "mixed models). Install it, or the figure will not match the prose.")
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-RECORDINGS = os.path.join(REPO, "Recordings", "Study_01")
+STUDIES = {
+    1: (os.path.join(REPO, "Recordings", "Study_01"), ["P%02d" % i for i in range(5, 23)]),
+    2: (os.path.join(REPO, "Recordings", "Study_02"), ["P%02d" % i for i in range(1, 19)]),
+}
+DEFAULT_STUDY = 2
+RECORDINGS, PARTICIPANTS = STUDIES[DEFAULT_STUDY]
 # The paper lives in its own git repository, outside this one. Set
 # GAZECONTROL_PAPER_DIR to relocate it without editing this file, or pass --out.
 PAPER_DIR = os.environ.get(
@@ -71,10 +78,9 @@ PAPER_DIR = os.environ.get(
     r"F:\Research\CHI_2027___Explainable_Gaze_Patterns_for_Turn_Taking")
 DEFAULT_OUT = os.path.join(PAPER_DIR, "figures")
 
-# The 18 analysed participants, by the label their files carry on disk. P01-P04 are
-# pilots, excluded before any further participant ran, on a ground independent of how
-# they answered.
-PARTICIPANTS = ["P%02d" % i for i in range(5, 23)]
+# The 18 analysed participants, by the label their files carry on disk. In study 1,
+# P01-P04 are pilots, excluded before any further participant ran, on a ground
+# independent of how they answered; study 2 had no pilots and runs P01-P18.
 
 # What the paper calls them. The analysed participants are numbered from one for
 # publication, because the gap at the front is an artifact of the pilot exclusion and a
@@ -398,7 +404,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--out", default=DEFAULT_OUT,
                         help="directory to write the PDFs into (default: the paper's)")
+    parser.add_argument("--study", type=int, choices=sorted(STUDIES), default=DEFAULT_STUDY,
+                        help="which study's recordings to draw (default: %d)" % DEFAULT_STUDY)
     args = parser.parse_args()
+    global RECORDINGS, PARTICIPANTS, DISPLAY_LABEL
+    RECORDINGS, PARTICIPANTS = STUDIES[args.study]
+    DISPLAY_LABEL = {disk: "P%02d" % (k + 1) for k, disk in enumerate(PARTICIPANTS)}
     os.makedirs(args.out, exist_ok=True)
 
     d = load_responses()
