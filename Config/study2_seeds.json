@@ -1,0 +1,199 @@
+{
+  "rule": "The Proposed condition draws each event's prototype as ``FNV-1a(seed, eventIndex)``\nover the pool of the event's own class, and every study 2 clip has exactly one\nevent, index 0 \u2014 so one seed draws the *same* prototype in every turn-taking\nclip, and leaving the seeds equal would test one prototype six times. The rule:",
+  "seedsConsidered": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+  ],
+  "excludedClips": [
+    "study2_c5",
+    "study2_c6"
+  ],
+  "maxAvert": 0.7,
+  "maxUser": 0.6,
+  "drawsPerSeed": {
+    "InterruptionPool": {
+      "1": "Fig6b",
+      "2": "Fig8b",
+      "3": "Fig7a",
+      "4": "Fig8a",
+      "5": "Fig6b",
+      "6": "Fig8b",
+      "7": "Fig6b",
+      "8": "Fig6a",
+      "9": "Fig7a",
+      "10": "Fig6a",
+      "11": "Fig8a",
+      "12": "Fig8b"
+    },
+    "OverlappingPool": {
+      "1": "Fig6c",
+      "2": "Fig8c",
+      "3": "Fig7c",
+      "4": "Fig7b",
+      "5": "Fig6c",
+      "6": "Fig8c",
+      "7": "Fig7c",
+      "8": "Fig7b",
+      "9": "Fig6c",
+      "10": "Fig8c",
+      "11": "Fig7c",
+      "12": "Fig7b"
+    },
+    "TurnTakingPool": {
+      "1": "Fig6d",
+      "2": "Fig8e",
+      "3": "Fig6d",
+      "4": "Fig6e",
+      "5": "Fig7d",
+      "6": "Fig6e",
+      "7": "Fig8d",
+      "8": "Fig7e",
+      "9": "Fig6d",
+      "10": "Fig8e",
+      "11": "Fig6d",
+      "12": "Fig6e"
+    }
+  },
+  "chosen": [
+    {
+      "clip": "study2_c1",
+      "class": "turn-taking",
+      "seed": 1,
+      "prototype": "Fig6d",
+      "listenerDirectedFrames": 0,
+      "seedsDrawingIt": [
+        1,
+        3,
+        9,
+        11
+      ],
+      "proposed": {
+        "AgentA": {
+          "complete": 1,
+          "avert": 0.605,
+          "agent": 0.108,
+          "user": 0.288
+        },
+        "AgentB": {
+          "complete": 1,
+          "avert": 0.295,
+          "agent": 0.562,
+          "user": 0.143
+        }
+      }
+    },
+    {
+      "clip": "study2_c2",
+      "class": "turn-taking",
+      "seed": 4,
+      "prototype": "Fig6e",
+      "listenerDirectedFrames": 0,
+      "seedsDrawingIt": [
+        4,
+        6,
+        12
+      ],
+      "proposed": {
+        "AgentA": {
+          "complete": 1,
+          "avert": 0.541,
+          "agent": 0.411,
+          "user": 0.048
+        },
+        "AgentB": {
+          "complete": 1,
+          "avert": 0.511,
+          "agent": 0.37,
+          "user": 0.119
+        }
+      }
+    },
+    {
+      "clip": "study2_c3",
+      "class": "interruption",
+      "seed": 10,
+      "prototype": "Fig6a",
+      "listenerDirectedFrames": 10,
+      "seedsDrawingIt": [
+        8,
+        10
+      ],
+      "proposed": {
+        "AgentA": {
+          "complete": 1,
+          "avert": 0.48,
+          "agent": 0.364,
+          "user": 0.156
+        },
+        "AgentB": {
+          "complete": 1,
+          "avert": 0.385,
+          "agent": 0.324,
+          "user": 0.291
+        }
+      }
+    },
+    {
+      "clip": "study2_c4",
+      "class": "turn-taking",
+      "seed": 5,
+      "prototype": "Fig7d",
+      "listenerDirectedFrames": 0,
+      "seedsDrawingIt": [
+        5
+      ],
+      "proposed": {
+        "AgentA": {
+          "complete": 1,
+          "avert": 0.465,
+          "agent": 0.512,
+          "user": 0.023
+        },
+        "AgentB": {
+          "complete": 1,
+          "avert": 0.344,
+          "agent": 0.23,
+          "user": 0.427
+        }
+      }
+    },
+    {
+      "clip": "study2_c7",
+      "class": "turn-taking",
+      "seed": 7,
+      "prototype": "Fig8d",
+      "listenerDirectedFrames": 0,
+      "seedsDrawingIt": [
+        7
+      ],
+      "proposed": {
+        "AgentA": {
+          "complete": 1,
+          "avert": 0.381,
+          "agent": 0.469,
+          "user": 0.15
+        },
+        "AgentB": {
+          "complete": 1,
+          "avert": 0.485,
+          "agent": 0.296,
+          "user": 0.219
+        }
+      }
+    }
+  ],
+  "log": [
+    "study2_c3: seed 8 (Fig6a) rejected: Proposed AgentB never looks at the participant",
+    "study2_c7: Fig7e has no non-degenerate seed among [8] (seed 8: Proposed AgentA never looks at the participant, Proposed AgentB never looks at the participant); offered to the next clip"
+  ]
+}

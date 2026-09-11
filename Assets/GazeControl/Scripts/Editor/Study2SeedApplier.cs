@@ -14,7 +14,7 @@ namespace GazeControl.Editor
     /// the session runner in Study2Scene, and saves the scene.
     ///
     /// <para>The choice is made by a rule in that script and recorded in
-    /// <c>output/study2_seeds.json</c>; this command only transcribes it, so
+    /// <c>Config/study2_seeds.json</c>; this command only transcribes it, so
     /// the scene never carries a seed whose reason is not on disk. Typing the
     /// seven numbers into the inspector by hand is what this replaces — the
     /// order matters, and a transposition there would play the wrong bake
@@ -22,7 +22,7 @@ namespace GazeControl.Editor
     /// </summary>
     public static class Study2SeedApplier
     {
-        public const string ChoicePath = "output/study2_seeds.json";
+        public const string ChoicePath = "Config/study2_seeds.json";
         const string RunnerObjectName = "GazeCondition";
 
         [Serializable]

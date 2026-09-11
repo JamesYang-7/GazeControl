@@ -22,7 +22,7 @@ clip, and leaving the seeds equal would test one prototype six times. The rule:
 Everything is derived: the pools and each prototype's listener-directed frames
 from ``GazePatterns.g.cs``, each clip's event class from its ``segment.json``,
 and the bake statistics from the tracks via ``summarize_gaze_tracks``. Writes
-``output/study2_seeds.json`` unless ``--dry-run``.
+``Config/study2_seeds.json`` unless ``--dry-run``.
 
     uv run python Tools/choose_study2_seeds.py
     uv run python Tools/choose_study2_seeds.py --seeds 1-12 --max-avert 0.7 --max-user 0.6
@@ -42,7 +42,7 @@ from summarize_gaze_tracks import CONDITIONS, SEGMENT_ROOT, summarize  # noqa: E
 
 REPO = Path(__file__).resolve().parent.parent
 PATTERNS = REPO / "Assets" / "GazeControl" / "Scripts" / "Runtime" / "Gaze" / "Policies" / "GazePatterns.g.cs"
-OUTPUT = REPO / "output" / "study2_seeds.json"
+OUTPUT = REPO / "Config" / "study2_seeds.json"
 
 # The classes the segments name and the pools GazePatterns declares for them.
 CLASS_POOL = {"turn-taking": "TurnTakingPool", "interruption": "InterruptionPool", "overlapping": "OverlappingPool"}
@@ -129,7 +129,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-user", type=float, default=0.6, help="an agent looking at the participant more than this is degenerate")
     parser.add_argument("--exclude", nargs="*", default=[], metavar="CLIP",
                         help="clips to leave out of the session (e.g. study2_c6); the rule runs over the rest")
-    parser.add_argument("--dry-run", action="store_true", help="print the choice without writing output/study2_seeds.json")
+    parser.add_argument("--dry-run", action="store_true", help="print the choice without writing Config/study2_seeds.json")
     args = parser.parse_args(argv)
     seeds = parse_seed_range(args.seeds)
 

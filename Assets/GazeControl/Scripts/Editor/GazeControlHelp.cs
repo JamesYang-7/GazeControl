@@ -194,11 +194,11 @@ namespace GazeControl.Editor
                     "play sessions for seven clips, about two hours. Each track is checked as its play ends " +
                     "and re-baked if short; a report lands in output/. Then choose one seed per clip: " +
                     "uv run python Tools/choose_study2_seeds.py applies the rule (each turn-taking prototype " +
-                    "once, non-degenerate bakes) and writes output/study2_seeds.json.",
+                    "once, non-degenerate bakes) and writes Config/study2_seeds.json.",
                     "GazeControl/Study 2/Bake Seeds 1-12"),
 
                 new Entry("Study 2 → Apply Chosen Seeds",
-                    "Writes the clip order and seeds from output/study2_seeds.json onto the session runner " +
+                    "Writes the clip order and seeds from Config/study2_seeds.json onto the session runner " +
                     "and saves Study2Scene. Transcribes the script's choice rather than typing seven numbers " +
                     "into the inspector, so the scene never carries a seed whose reason is not on disk.",
                     "GazeControl/Study 2/Apply Chosen Seeds"),

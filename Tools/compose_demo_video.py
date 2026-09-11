@@ -13,7 +13,7 @@ method's name in the corner, and the conversation's own transcript as
 subtitles -- and text is the part that gets rewritten. So the frames are
 rendered once and kept, and this runs as often as the wording changes.
 
-**All the wording lives in one editable file**, ``output/demo_video.json``,
+**All the wording lives in one editable file**, ``Config/demo_video.json``,
 written on the first run from whatever takes are on disk and never overwritten
 afterwards (``--rebuild-config`` if you want it back). Edit the titles there
 and run this again; the render is untouched.
@@ -42,7 +42,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 TAKES_ROOT = Path("Recordings/Demos")
-CONFIG_PATH = Path("output/demo_video.json")
+CONFIG_PATH = Path("Config/demo_video.json")
 OUTPUT_PATH = Path("output/demo_video.mp4")
 
 # Where the framing window's "Save a preview frame" button writes, and so where

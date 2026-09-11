@@ -1,0 +1,74 @@
+{
+  "schema": "gazecontrol.demo-video/1",
+  "slateSeconds": 3.0,
+  "showBadge": true,
+  "showSubtitles": true,
+  "fontName": "Segoe UI",
+  "fontSizes": {
+    "Title": 96,
+    "Method": 84,
+    "Blurb": 64,
+    "Badge": 72,
+    "Sub": 46,
+    "Paper": 96,
+    "Byline": 38
+  },
+  "layout": {
+    "Badge": {
+      "corner": "top-left",
+      "marginX": 32,
+      "marginY": 18
+    },
+    "Sub": {
+      "corner": "bottom",
+      "marginX": 240,
+      "marginY": 72
+    },
+    "Paper": {
+      "marginX": 160
+    },
+    "Byline": {
+      "marginX": 240
+    },
+    "Title": {
+      "marginX": 240
+    },
+    "Method": {
+      "marginX": 240
+    },
+    "Blurb": {
+      "marginX": 240
+    }
+  },
+  "methodNames": {
+    "Proposed": "Ours",
+    "RoleConditioned": "Role-Conditioned",
+    "SpeakerFollowing": "Speaker-Following"
+  },
+  "methodBlurbs": {
+    "Proposed": "",
+    "RoleConditioned": "Baseline A",
+    "SpeakerFollowing": "Baseline B"
+  },
+  "speakerNames": {
+    "0": "You",
+    "1": "P1",
+    "2": "P2"
+  },
+  "clips": [
+    "study2_c1",
+    "study2_c3",
+    "study2_c7"
+  ],
+  "methods": [
+    "SpeakerFollowing",
+    "RoleConditioned",
+    "Proposed"
+  ],
+  "opening": {
+    "seconds": 5.0,
+    "title": "Interpretable Subsequence Gaze Modeling of Turn Boundaries in Multi-Party Interaction",
+    "byline": ""
+  },
+  "clipTitleFormat": "Conversation {n}"
+}

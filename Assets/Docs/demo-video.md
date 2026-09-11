@@ -118,7 +118,7 @@ one behind for the real compose to obey.
 
     uv run python Tools/compose_demo_video.py --write-config
 
-writes `output/demo_video.json` — before anything is rendered, which is when
+writes `Config/demo_video.json` — before anything is rendered, which is when
 there is most reason to edit it — and stops. Edit, re-run the preview, look.
 
 `fontSizes` is in points against a 1080-high frame:
@@ -214,7 +214,7 @@ card and then the take itself with the method's name in the corner and the
 conversation's own transcript as subtitles, and concatenates the lot into
 `output/demo_video.mp4`.
 
-**Everything the video says lives in `output/demo_video.json`** — edit it and run
+**Everything the video says lives in `Config/demo_video.json`** — edit it and run
 the script again. `speakerNames` maps the segment's speaker codes to whatever the
 subtitles should call them; the agents' real corpus names are in each
 `segment.json`.
